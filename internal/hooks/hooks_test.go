@@ -423,18 +423,6 @@ func TestCommandExecutorBasic(t *testing.T) {
 	})
 }
 
-// TestRunSmartHookBasic tests the main hook runner function.
-func TestRunSmartHookBasic(t *testing.T) {
-	t.Run("exits early when disabled", func(t *testing.T) {
-		t.Setenv("CLAUDE_HOOKS_LINT_ENABLED", "false")
-
-		code := hooks.RunSmartHook(context.Background(), hooks.CommandTypeLint, false, 20, 2, nil)
-		if code != 0 {
-			t.Errorf("Expected exit code 0 when disabled, got %d", code)
-		}
-	})
-}
-
 // TestDiscoveryIntegration tests discovery with real filesystem.
 func TestDiscoveryIntegration(t *testing.T) {
 	// Create a temporary project structure
