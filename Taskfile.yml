@@ -1,0 +1,302 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: "3"
+
+vars:
+  BINARY_NAME: cc-tools
+  BIN_DIR: bin
+  BINARY_PATH: "{{.BIN_DIR}}/{{.BINARY_NAME}}"
+  MAIN_PATH: "./cmd/cc-tools"
+  COVERAGE_DIR: coverage
+  COVERAGE_FILE: "{{.COVERAGE_DIR}}/coverage.out"
+  COVERAGE_HTML: "{{.COVERAGE_DIR}}/coverage.html"
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  # ─── Daily Development ─────────────────────────────────────────────────────
+
+  test:
+    desc: Run fast unit tests (-short, 30s timeout)
+    aliases: [qt]
+    preconditions:
+      - sh: command -v gotestsum
+        msg: "gotestsum not installed. Run: task tools-install"
+    cmds:
+      - gotestsum --format pkgname --format-hide-empty-pkg --hide-summary=skipped -- -tags=testmode -short -parallel 8 -timeout=30s ./...
+
+  watch:
+    desc: Auto-run tests on file changes (TDD essential!)
+    preconditions:
+      - sh: command -v gotestsum
+        msg: "gotestsum not installed. Run: task tools-install"
+    cmds:
+      - gotestsum --watch --format pkgname --format-hide-empty-pkg --hide-summary=skipped -- -tags=testmode -short -parallel 8 -timeout=30s ./...
+
+  lint:
+    desc: Run golangci-lint
+    aliases: [ql]
+    cmds:
+      - golangci-lint run --timeout=5m ./...
+
+  fmt:
+    desc: Format code (gofmt + goimports)
+    cmds:
+      - go fmt ./...
+      - cmd: goimports -w -local github.com/riddopic/cc-tools .
+        ignore_error: true
+
+  # ─── Before Commit ─────────────────────────────────────────────────────────
+
+  check:
+    desc: Run all pre-commit checks (fmt + lint + test-race + vulncheck)
+    aliases: [pre-commit]
+    cmds:
+      - task: fmt
+      - task: lint
+      - task: test-race
+      - task: vulncheck
+
+  # ─── Integration & Race ────────────────────────────────────────────────────
+
+  test-race:
+    desc: Run tests with race detector (-short, 60s timeout)
+    preconditions:
+      - sh: command -v gotestsum
+        msg: "gotestsum not installed. Run: task tools-install"
+    cmds:
+      - gotestsum --format pkgname --hide-summary=skipped -- -tags=testmode -race -short -count=1 -timeout=60s ./...
+
+  test-race-full:
+    desc: Run all tests with race detector (300s timeout)
+    preconditions:
+      - sh: command -v gotestsum
+        msg: "gotestsum not installed. Run: task tools-install"
+    cmds:
+      - gotestsum --format pkgname --hide-summary=skipped -- -tags=testmode -race -count=1 -timeout=300s ./...
+
+  integration:
+    desc: Run integration tests (requires Docker)
+    preconditions:
+      - sh: command -v gotestsum
+        msg: "gotestsum not installed. Run: task tools-install"
+    vars:
+      INTEGRATION_PKGS:
+        sh: grep -rl '//go:build integration' --include='*_test.go' . 2>/dev/null | xargs -n1 dirname | sort -u || true
+    cmds:
+      - |
+        if [ -z "{{.INTEGRATION_PKGS}}" ]; then
+          echo "No integration test packages found"
+          exit 0
+        fi
+        gotestsum --format pkgname --hide-summary=skipped -- -tags=integration,testmode -count=1 -parallel=8 -timeout=300s {{.INTEGRATION_PKGS}}
+
+  # ─── Build ─────────────────────────────────────────────────────────────────
+
+  build:
+    desc: Build the binary
+    aliases: [q]
+    sources:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+    generates:
+      - "{{.BINARY_PATH}}"
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - go build -ldflags "{{.LDFLAGS}} {{.VERSION_FLAGS}}" -o {{.BINARY_PATH}} {{.MAIN_PATH}}
+
+  install:
+    desc: Install binary to $GOPATH/bin
+    deps: [build]
+    vars:
+      GOPATH:
+        sh: go env GOPATH
+    cmds:
+      - cp {{.BINARY_PATH}} {{.GOPATH}}/bin/{{.BINARY_NAME}}
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -rf {{.BIN_DIR}} dist/ {{.COVERAGE_DIR}}
+      - go clean -cache -testcache
+
+  # ─── Release ───────────────────────────────────────────────────────────────
+
+  release-check:
+    desc: Run full pipeline (check + test-race-full + integration + security)
+    cmds:
+      - task: check
+      - task: test-race-full
+      - task: integration
+      - task: security
+
+  release-dry:
+    desc: Dry run for release (goreleaser snapshot)
+    cmds:
+      - goreleaser release --snapshot --skip-publish --clean
+
+  release:
+    desc: Create a new release
+    requires:
+      vars: [GITHUB_TOKEN]
+    cmds:
+      - goreleaser release --clean
+
+  # ─── Utilities ─────────────────────────────────────────────────────────────
+
+  coverage:
+    desc: Generate test coverage report
+    preconditions:
+      - sh: command -v gotestsum
+        msg: "gotestsum not installed. Run: task tools-install"
+    cmds:
+      - mkdir -p {{.COVERAGE_DIR}}
+      - |
+        PKGS_COVER=$(go list ./... \
+          | rg -v "/mocks($|/)" \
+          | rg -v "^github.com/riddopic/cc-tools/internal/foundry$" \
+          | rg -v "^github.com/riddopic/cc-tools/internal/interfaces$" \
+          | rg -v "^github.com/riddopic/cc-tools/internal/blockchain/tvl$" \
+          | rg -v "^github.com/riddopic/cc-tools/internal/benchmark$" \
+          | rg -v "^github.com/riddopic/cc-tools/internal/logger$" \
+          | rg -v "^github.com/riddopic/cc-tools/internal/gas$" \
+          | rg -v "^github.com/riddopic/cc-tools/internal/security$" \
+          | rg -v "^github.com/riddopic/cc-tools/internal/forge/parser$" \
+          | rg -v "^github.com/riddopic/cc-tools/internal/blockchain/chain$" \
+          | rg -v "^github.com/riddopic/cc-tools/internal/proxy$" \
+          | rg -v "^github.com/riddopic/cc-tools/internal/dex/registry$" \
+          | rg -v "^github.com/riddopic/cc-tools/internal/cli/commands$" \
+        )
+        gotestsum --format pkgname -- -tags=testmode -coverprofile={{.COVERAGE_FILE}} -covermode=atomic $PKGS_COVER
+      - go tool cover -html={{.COVERAGE_FILE}} -o {{.COVERAGE_HTML}}
+      - go tool cover -func={{.COVERAGE_FILE}} | tail -n 1
+
+  bench:
+    desc: Run benchmarks
+    preconditions:
+      - sh: command -v gotestsum
+        msg: "gotestsum not installed. Run: task tools-install"
+    cmds:
+      - "gotestsum --format pkgname -- -tags=testmode -bench=. -benchmem -benchtime=10s -run=^$ ./..."
+
+  mocks:
+    desc: Generate mocks using mockery
+    preconditions:
+      - sh: command -v mockery
+        msg: "mockery not installed. Run: task tools-install"
+    sources:
+      - "**/*.go"
+      - .mockery.yml
+    cmds:
+      - mockery --config .mockery.yml
+
+  security:
+    desc: Run all security checks (vulncheck + gosec + licenses)
+    cmds:
+      - task: vulncheck
+      - cmd: gosec -quiet -fmt text ./...
+        ignore_error: true
+      - cmd: |
+          go-licenses check ./... \
+            --ignore github.com/riddopic/cc-tools \
+            --ignore github.com/ethereum/go-ethereum \
+            --disallowed_types=forbidden,restricted
+        ignore_error: true
+
+  vulncheck:
+    desc: Check for known vulnerabilities
+    cmds:
+      - cmd: govulncheck ./...
+        ignore_error: true
+
+  polish:
+    desc: Format, auto-fix lint issues, and clean backup files
+    cmds:
+      - go fmt ./...
+      - cmd: goimports -w -local github.com/riddopic/cc-tools .
+        ignore_error: true
+      - gofmt -w -s .
+      - cmd: golangci-lint run --fix --timeout=5m ./...
+        ignore_error: true
+      - cmd: 'find . -type f \( -name "*.bak" -o -name "*.backup" -o -name "*.orig" \) -delete 2>/dev/null'
+        ignore_error: true
+
+  doctor:
+    desc: Check development environment
+    silent: true
+    cmds:
+      - 'echo -n "  Go:            " && go version | cut -d" " -f3'
+      - 'echo -n "  golangci-lint: " && (golangci-lint version --short 2>/dev/null || echo "not installed")'
+      - 'echo -n "  goimports:     " && (which goimports > /dev/null 2>&1 && echo "installed" || echo "not installed")'
+      - 'echo -n "  gotestsum:     " && (gotestsum --version 2>/dev/null || echo "not installed (REQUIRED)")'
+      - 'echo -n "  mockery:       " && (mockery --version 2>/dev/null | head -n1 || echo "optional")'
+      - 'echo -n "  govulncheck:   " && (which govulncheck > /dev/null 2>&1 && echo "installed" || echo "optional")'
+      - 'echo -n "  gosec:         " && (which gosec > /dev/null 2>&1 && echo "installed" || echo "optional")'
+
+  tools-install:
+    desc: Install required development tools
+    cmds:
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - go install golang.org/x/tools/cmd/goimports@latest
+      - go install gotest.tools/gotestsum@latest
+      - go install github.com/vektra/mockery/v3@v3.2.5
+      - go install golang.org/x/vuln/cmd/govulncheck@latest
+
+  # ─── Cross-Platform Builds ─────────────────────────────────────────────────
+
+  build-all:
+    desc: Build for all platforms
+    cmds:
+      - task: build-cross
+        vars: { BUILD_OS: linux, BUILD_ARCH: amd64, EXT: "" }
+      - task: build-cross
+        vars: { BUILD_OS: linux, BUILD_ARCH: arm64, EXT: "" }
+      - task: build-cross
+        vars: { BUILD_OS: darwin, BUILD_ARCH: amd64, EXT: "" }
+      - task: build-cross
+        vars: { BUILD_OS: darwin, BUILD_ARCH: arm64, EXT: "" }
+      - task: build-cross
+        vars: { BUILD_OS: windows, BUILD_ARCH: amd64, EXT: ".exe" }
+
+  build-linux:
+    desc: Build for Linux (amd64 + arm64)
+    cmds:
+      - task: build-cross
+        vars: { BUILD_OS: linux, BUILD_ARCH: amd64, EXT: "" }
+      - task: build-cross
+        vars: { BUILD_OS: linux, BUILD_ARCH: arm64, EXT: "" }
+
+  build-darwin:
+    desc: Build for macOS (amd64 + arm64)
+    cmds:
+      - task: build-cross
+        vars: { BUILD_OS: darwin, BUILD_ARCH: amd64, EXT: "" }
+      - task: build-cross
+        vars: { BUILD_OS: darwin, BUILD_ARCH: arm64, EXT: "" }
+
+  build-windows:
+    desc: Build for Windows (amd64)
+    cmds:
+      - task: build-cross
+        vars: { BUILD_OS: windows, BUILD_ARCH: amd64, EXT: ".exe" }
+
+  build-cross:
+    desc: Cross-compile for a specific OS/ARCH
+    internal: true
+    cmds:
+      - mkdir -p dist
+      - GOOS={{.BUILD_OS}} GOARCH={{.BUILD_ARCH}} go build -ldflags "{{.LDFLAGS}} {{.VERSION_FLAGS}}" -o dist/{{.BINARY_NAME}}-{{.BUILD_OS}}-{{.BUILD_ARCH}}{{.EXT}} {{.MAIN_PATH}}
+
+  # ─── Version ───────────────────────────────────────────────────────────────
+
+  version:
+    desc: Print version information
+    silent: true
+    vars:
+      GO_VERSION:
+        sh: go version | cut -d' ' -f3
+    cmds:
+      - 'echo "Version: {{.VERSION}}  Commit: {{.COMMIT}}  Platform: {{.PLATFORM}}  Go: {{.GO_VERSION}}"'
