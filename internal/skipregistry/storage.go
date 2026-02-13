@@ -81,9 +81,9 @@ func (s *JSONStorage) Save(_ context.Context, data RegistryData) error {
 	}
 
 	// Rename temp file to actual file (atomic on most filesystems)
-	if renameErr := os.Rename(tempFile, s.filePath); renameErr != nil {
+	if renameErr := s.fs.Rename(tempFile, s.filePath); renameErr != nil {
 		// Try to clean up temp file
-		_ = os.Remove(tempFile)
+		_ = s.fs.Remove(tempFile)
 		return fmt.Errorf("rename registry file: %w", renameErr)
 	}
 

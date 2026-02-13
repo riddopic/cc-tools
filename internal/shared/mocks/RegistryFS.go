@@ -139,6 +139,97 @@ func (_c *MockRegistryFS_ReadFile_Call) RunAndReturn(run func(name string) ([]by
 	return _c
 }
 
+// Remove provides a mock function for the type MockRegistryFS
+func (_mock *MockRegistryFS) Remove(name string) error {
+	ret := _mock.Called(name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Remove")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string) error); ok {
+		r0 = returnFunc(name)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockRegistryFS_Remove_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Remove'
+type MockRegistryFS_Remove_Call struct {
+	*mock.Call
+}
+
+// Remove is a helper method to define mock.On call
+//   - name
+func (_e *MockRegistryFS_Expecter) Remove(name interface{}) *MockRegistryFS_Remove_Call {
+	return &MockRegistryFS_Remove_Call{Call: _e.mock.On("Remove", name)}
+}
+
+func (_c *MockRegistryFS_Remove_Call) Run(run func(name string)) *MockRegistryFS_Remove_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *MockRegistryFS_Remove_Call) Return(err error) *MockRegistryFS_Remove_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockRegistryFS_Remove_Call) RunAndReturn(run func(name string) error) *MockRegistryFS_Remove_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Rename provides a mock function for the type MockRegistryFS
+func (_mock *MockRegistryFS) Rename(oldpath string, newpath string) error {
+	ret := _mock.Called(oldpath, newpath)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Rename")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string, string) error); ok {
+		r0 = returnFunc(oldpath, newpath)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockRegistryFS_Rename_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Rename'
+type MockRegistryFS_Rename_Call struct {
+	*mock.Call
+}
+
+// Rename is a helper method to define mock.On call
+//   - oldpath
+//   - newpath
+func (_e *MockRegistryFS_Expecter) Rename(oldpath interface{}, newpath interface{}) *MockRegistryFS_Rename_Call {
+	return &MockRegistryFS_Rename_Call{Call: _e.mock.On("Rename", oldpath, newpath)}
+}
+
+func (_c *MockRegistryFS_Rename_Call) Run(run func(oldpath string, newpath string)) *MockRegistryFS_Rename_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockRegistryFS_Rename_Call) Return(err error) *MockRegistryFS_Rename_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockRegistryFS_Rename_Call) RunAndReturn(run func(oldpath string, newpath string) error) *MockRegistryFS_Rename_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UserHomeDir provides a mock function for the type MockRegistryFS
 func (_mock *MockRegistryFS) UserHomeDir() (string, error) {
 	ret := _mock.Called()

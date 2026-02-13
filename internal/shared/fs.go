@@ -22,6 +22,8 @@ type RegistryFS interface {
 	WriteFile(name string, data []byte, perm os.FileMode) error
 	MkdirAll(path string, perm os.FileMode) error
 	UserHomeDir() (string, error)
+	Rename(oldpath, newpath string) error
+	Remove(name string) error
 }
 
 // FS provides filesystem operations needed by the shared package.
@@ -81,6 +83,13 @@ func (r *RealFS) CreateExclusive(name string, data []byte, perm os.FileMode) err
 		// Try to clean up on write failure
 		_ = os.Remove(name)
 		return fmt.Errorf("write exclusive %s: %w", name, writeErr)
+	}
+	return nil
+}
+
+func (r *RealFS) Rename(oldpath, newpath string) error {
+	if err := os.Rename(oldpath, newpath); err != nil {
+		return fmt.Errorf("rename %s to %s: %w", oldpath, newpath, err)
 	}
 	return nil
 }
