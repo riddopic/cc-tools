@@ -47,14 +47,15 @@ func ValidateWithSkipCheck(
 	}
 
 	// Create dependencies with our input reader
+	defaults := NewDefaultDependencies()
 	deps := &Dependencies{
 		Input:   &bytesInputReader{data: stdinData},
 		Stdout:  stdout,
 		Stderr:  stderr,
-		FS:      NewDefaultDependencies().FS,
-		Runner:  NewDefaultDependencies().Runner,
-		Process: NewDefaultDependencies().Process,
-		Clock:   NewDefaultDependencies().Clock,
+		FS:      defaults.FS,
+		Runner:  defaults.Runner,
+		Process: defaults.Process,
+		Clock:   defaults.Clock,
 	}
 
 	return RunValidateHookWithSkip(ctx, debug, timeoutSecs, cooldownSecs, skipConfig, deps)
