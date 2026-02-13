@@ -3,6 +3,7 @@ package hooks
 import (
 	"context"
 	"fmt"
+	"io"
 	"path/filepath"
 	"sync"
 
@@ -87,6 +88,7 @@ type ParallelValidateExecutor struct {
 	timeout    int
 	debug      bool
 	skipConfig *SkipConfig
+	stderr     io.Writer
 }
 
 // NewParallelValidateExecutor creates a new parallel validate executor.
@@ -106,6 +108,7 @@ func NewParallelValidateExecutor(
 		timeout:    timeout,
 		debug:      debug,
 		skipConfig: skipConfig,
+		stderr:     deps.Stderr,
 	}
 }
 
@@ -145,10 +148,18 @@ func (pve *ParallelValidateExecutor) discoverCommands(
 
 	var lintCmd, testCmd *DiscoveredCommand
 	if !skipLint {
-		lintCmd, _ = pve.discovery.DiscoverCommand(ctx, CommandTypeLint, fileDir)
+		var err error
+		lintCmd, err = pve.discovery.DiscoverCommand(ctx, CommandTypeLint, fileDir)
+		if err != nil && pve.debug {
+			_, _ = fmt.Fprintf(pve.stderr, "Lint discovery error: %v\n", err)
+		}
 	}
 	if !skipTest {
-		testCmd, _ = pve.discovery.DiscoverCommand(ctx, CommandTypeTest, fileDir)
+		var err error
+		testCmd, err = pve.discovery.DiscoverCommand(ctx, CommandTypeTest, fileDir)
+		if err != nil && pve.debug {
+			_, _ = fmt.Fprintf(pve.stderr, "Test discovery error: %v\n", err)
+		}
 	}
 
 	return lintCmd, testCmd

@@ -11,6 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/riddopic/cc-tools/internal/hooks"
 )
 
@@ -544,5 +547,83 @@ func assertParallelExecution(t *testing.T, executionOrder []string) {
 
 	if !hasLint || !hasTest {
 		t.Errorf("Expected both lint and test to be executed. Commands: %v", executionOrder)
+	}
+}
+
+func TestParallelValidateExecutor_DiscoveryErrorsLoggedInDebugMode(t *testing.T) {
+	tests := []struct {
+		name           string
+		debug          bool
+		wantLintErr    bool
+		wantTestErr    bool
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name:           "debug mode logs lint discovery error",
+			debug:          true,
+			wantLintErr:    true,
+			wantTestErr:    false,
+			wantContains:   []string{"Lint discovery error"},
+			wantNotContain: nil,
+		},
+		{
+			name:           "debug mode logs test discovery error",
+			debug:          true,
+			wantLintErr:    false,
+			wantTestErr:    true,
+			wantContains:   []string{"Test discovery error"},
+			wantNotContain: nil,
+		},
+		{
+			name:           "debug mode logs both discovery errors",
+			debug:          true,
+			wantLintErr:    true,
+			wantTestErr:    true,
+			wantContains:   []string{"Lint discovery error", "Test discovery error"},
+			wantNotContain: nil,
+		},
+		{
+			name:           "non-debug mode suppresses discovery errors",
+			debug:          false,
+			wantLintErr:    true,
+			wantTestErr:    true,
+			wantContains:   nil,
+			wantNotContain: []string{"discovery error"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testDeps := hooks.CreateTestDependencies()
+
+			// Configure filesystem so no Makefile/Taskfile is found,
+			// which causes DiscoverCommand to return an error.
+			testDeps.MockFS.StatFunc = func(_ string) (os.FileInfo, error) {
+				return nil, os.ErrNotExist
+			}
+			testDeps.MockRunner.RunContextFunc = func(
+				_ context.Context, _, _ string, _ ...string,
+			) (*hooks.CommandOutput, error) {
+				return nil, errors.New("command not found")
+			}
+
+			executor := hooks.NewParallelValidateExecutor(
+				"/project", 10, tt.debug, nil, testDeps.Dependencies,
+			)
+			result, err := executor.ExecuteValidations(
+				context.Background(), "/project", "/project",
+			)
+			require.NoError(t, err)
+			assert.True(t, result.BothPassed, "expected BothPassed when no commands discovered")
+
+			stderrOutput := testDeps.MockStderr.String()
+			for _, want := range tt.wantContains {
+				assert.Contains(t, stderrOutput, want)
+			}
+			for _, notWant := range tt.wantNotContain {
+				assert.NotContains(t, stderrOutput, notWant)
+			}
+		})
 	}
 }
