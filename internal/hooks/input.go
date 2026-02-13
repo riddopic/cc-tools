@@ -1,0 +1,84 @@
+// Package hooks provides input/output handling and command execution for Claude Code hooks.
+package hooks
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+)
+
+// ErrNoInput is returned when no input is available on stdin.
+var ErrNoInput = errors.New("no input available")
+
+// HookInput represents the JSON input structure from Claude Code.
+type HookInput struct {
+	HookEventName  string          `json:"hook_event_name"`
+	SessionID      string          `json:"session_id"`
+	TranscriptPath string          `json:"transcript_path"`
+	CWD            string          `json:"cwd"`
+	ToolName       string          `json:"tool_name,omitempty"`
+	ToolInput      json.RawMessage `json:"tool_input,omitempty"`
+	ToolResponse   json.RawMessage `json:"tool_response,omitempty"`
+}
+
+// ReadHookInput reads and parses hook input.
+func ReadHookInput(reader InputReader) (*HookInput, error) {
+	// Check if stdin is available (not a terminal)
+	if reader.IsTerminal() {
+		// No stdin available
+		return nil, ErrNoInput
+	}
+
+	data, err := reader.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("reading stdin: %w", err)
+	}
+
+	if len(data) == 0 {
+		return nil, ErrNoInput
+	}
+
+	var input HookInput
+	if unmarshalErr := json.Unmarshal(data, &input); unmarshalErr != nil {
+		return nil, fmt.Errorf("parsing JSON: %w", unmarshalErr)
+	}
+
+	return &input, nil
+}
+
+// GetFilePath extracts the file path from tool input based on tool type.
+func (h *HookInput) GetFilePath() string {
+	if len(h.ToolInput) == 0 {
+		return ""
+	}
+
+	// Parse the JSON to extract file path
+	var toolInput map[string]any
+	if err := json.Unmarshal(h.ToolInput, &toolInput); err != nil {
+		return ""
+	}
+
+	// Handle NotebookEdit specially
+	if h.ToolName == "NotebookEdit" {
+		if path, ok := toolInput["notebook_path"].(string); ok {
+			return path
+		}
+	}
+
+	// Default to file_path for other tools
+	if path, ok := toolInput["file_path"].(string); ok {
+		return path
+	}
+
+	return ""
+}
+
+// IsEditTool returns true if this is an edit-related tool.
+func (h *HookInput) IsEditTool() bool {
+	switch h.ToolName {
+	case "Edit", "MultiEdit", "Write", "NotebookEdit":
+		return true
+	default:
+		return false
+	}
+}

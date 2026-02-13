@@ -1,0 +1,283 @@
+// Package mcp provides MCP server management functionality for cc-tools.
+package mcp
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+
+	"github.com/riddopic/cc-tools/internal/output"
+)
+
+// MCPServer represents an MCP server configuration.
+type MCPServer struct {
+	Type    string         `json:"type"`
+	Command string         `json:"command"`
+	Args    []string       `json:"args"`
+	Env     map[string]any `json:"env"`
+}
+
+// Settings represents the structure of ~/.claude/settings.json.
+type Settings struct {
+	MCPServers map[string]MCPServer `json:"mcpServers"`
+}
+
+// CommandExecutor executes external commands.
+type CommandExecutor interface {
+	CommandContext(ctx context.Context, name string, arg ...string) *exec.Cmd
+}
+
+// RealCommandExecutor uses os/exec to run commands.
+type RealCommandExecutor struct{}
+
+// CommandContext creates a new command using exec.CommandContext.
+func (r *RealCommandExecutor) CommandContext(ctx context.Context, name string, arg ...string) *exec.Cmd {
+	return exec.CommandContext(ctx, name, arg...)
+}
+
+// Manager handles MCP server operations.
+type Manager struct {
+	settingsPath string
+	output       *output.Terminal
+	executor     CommandExecutor
+}
+
+// NewManager creates a new MCP manager.
+func NewManager(out *output.Terminal) *Manager {
+	homeDir, _ := os.UserHomeDir()
+	return &Manager{
+		settingsPath: filepath.Join(homeDir, ".claude", "settings.json"),
+		output:       out,
+		executor:     &RealCommandExecutor{},
+	}
+}
+
+// NewManagerWithExecutor creates a new MCP manager with a custom executor.
+func NewManagerWithExecutor(out *output.Terminal, executor CommandExecutor) *Manager {
+	homeDir, _ := os.UserHomeDir()
+	return &Manager{
+		settingsPath: filepath.Join(homeDir, ".claude", "settings.json"),
+		output:       out,
+		executor:     executor,
+	}
+}
+
+// loadSettings reads the settings.json file.
+func (m *Manager) loadSettings() (*Settings, error) {
+	data, err := os.ReadFile(m.settingsPath)
+	if err != nil {
+		return nil, fmt.Errorf("reading settings: %w", err)
+	}
+
+	var settings Settings
+	if unmarshalErr := json.Unmarshal(data, &settings); unmarshalErr != nil {
+		return nil, fmt.Errorf("parsing settings: %w", unmarshalErr)
+	}
+
+	return &settings, nil
+}
+
+// findMCPByName finds an MCP server by name with flexible matching.
+func (m *Manager) findMCPByName(settings *Settings, name string) (string, *MCPServer, error) {
+	name = strings.ToLower(name)
+
+	// Try exact match first
+	for key, server := range settings.MCPServers {
+		if strings.ToLower(key) == name {
+			return key, &server, nil
+		}
+	}
+
+	// Try partial matches
+	for key, server := range settings.MCPServers {
+		lowerKey := strings.ToLower(key)
+
+		// Handle targetprocess variations
+		if name == "target" && lowerKey == "targetprocess" {
+			return key, &server, nil
+		}
+		if name == "target-process" && lowerKey == "targetprocess" {
+			return key, &server, nil
+		}
+
+		// Handle partial matches
+		if strings.Contains(lowerKey, name) || strings.Contains(name, lowerKey) {
+			return key, &server, nil
+		}
+	}
+
+	return "", nil, fmt.Errorf("MCP server '%s' not found in settings", name)
+}
+
+// List shows all available MCP servers and their status.
+func (m *Manager) List(ctx context.Context) error {
+	// Just run claude mcp list and let it output directly
+	cmd := m.executor.CommandContext(ctx, "claude", "mcp", "list")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("listing MCPs: %w", err)
+	}
+	return nil
+}
+
+// Enable adds an MCP server from settings.
+func (m *Manager) Enable(ctx context.Context, name string) error {
+	settings, err := m.loadSettings()
+	if err != nil {
+		return err
+	}
+
+	actualName, server, err := m.findMCPByName(settings, name)
+	if err != nil {
+		return err
+	}
+
+	// Build the claude mcp add command
+	args := []string{"mcp", "add"}
+
+	// Add the name
+	args = append(args, actualName)
+
+	// Add the command (expand ~ to home directory)
+	command := server.Command
+	if strings.HasPrefix(command, "~/") {
+		homeDir, _ := os.UserHomeDir()
+		command = filepath.Join(homeDir, command[2:])
+	}
+	args = append(args, command)
+
+	// Add any additional args
+	args = append(args, server.Args...)
+
+	m.output.Info("Enabling MCP server '%s'...", actualName)
+
+	cmd := m.executor.CommandContext(ctx, "claude", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Check if it's already enabled
+		if strings.Contains(string(output), "already exists") {
+			m.output.Warning("MCP server '%s' is already enabled", actualName)
+			return nil
+		}
+		return fmt.Errorf("enabling MCP: %w\nOutput: %s", err, output)
+	}
+
+	m.output.Success("✓ Enabled MCP server '%s'", actualName)
+	return nil
+}
+
+// Disable removes an MCP server.
+func (m *Manager) Disable(ctx context.Context, name string) error {
+	settings, err := m.loadSettings()
+	if err != nil {
+		// If we can't load settings, try to remove anyway with the provided name
+		return m.removeMCP(ctx, name)
+	}
+
+	// Try to find the actual name from settings
+	actualName, _, err := m.findMCPByName(settings, name)
+	if err != nil {
+		// If not found in settings, try with the provided name anyway
+		return m.removeMCP(ctx, name)
+	}
+
+	return m.removeMCP(ctx, actualName)
+}
+
+// removeMCP runs the claude mcp remove command.
+func (m *Manager) removeMCP(ctx context.Context, name string) error {
+	m.output.Info("Disabling MCP server '%s'...", name)
+
+	cmd := m.executor.CommandContext(ctx, "claude", "mcp", "remove", name)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Check if it doesn't exist
+		if strings.Contains(string(output), "not found") {
+			m.output.Warning("MCP server '%s' is not enabled", name)
+			return nil
+		}
+		return fmt.Errorf("disabling MCP: %w\nOutput: %s", err, output)
+	}
+
+	m.output.Success("✓ Disabled MCP server '%s'", name)
+	return nil
+}
+
+// EnableAll enables all MCP servers from settings.
+func (m *Manager) EnableAll(ctx context.Context) error {
+	settings, err := m.loadSettings()
+	if err != nil {
+		return err
+	}
+
+	m.output.Info("Enabling all %d MCP servers...", len(settings.MCPServers))
+
+	hasError := false
+	for name := range settings.MCPServers {
+		if enableErr := m.Enable(ctx, name); enableErr != nil {
+			m.output.Error("Error enabling %s: %v", name, enableErr)
+			hasError = true
+		}
+	}
+
+	if hasError {
+		return fmt.Errorf("some MCP servers failed to enable")
+	}
+
+	m.output.Success("✓ All MCP servers enabled")
+	return nil
+}
+
+// DisableAll disables all MCP servers.
+func (m *Manager) DisableAll(ctx context.Context) error {
+	// Get current list of enabled MCPs
+	cmd := m.executor.CommandContext(ctx, "claude", "mcp", "list")
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("listing MCPs: %w", err)
+	}
+
+	// Parse the output to find enabled MCPs
+	lines := strings.Split(string(output), "\n")
+	mcpNames := []string{}
+
+	for _, line := range lines {
+		// Look for lines with MCP names (they start with a name followed by a colon)
+		if strings.Contains(line, ":") && !strings.Contains(line, "Checking") {
+			parts := strings.Split(line, ":")
+			if len(parts) > 0 {
+				name := strings.TrimSpace(parts[0])
+				if name != "" {
+					mcpNames = append(mcpNames, name)
+				}
+			}
+		}
+	}
+
+	if len(mcpNames) == 0 {
+		m.output.Info("No MCP servers are currently enabled")
+		return nil
+	}
+
+	m.output.Info("Disabling %d MCP servers...", len(mcpNames))
+
+	hasError := false
+	for _, name := range mcpNames {
+		if disableErr := m.removeMCP(ctx, name); disableErr != nil {
+			m.output.Error("Error disabling %s: %v", name, disableErr)
+			hasError = true
+		}
+	}
+
+	if hasError {
+		return fmt.Errorf("some MCP servers failed to disable")
+	}
+
+	m.output.Success("✓ All MCP servers disabled")
+	return nil
+}
