@@ -8,7 +8,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/riddopic/cc-tools/internal/debug"
+	"github.com/riddopic/cc-tools/internal/shared"
 )
 
 func TestNewManager(t *testing.T) {
@@ -597,34 +600,34 @@ func TestManagerGetEnabledDirs(t *testing.T) {
 
 func TestGetLogFilePath(t *testing.T) {
 	tests := []struct {
-		name         string
-		inputDir     string
-		wantPrefix   string
-		wantContains string
+		name       string
+		inputDir   string
+		wantPrefix string
+		wantSuffix string
 	}{
 		{
-			name:         "generates path for normal directory",
-			inputDir:     "/home/user/project",
-			wantPrefix:   "/tmp/cc-tools-validate-project-",
-			wantContains: ".log",
+			name:       "generates path for normal directory",
+			inputDir:   "/home/user/project",
+			wantPrefix: "/tmp/cc-tools-user-project-",
+			wantSuffix: ".debug",
 		},
 		{
-			name:         "handles root directory",
-			inputDir:     "/",
-			wantPrefix:   "/tmp/cc-tools-validate-_-",
-			wantContains: ".log",
+			name:       "handles root directory",
+			inputDir:   "/",
+			wantPrefix: "/tmp/cc-tools-root-",
+			wantSuffix: ".debug",
 		},
 		{
-			name:         "handles relative path",
-			inputDir:     ".",
-			wantPrefix:   "/tmp/cc-tools-validate-",
-			wantContains: ".log",
+			name:       "handles relative path",
+			inputDir:   ".",
+			wantPrefix: "/tmp/cc-tools-",
+			wantSuffix: ".debug",
 		},
 		{
-			name:         "sanitizes directory name",
-			inputDir:     "/path/with/many/levels",
-			wantPrefix:   "/tmp/cc-tools-validate-levels-",
-			wantContains: ".log",
+			name:       "sanitizes directory name",
+			inputDir:   "/path/with/many/levels",
+			wantPrefix: "/tmp/cc-tools-many-levels-",
+			wantSuffix: ".debug",
 		},
 	}
 
@@ -633,7 +636,7 @@ func TestGetLogFilePath(t *testing.T) {
 			logPath := debug.GetLogFilePath(tt.inputDir)
 
 			assertHasPrefix(t, logPath, tt.wantPrefix)
-			assertContains(t, logPath, tt.wantContains)
+			assertHasSuffix(t, logPath, tt.wantSuffix)
 			assertHashLength(t, logPath)
 		})
 	}
@@ -648,25 +651,25 @@ func assertHasPrefix(t *testing.T, s, prefix string) {
 	}
 }
 
-// assertContains is a test helper that checks string containment.
-func assertContains(t *testing.T, s, substr string) {
+// assertHasSuffix is a test helper that checks string suffix.
+func assertHasSuffix(t *testing.T, s, suffix string) {
 	t.Helper()
 
-	if !strings.Contains(s, substr) {
-		t.Errorf("got %s, should contain %s", s, substr)
+	if !strings.HasSuffix(s, suffix) {
+		t.Errorf("got %s, want suffix %s", s, suffix)
 	}
 }
 
-// assertHashLength validates the hash portion of a log file path is 16 chars.
+// assertHashLength validates the hash portion of a log file path is 8 chars.
 func assertHashLength(t *testing.T, logPath string) {
 	t.Helper()
 
 	parts := strings.Split(logPath, "-")
 	lastPart := parts[len(parts)-1]
-	hashPart := strings.TrimSuffix(lastPart, ".log")
+	hashPart := strings.TrimSuffix(lastPart, ".debug")
 
-	if len(hashPart) != 16 {
-		t.Errorf("Hash part should be 16 chars (8 bytes hex), got %d", len(hashPart))
+	if len(hashPart) != 8 {
+		t.Errorf("Hash part should be 8 chars (4 bytes hex), got %d: %s", len(hashPart), hashPart)
 	}
 }
 
@@ -684,6 +687,15 @@ func TestGetLogFilePathConsistency(t *testing.T) {
 	if path1 == path3 {
 		t.Error("Different directories should produce different log paths")
 	}
+}
+
+func TestGetLogFilePathUsesSharedNaming(t *testing.T) {
+	dir := "/some/project"
+	logPath := debug.GetLogFilePath(dir)
+	sharedPath := shared.GetDebugLogPathForDir(dir)
+	assert.Equal(t, sharedPath, logPath, "GetLogFilePath should delegate to shared.GetDebugLogPathForDir")
+	assert.True(t, strings.HasSuffix(logPath, ".debug"), "should use .debug extension")
+	assert.NotContains(t, logPath, ".log", "should not use .log extension")
 }
 
 func TestManagerConcurrency(t *testing.T) {
@@ -728,19 +740,23 @@ func TestGetConfigDir(t *testing.T) {
 	tests := []struct {
 		name    string
 		homeDir string
+		wantDir string
 	}{
 		{
 			name:    "uses home directory",
 			homeDir: "/home/testuser",
+			wantDir: "/home/testuser/.config/cc-tools",
 		},
 		{
 			name:    "falls back to /tmp when home not available",
 			homeDir: "",
+			wantDir: "/tmp/.config/cc-tools",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("XDG_CONFIG_HOME", "")
 			if tt.homeDir != "" {
 				t.Setenv("HOME", tt.homeDir)
 			} else {
@@ -754,8 +770,8 @@ func TestGetConfigDir(t *testing.T) {
 				t.Error("getConfigDir() should not return empty string")
 			}
 
-			if !strings.HasSuffix(configDir, ".claude") {
-				t.Errorf("getConfigDir() = %s, should end with .claude", configDir)
+			if !strings.HasSuffix(configDir, "cc-tools") {
+				t.Errorf("getConfigDir() = %s, should end with cc-tools", configDir)
 			}
 		})
 	}

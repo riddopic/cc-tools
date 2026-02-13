@@ -92,5 +92,6 @@ func (s *JSONStorage) Save(_ context.Context, data RegistryData) error {
 
 // DefaultStorage creates a storage instance with the default file path.
 func DefaultStorage() *JSONStorage {
+	migrateRegistryIfNeeded()
 	return NewJSONStorage(&shared.RealFS{}, getRegistryPath())
 }

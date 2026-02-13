@@ -3,14 +3,14 @@ package debug
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/riddopic/cc-tools/internal/shared"
 )
 
 // Config represents debug configuration settings.
@@ -27,6 +27,8 @@ type Manager struct {
 
 // NewManager creates a new debug configuration manager.
 func NewManager() *Manager {
+	migrateDebugConfigIfNeeded()
+
 	configPath := filepath.Join(getConfigDir(), "debug-config.json")
 	return &Manager{
 		mu:       sync.RWMutex{},
@@ -177,24 +179,36 @@ func (m *Manager) GetEnabledDirs(ctx context.Context) ([]string, error) {
 }
 
 // GetLogFilePath generates a log file path for a directory.
+// Delegates to shared.GetDebugLogPathForDir for consistent naming.
 func GetLogFilePath(dir string) string {
-	absDir, _ := filepath.Abs(dir)
-
-	dirHash := sha256.Sum256([]byte(absDir))
-	hashStr := hex.EncodeToString(dirHash[:8])
-
-	safeName := strings.ReplaceAll(filepath.Base(absDir), "/", "_")
-	if safeName == "" || safeName == "." {
-		safeName = "root"
-	}
-
-	return fmt.Sprintf("/tmp/cc-tools-validate-%s-%s.log", safeName, hashStr)
+	return shared.GetDebugLogPathForDir(dir)
 }
 
 func getConfigDir() string {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return filepath.Join("/tmp", ".claude")
+	return shared.ConfigDir()
+}
+
+// migrateDebugConfigIfNeeded copies debug-config.json from ~/.claude/ to the
+// new config dir if the old file exists and the new one does not.
+func migrateDebugConfigIfNeeded() {
+	newPath := filepath.Join(shared.ConfigDir(), "debug-config.json")
+	if _, err := os.Stat(newPath); err == nil {
+		return
 	}
-	return filepath.Join(homeDir, ".claude")
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+
+	oldPath := filepath.Join(home, ".claude", "debug-config.json")
+
+	data, err := os.ReadFile(oldPath) // #nosec G304 - file path is constructed from home dir
+	if err != nil {
+		return
+	}
+
+	dir := filepath.Dir(newPath)
+	_ = os.MkdirAll(dir, 0o750)
+	_ = os.WriteFile(newPath, data, 0o600)
 }

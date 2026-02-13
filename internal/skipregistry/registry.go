@@ -290,16 +290,30 @@ func (r *JSONRegistry) Clear(ctx context.Context, dir DirectoryPath) error {
 
 // Helper function to get the registry file path.
 func getRegistryPath() string {
-	return filepath.Join(getClaudeDir(), "skip-registry.json")
+	return filepath.Join(shared.ConfigDir(), "skip-registry.json")
 }
 
-// Helper function to get the ~/.claude directory.
-func getClaudeDir() string {
-	fs := &shared.RealFS{}
-	homeDir, err := fs.UserHomeDir()
-	if err != nil {
-		// Fallback to /tmp if we can't get home directory
-		return filepath.Join(string(os.PathSeparator)+"tmp", ".claude")
+// migrateRegistryIfNeeded copies skip-registry.json from ~/.claude/ to the
+// new config dir if the old file exists and the new one does not.
+func migrateRegistryIfNeeded() {
+	newPath := getRegistryPath()
+	if _, err := os.Stat(newPath); err == nil {
+		return // new file already exists
 	}
-	return filepath.Join(homeDir, ".claude")
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+
+	oldPath := filepath.Join(home, ".claude", "skip-registry.json")
+
+	data, err := os.ReadFile(oldPath) // #nosec G304 - file path is constructed from home dir
+	if err != nil {
+		return // old file doesn't exist or unreadable
+	}
+
+	dir := filepath.Dir(newPath)
+	_ = os.MkdirAll(dir, 0o750)
+	_ = os.WriteFile(newPath, data, 0o600)
 }
