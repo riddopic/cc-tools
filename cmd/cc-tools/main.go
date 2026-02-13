@@ -24,6 +24,8 @@ const (
 // Build-time variables.
 var version = "dev"
 
+var stdinTempFile string //nolint:gochecknoglobals // tracks temp file created by debugLog for cleanup
+
 func main() {
 	out := output.NewTerminal(os.Stdout, os.Stderr)
 
@@ -126,6 +128,9 @@ func runValidate() {
 		timeoutSecs,
 		cooldownSecs,
 	)
+	if stdinTempFile != "" {
+		_ = os.Remove(stdinTempFile)
+	}
 	os.Exit(exitCode)
 }
 
@@ -155,6 +160,7 @@ func debugLog() {
 				_, _ = tmpFile.Write(stdinDebugData)
 				_, _ = tmpFile.Seek(0, 0)
 				os.Stdin = tmpFile //nolint:reassign // Resetting stdin for subsequent reads
+				stdinTempFile = tmpFile.Name()
 			}
 		}
 	}
