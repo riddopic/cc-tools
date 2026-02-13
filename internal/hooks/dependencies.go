@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"syscall"
 	"time"
 )
 
@@ -194,7 +195,7 @@ func (r *realProcessManager) ProcessExists(pid int) bool {
 		return false
 	}
 	// On Unix, FindProcess always succeeds, so we need to send signal 0
-	err = process.Signal(os.Signal(nil))
+	err = process.Signal(syscall.Signal(0))
 	return err == nil
 }
 
