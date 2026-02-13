@@ -453,7 +453,7 @@ If users need to accomplish something while reading, it's not an explanation:
 title: "Understanding the A1-ASCEG Architecture"
 linkTitle: "A1-ASCEG Architecture"
 weight: 50
-description: "Learn how Quanta's exploit generation system works and why it was designed this way"
+description: "Learn how the exploit generation system works and why it was designed this way"
 ---
 ```
 
@@ -464,12 +464,12 @@ For explaining Go system architecture:
 ```markdown
 # Understanding the Analysis Pipeline
 
-This document explains how Quanta's vulnerability analysis pipeline works
+This document explains how the vulnerability analysis pipeline works
 and the design decisions behind its architecture.
 
 ## Overview
 
-Quanta uses a multi-stage pipeline to analyze smart contracts:
+The system uses a multi-stage pipeline to analyze smart contracts:
 1. Bytecode parsing
 2. Control flow analysis
 3. Vulnerability detection
@@ -518,12 +518,12 @@ See [interface-design skill](../interface-design/) for patterns used.
 ## Related Concepts
 
 - [A1-ASCEG PRD](/docs/research/a1-asceg-prd/) - Product requirements
-- [Detector API](/docs/cli/quanta_detector/) - CLI reference
+- [Detector API](/docs/cli/detector/) - CLI reference
 ```
 
 ### Standard Markdown Only
 
-Use standard Markdown for Quanta docs. MDX components shown in examples are from other platforms.
+Use standard Markdown for documentation. MDX components shown in examples are from other platforms.
 
 ### Project References
 

@@ -1,9 +1,9 @@
 ---
 name: code-review
-description: Apply Quanta code review standards. Use when reviewing code, evaluating pull requests, or checking code quality before commits. Ensures Go idioms, security, and project standards are followed.
+description: Apply code review standards. Use when reviewing code, evaluating pull requests, or checking code quality before commits. Ensures Go idioms, security, and project standards are followed.
 ---
 
-# Code Review Standards for Quanta
+# Code Review Standards
 
 ## Pre-Commit Checklist
 

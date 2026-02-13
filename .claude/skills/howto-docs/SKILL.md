@@ -345,11 +345,11 @@ For CLI-focused how-to guides:
 ```markdown
 # How to Run a Smart Contract Analysis
 
-Analyze smart contracts for vulnerabilities using Quanta's detection engine.
+Analyze smart contracts for vulnerabilities using the detection engine.
 
 ## Prerequisites
 
-- Quanta CLI installed (`task install`)
+- CLI installed (`task install`)
 - Access to contract bytecode or address
 - API key configured (see [Configuration](/docs/user-guide/configuration/))
 
@@ -360,13 +360,13 @@ Analyze smart contracts for vulnerabilities using Quanta's detection engine.
 Obtain the contract bytecode from Etherscan or your build artifacts:
 
 ```bash
-quanta fetch --address 0x... --output contract.bin
+cc-tools fetch --address 0x... --output contract.bin
 ```
 
 ### 2. Run the analysis
 
 ```bash
-quanta analyze --input contract.bin --output results.json
+cc-tools analyze --input contract.bin --output results.json
 ```
 
 You should see output like:
@@ -380,7 +380,7 @@ Results written to results.json
 ### 3. Review results
 
 ```bash
-quanta report --input results.json
+cc-tools report --input results.json
 ```
 
 ## Verify
@@ -394,7 +394,7 @@ Check the report includes vulnerability details with severity ratings.
 
 ### Standard Markdown Only
 
-Use standard Markdown for Quanta docs. MDX components (`<Steps>`, `<Accordion>`, etc.) shown in examples are from other documentation platforms and should be adapted to standard Markdown or Hugo shortcodes.
+Use standard Markdown for documentation. MDX components (`<Steps>`, `<Accordion>`, etc.) shown in examples are from other documentation platforms and should be adapted to standard Markdown or Hugo shortcodes.
 
 ### Project References
 

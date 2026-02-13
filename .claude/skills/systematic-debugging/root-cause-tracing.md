@@ -62,7 +62,7 @@ analyzer.Connect(cfg.RPCURL)
 ```go
 // viper.GetString("rpc_url") returns "" because:
 // 1. No --rpc-url flag passed
-// 2. No QUANTA_RPC_URL env var set
+// 2. No RPC_URL env var set
 // 3. Config file missing rpc_url key
 ```
 

@@ -1,6 +1,6 @@
 # Development Philosophy
 
-This directory contains the fundamental development philosophy and principles that guide the quanta project. These documents establish the foundational practices that enable high-quality, maintainable Go code.
+This directory contains the fundamental development philosophy and principles that guide the cc-tools project. These documents establish the foundational practices that enable high-quality, maintainable Go code.
 
 ## Philosophy Documents
 

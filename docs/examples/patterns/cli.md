@@ -1,4 +1,4 @@
-# CLI Development Patterns for quanta
+# CLI Development Patterns for cc-tools
 
 ## Command Structure with Cobra
 
@@ -15,24 +15,24 @@ import (
 
     "github.com/spf13/cobra"
     "github.com/spf13/viper"
-    "github.com/user/quanta/internal/config"
+    "github.com/riddopic/cc-tools/internal/config"
 )
 
 var (
     cfgFile string
     verbose bool
     rootCmd = &cobra.Command{
-        Use:   "quanta",
-        Short: "Display Claude Code session status in your terminal",
-        Long: `quanta provides a customizable terminal statusline
-for monitoring your Claude Code sessions with real-time metrics,
-multiple themes, and extensive configuration options.
+        Use:   "cc-tools",
+        Short: "Claude Code integration tools for hooks, validation, and debugging",
+        Long: `cc-tools provides utilities for managing Claude Code hooks,
+running validation checks, debugging configurations, and managing
+MCP servers with comprehensive logging and testing capabilities.
 
 Examples:
-  quanta start                    # Start with default settings
-  quanta start --theme powerline  # Start with powerline theme
-  quanta config show              # Show current configuration
-  quanta stop                     # Stop the statusline`,
+  cc-tools validate                 # Run all validation checks
+  cc-tools hooks list               # List all configured hooks
+  cc-tools config show              # Show current configuration
+  cc-tools debug                    # Start debug mode`,
         Version: "1.0.0",
     }
 )
@@ -49,7 +49,7 @@ func init() {
 
     // Global flags
     rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "",
-        "config file (default: $HOME/.quanta.yaml)")
+        "config file (default: $HOME/.cc-tools.yaml)")
     rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
         "verbose output")
 
@@ -73,12 +73,12 @@ func initConfig() {
         // Search config in home directory and current directory
         viper.AddConfigPath(home)
         viper.AddConfigPath(".")
-        viper.SetConfigName(".quanta")
+        viper.SetConfigName(".cc-tools")
         viper.SetConfigType("yaml")
     }
 
     // Environment variables
-    viper.SetEnvPrefix("CC_STATUSLINE")
+    viper.SetEnvPrefix("CC_TOOLS")
     viper.AutomaticEnv()
 
     // Read config file
@@ -105,7 +105,7 @@ import (
 
     "github.com/spf13/cobra"
     "github.com/spf13/viper"
-    "github.com/user/quanta/internal/statusline"
+    "github.com/riddopic/cc-tools/internal/statusline"
 )
 
 var (
@@ -118,10 +118,10 @@ var startCmd = &cobra.Command{
     Use:   "start [flags]",
     Short: "Start the statusline display",
     Long:  `Start displaying the Claude Code statusline in your terminal.`,
-    Example: `  quanta start
-  quanta start --theme powerline
-  quanta start --theme minimal --refresh 2
-  quanta start --position bottom`,
+    Example: `  cc-tools start
+  cc-tools start --theme powerline
+  cc-tools start --theme minimal --refresh 2
+  cc-tools start --position bottom`,
     PreRunE: validateStartFlags,
     RunE:    runStart,
 }
@@ -222,8 +222,8 @@ import (
 
 var configCmd = &cobra.Command{
     Use:   "config",
-    Short: "Manage quanta configuration",
-    Long:  `View, edit, and validate quanta configuration.`,
+    Short: "Manage cc-tools configuration",
+    Long:  `View, edit, and validate cc-tools configuration.`,
 }
 
 var configShowCmd = &cobra.Command{
@@ -284,7 +284,7 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
         return fmt.Errorf("could not find home directory: %w", err)
     }
 
-    configPath := filepath.Join(home, ".quanta.yaml")
+    configPath := filepath.Join(home, ".cc-tools.yaml")
 
     // Check if file already exists
     if _, err := os.Stat(configPath); err == nil {
@@ -300,7 +300,7 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
     }
 
     // Create default configuration
-    defaultConfig := `# quanta configuration
+    defaultConfig := `# cc-tools configuration
 theme: default
 refresh_interval: 1
 position: bottom
@@ -699,31 +699,31 @@ var completionCmd = &cobra.Command{
     Long: `To load completions:
 
 Bash:
-  $ source <(quanta completion bash)
+  $ source <(cc-tools completion bash)
 
   # To load completions for each session, execute once:
   # Linux:
-  $ quanta completion bash > /etc/bash_completion.d/quanta
+  $ cc-tools completion bash > /etc/bash_completion.d/cc-tools
   # macOS:
-  $ quanta completion bash > /usr/local/etc/bash_completion.d/quanta
+  $ cc-tools completion bash > /usr/local/etc/bash_completion.d/cc-tools
 
 Zsh:
-  $ source <(quanta completion zsh)
+  $ source <(cc-tools completion zsh)
 
   # To load completions for each session, execute once:
-  $ quanta completion zsh > "${fpath[1]}/_quanta"
+  $ cc-tools completion zsh > "${fpath[1]}/_cc-tools"
 
 Fish:
-  $ quanta completion fish | source
+  $ cc-tools completion fish | source
 
   # To load completions for each session, execute once:
-  $ quanta completion fish > ~/.config/fish/completions/quanta.fish
+  $ cc-tools completion fish > ~/.config/fish/completions/cc-tools.fish
 
 PowerShell:
-  PS> quanta completion powershell | Out-String | Invoke-Expression
+  PS> cc-tools completion powershell | Out-String | Invoke-Expression
 
   # To load completions for each session, add to PowerShell profile:
-  PS> quanta completion powershell >> $PROFILE
+  PS> cc-tools completion powershell >> $PROFILE
 `,
     DisableFlagsInUseLine: true,
     ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
@@ -788,7 +788,7 @@ func NewUserError(message, suggestion string, exitCode int) *UserError {
 func ConfigNotFound(path string) *UserError {
     return NewUserError(
         fmt.Sprintf("Configuration file not found: %s", path),
-        "Run 'quanta config init' to create a default configuration",
+        "Run 'cc-tools config init' to create a default configuration",
         2,
     )
 }

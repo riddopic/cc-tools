@@ -149,7 +149,7 @@ var SeverityToString = map[Severity]string{
 
 ### Error Variables
 
-Document quanta errors clearly:
+Document cc-tools errors clearly:
 
 ```go
 var (

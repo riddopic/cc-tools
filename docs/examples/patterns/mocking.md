@@ -1,6 +1,6 @@
 # Mocking Standards and Mockery v3.5 Testing Guide
 
-This document provides comprehensive guidance on mocking standards and using Mockery v3.5 for testing in the Quanta project, including TDD workflows and advanced patterns.
+This document provides comprehensive guidance on mocking standards and using Mockery v3.5 for testing in the cc-tools project, including TDD workflows and advanced patterns.
 
 ## Core Principles
 
@@ -16,14 +16,10 @@ Generated mocks follow this structure:
 
 ```text
 internal/
-├── blockchain/
-│   ├── cache/mocks/         # Generated mocks for cache interfaces
-│   ├── explorer/mocks/      # Generated mocks for explorer interfaces
-│   ├── proxy/mocks/         # Generated mocks for proxy interfaces
-│   ├── ratelimit/mocks/     # Generated mocks for ratelimit interfaces
-│   ├── rpc/mocks/          # Generated mocks for RPC interfaces
-│   └── source/mocks/       # Generated mocks for source interfaces
-├── foundry/mocks/          # Generated mocks for foundry interfaces
+├── hooks/mocks/            # Generated mocks for hook validation interfaces
+├── config/mocks/           # Generated mocks for configuration interfaces
+├── linter/mocks/           # Generated mocks for linter interfaces
+├── runner/mocks/           # Generated mocks for command runner interfaces
 └── interfaces/mocks/       # Generated mocks for core interfaces
 ```
 
@@ -74,24 +70,24 @@ The TDD cycle with Mockery follows the standard pattern:
 Start by defining the interface you need:
 
 ```go
-// internal/interfaces/exploit_analyzer.go
+// internal/interfaces/hook_validator.go
 package interfaces
 
 import (
     "context"
-    "math/big"
+    "time"
 )
 
-type ExploitAnalyzer interface {
-    Analyze(ctx context.Context, exploitPath string, blockNumber uint64) (*AnalysisResult, error)
-    Validate(exploitPath string) error
+type HookValidator interface {
+    Validate(ctx context.Context, hookPath string, timeout time.Duration) (*ValidationResult, error)
+    Check(hookPath string) error
 }
 
-type AnalysisResult struct {
+type ValidationResult struct {
     IsValid     bool
     Severity    string
-    GasRequired uint64
-    ProfitWei   *big.Int
+    PassCount   int
+    FailCount   int
     Confidence  float64
 }
 ```
@@ -102,9 +98,9 @@ Add the interface to `.mockery.yml`:
 
 ```yaml
 packages:
-  github.com/riddopic/quanta/internal/interfaces:
+  github.com/riddopic/cc-tools/internal/interfaces:
     interfaces:
-      ExploitAnalyzer:
+      HookValidator:
 ```
 
 Generate the mock:
@@ -118,44 +114,44 @@ task mocks
 Write a test that uses the mock before implementing the service:
 
 ```go
-// internal/analyzer/service_test.go
-package analyzer_test
+// internal/validator/service_test.go
+package validator_test
 
 import (
     "context"
     "testing"
-    "math/big"
+    "time"
 
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/mock"
     "github.com/stretchr/testify/require"
 
-    "github.com/riddopic/quanta/internal/analyzer"
-    "github.com/riddopic/quanta/internal/interfaces"
-    "github.com/riddopic/quanta/internal/interfaces/mocks"
+    "github.com/riddopic/cc-tools/internal/validator"
+    "github.com/riddopic/cc-tools/internal/interfaces"
+    "github.com/riddopic/cc-tools/internal/interfaces/mocks"
 )
 
-func TestAnalyzerService_RunAnalysis(t *testing.T) {
+func TestValidatorService_RunValidation(t *testing.T) {
     // Arrange - Create mock with expectations
-    mockAnalyzer := mocks.NewMockExploitAnalyzer(t)
+    mockValidator := mocks.NewMockHookValidator(t)
 
-    mockAnalyzer.EXPECT().Validate("exploit.sol").Return(nil).Once()
+    mockValidator.EXPECT().Check("pre-commit-hook.sh").Return(nil).Once()
 
-    mockAnalyzer.EXPECT().Analyze(
+    mockValidator.EXPECT().Validate(
         mock.Anything,
-        "exploit.sol",
-        uint64(18500000),
-    ).Return(&interfaces.AnalysisResult{
+        "pre-commit-hook.sh",
+        30*time.Second,
+    ).Return(&interfaces.ValidationResult{
         IsValid:     true,
         Severity:    "HIGH",
-        GasRequired: 150000,
-        ProfitWei:   big.NewInt(1000000000000000000), // 1 ETH
+        PassCount:   15,
+        FailCount:   0,
         Confidence:  0.95,
     }, nil).Once()
 
-    // Act - This will fail because AnalyzerService doesn't exist yet
-    service := analyzer.NewAnalyzerService(mockAnalyzer)
-    result, err := service.RunAnalysis(context.Background(), "exploit.sol", 18500000)
+    // Act - This will fail because ValidatorService doesn't exist yet
+    service := validator.NewValidatorService(mockValidator)
+    result, err := service.RunValidation(context.Background(), "pre-commit-hook.sh", 30*time.Second)
 
     // Assert
     require.NoError(t, err)
@@ -176,32 +172,33 @@ go test ./internal/analyzer/... -v
 Write just enough code to make the test pass:
 
 ```go
-// internal/analyzer/service.go
-package analyzer
+// internal/validator/service.go
+package validator
 
 import (
     "context"
+    "time"
 
-    "github.com/riddopic/quanta/internal/interfaces"
+    "github.com/riddopic/cc-tools/internal/interfaces"
 )
 
-type AnalyzerService struct {
-    analyzer interfaces.ExploitAnalyzer
+type ValidatorService struct {
+    validator interfaces.HookValidator
 }
 
-func NewAnalyzerService(analyzer interfaces.ExploitAnalyzer) *AnalyzerService {
-    return &AnalyzerService{
-        analyzer: analyzer,
+func NewValidatorService(validator interfaces.HookValidator) *ValidatorService {
+    return &ValidatorService{
+        validator: validator,
     }
 }
 
-func (s *AnalyzerService) RunAnalysis(ctx context.Context, exploitPath string, blockNumber uint64) (*interfaces.AnalysisResult, error) {
-    // Minimal implementation - just delegate to the analyzer
-    if err := s.analyzer.Validate(exploitPath); err != nil {
+func (s *ValidatorService) RunValidation(ctx context.Context, hookPath string, timeout time.Duration) (*interfaces.ValidationResult, error) {
+    // Minimal implementation - just delegate to the validator
+    if err := s.validator.Check(hookPath); err != nil {
         return nil, err
     }
 
-    return s.analyzer.Analyze(ctx, exploitPath, blockNumber)
+    return s.validator.Validate(ctx, hookPath, timeout)
 }
 ```
 
@@ -210,21 +207,21 @@ func (s *AnalyzerService) RunAnalysis(ctx context.Context, exploitPath string, b
 Improve the implementation while keeping tests green:
 
 ```go
-func (s *AnalyzerService) RunAnalysis(ctx context.Context, exploitPath string, blockNumber uint64) (*interfaces.AnalysisResult, error) {
+func (s *ValidatorService) RunValidation(ctx context.Context, hookPath string, timeout time.Duration) (*interfaces.ValidationResult, error) {
     // Add validation
-    if exploitPath == "" {
-        return nil, fmt.Errorf("exploit path cannot be empty")
+    if hookPath == "" {
+        return nil, fmt.Errorf("hook path cannot be empty")
     }
 
-    // Validate first
-    if err := s.analyzer.Validate(exploitPath); err != nil {
-        return nil, fmt.Errorf("validation failed for %s: %w", exploitPath, err)
+    // Check first
+    if err := s.validator.Check(hookPath); err != nil {
+        return nil, fmt.Errorf("check failed for %s: %w", hookPath, err)
     }
 
-    // Run analysis
-    result, err := s.analyzer.Analyze(ctx, exploitPath, blockNumber)
+    // Run validation
+    result, err := s.validator.Validate(ctx, hookPath, timeout)
     if err != nil {
-        return nil, fmt.Errorf("analysis failed for %s: %w", exploitPath, err)
+        return nil, fmt.Errorf("validation failed for %s: %w", hookPath, err)
     }
 
     return result, nil
@@ -238,9 +235,9 @@ func (s *AnalyzerService) RunAnalysis(ctx context.Context, exploitPath string, b
 All generated mocks include a constructor function that automatically registers cleanup:
 
 ```go
-func TestForgeExecutor_BasicUsage(t *testing.T) {
+func TestCommandRunner_BasicUsage(t *testing.T) {
     // Create mock with automatic cleanup
-    executor := mocks.NewMockForgeExecutor(t)
+    runner := mocks.NewMockCommandRunner(t)
 
     // Test implementation here...
     // AssertExpectations is called automatically in t.Cleanup
@@ -291,48 +288,48 @@ Define setup functions in test cases for clean organization:
 func TestWithTableDrivenMocks(t *testing.T) {
     tests := []struct {
         name       string
-        setupMocks func(*mocks.MockForgeExecutor)
-        config     foundry.ForgeConfig
-        wantResult *foundry.ForgeResult
+        setupMocks func(*mocks.MockCommandRunner)
+        config     hooks.HookConfig
+        wantResult *hooks.ValidationResult
         wantErr    error
     }{
         {
             name: "successful execution",
-            setupMocks: func(m *mocks.MockForgeExecutor) {
-                m.EXPECT().Execute(mock.Anything, mock.MatchedBy(func(config foundry.ForgeConfig) bool {
-                    return config.TestFile != ""
-                })).Return(&foundry.ForgeResult{
+            setupMocks: func(m *mocks.MockCommandRunner) {
+                m.EXPECT().Execute(mock.Anything, mock.MatchedBy(func(config hooks.HookConfig) bool {
+                    return config.HookFile != ""
+                })).Return(&hooks.ValidationResult{
                     Success: true,
-                    GasUsed: 21000,
+                    PassCount: 21000,
                 }, nil).Once()
             },
-            config: foundry.ForgeConfig{
-                TestFile: "test.t.sol",
+            config: hooks.HookConfig{
+                HookFile: "test-hook.sh",
             },
-            wantResult: &foundry.ForgeResult{
+            wantResult: &hooks.ValidationResult{
                 Success: true,
-                GasUsed: 21000,
+                PassCount: 21000,
             },
             wantErr: nil,
         },
         {
             name: "invalid test file",
-            setupMocks: func(m *mocks.MockForgeExecutor) {
-                m.EXPECT().Execute(mock.Anything, mock.MatchedBy(func(config foundry.ForgeConfig) bool {
-                    return config.TestFile == ""
-                })).Return(nil, foundry.ErrInvalidTestFile).Once()
+            setupMocks: func(m *mocks.MockCommandRunner) {
+                m.EXPECT().Execute(mock.Anything, mock.MatchedBy(func(config hooks.HookConfig) bool {
+                    return config.HookFile == ""
+                })).Return(nil, hooks.ErrInvalidHookFile).Once()
             },
-            config: foundry.ForgeConfig{
-                TestFile: "", // Empty test file
+            config: hooks.HookConfig{
+                HookFile: "", // Empty test file
             },
             wantResult: nil,
-            wantErr:    foundry.ErrInvalidTestFile,
+            wantErr:    hooks.ErrInvalidHookFile,
         },
     }
 
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
-            executor := mocks.NewMockForgeExecutor(t)
+            executor := mocks.NewMockCommandRunner(t)
             tt.setupMocks(executor)
 
             result, err := executor.Execute(context.Background(), tt.config)
@@ -357,25 +354,25 @@ Use `RunAndReturn` for complex logic that depends on input parameters:
 
 ```go
 func TestDynamicMockBehavior(t *testing.T) {
-    executor := mocks.NewMockForgeExecutor(t)
+    executor := mocks.NewMockCommandRunner(t)
 
     // Return different results based on input
     executor.EXPECT().Execute(mock.Anything, mock.Anything).RunAndReturn(
-        func(ctx context.Context, opts *interfaces.ExecuteOptions) (*interfaces.TestResult, error) {
-            switch opts.ExploitPath {
+        func(ctx context.Context, opts *interfaces.RunnerOptions) (*interfaces.ValidationResult, error) {
+            switch opts.CommandPath {
             case "valid.t.sol":
-                return &interfaces.TestResult{
+                return &interfaces.ValidationResult{
                     Success: true,
-                    GasUsed: 21000,
+                    PassCount: 21000,
                 }, nil
             case "invalid.t.sol":
-                return nil, errors.New("invalid exploit")
+                return nil, errors.New("invalid command")
             case "timeout.t.sol":
                 // Simulate timeout
                 <-ctx.Done()
                 return nil, ctx.Err()
             default:
-                return &interfaces.TestResult{
+                return &interfaces.ValidationResult{
                     Success: false,
                     ExitCode: 1,
                 }, nil
@@ -393,18 +390,18 @@ func TestStatefulMock(t *testing.T) {
     provider := mocks.NewMockProvider(t)
 
     // Track state in closure
-    var blockNumber uint64 = 1000
+    var timeout uint64 = 1000
 
-    provider.EXPECT().BlockNumber(mock.Anything).RunAndReturn(
+    provider.EXPECT().Timeout(mock.Anything).RunAndReturn(
         func(ctx context.Context) (uint64, error) {
-            blockNumber++
-            return blockNumber, nil
+            timeout++
+            return timeout, nil
         }).Times(3)
 
     // Each call returns incremented block number
-    block1, _ := provider.BlockNumber(context.Background())
-    block2, _ := provider.BlockNumber(context.Background())
-    block3, _ := provider.BlockNumber(context.Background())
+    block1, _ := provider.Timeout(context.Background())
+    block2, _ := provider.Timeout(context.Background())
+    block3, _ := provider.Timeout(context.Background())
 
     assert.Equal(t, uint64(1001), block1)
     assert.Equal(t, uint64(1002), block2)
@@ -416,28 +413,28 @@ func TestStatefulMock(t *testing.T) {
 
 ```go
 func TestComplexArgumentMatching(t *testing.T) {
-    executor := mocks.NewMockForgeExecutor(t)
+    executor := mocks.NewMockCommandRunner(t)
 
     // Match complex struct fields
     executor.EXPECT().Execute(
         mock.Anything,
-        mock.MatchedBy(func(opts *interfaces.ExecuteOptions) bool {
-            return opts.BlockNumber > 18000000 &&
-                   opts.BlockNumber < 19000000 &&
-                   strings.HasPrefix(opts.ForkURL, "https://") &&
+        mock.MatchedBy(func(opts *interfaces.RunnerOptions) bool {
+            return opts.Timeout > 18000000 &&
+                   opts.Timeout < 19000000 &&
+                   strings.HasPrefix(opts.ConfigPath, "https://") &&
                    opts.Timeout >= 30*time.Second &&
-                   opts.MemoryLimit > 0
+                   opts.RetryLimit > 0
         }),
-    ).Return(&interfaces.TestResult{
+    ).Return(&interfaces.ValidationResult{
         Success: true,
     }, nil).Once()
 
     // This will match
-    result, err := executor.Execute(context.Background(), &interfaces.ExecuteOptions{
-        BlockNumber: 18500000,
-        ForkURL:     "https://eth-mainnet.alchemyapi.io",
+    result, err := executor.Execute(context.Background(), &interfaces.RunnerOptions{
+        Timeout: 30,
+        ConfigPath:     "https://eth-mainnet.alchemyapi.io",
         Timeout:     60 * time.Second,
-        MemoryLimit: 4096,
+        RetryLimit: 4096,
     })
 
     require.NoError(t, err)
@@ -451,16 +448,16 @@ Use `Run` to simulate side effects or capture arguments:
 
 ```go
 func TestSideEffects(t *testing.T) {
-    runner := mocks.NewMockProcessRunner(t)
-    var capturedConfig foundry.ProcessConfig
+    runner := mocks.NewMockCommandRunner(t)
+    var capturedConfig hooks.RunnerConfig
 
     runner.EXPECT().Run(mock.Anything, mock.Anything).Run(
-        func(ctx context.Context, config foundry.ProcessConfig) {
+        func(ctx context.Context, config hooks.RunnerConfig) {
             // Capture the config for verification
             capturedConfig = config
             // Simulate logging or metrics
             t.Logf("Running: %s %v", config.Command, config.Args)
-        }).Return(&foundry.ProcessResult{
+        }).Return(&hooks.RunnerResult{
         ExitCode: 0,
     }, nil).Once()
 
@@ -472,7 +469,7 @@ func TestSideEffects(t *testing.T) {
 
 ```go
 func TestOrderedMockCalls(t *testing.T) {
-    executor := mocks.NewMockForgeExecutor(t)
+    executor := mocks.NewMockCommandRunner(t)
 
     // Create an expectation order
     inOrder := make(chan int, 3)
@@ -480,27 +477,27 @@ func TestOrderedMockCalls(t *testing.T) {
     // First call - compile
     executor.EXPECT().Execute(
         mock.Anything,
-        mock.MatchedBy(func(opts *interfaces.ExecuteOptions) bool {
-            return strings.Contains(opts.ExploitPath, "compile")
+        mock.MatchedBy(func(opts *interfaces.RunnerOptions) bool {
+            return strings.Contains(opts.CommandPath, "compile")
         }),
     ).Run(func(args mock.Arguments) {
         inOrder <- 1
-    }).Return(&interfaces.TestResult{Success: true}, nil).Once()
+    }).Return(&interfaces.ValidationResult{Success: true}, nil).Once()
 
     // Second call - test
     executor.EXPECT().Execute(
         mock.Anything,
-        mock.MatchedBy(func(opts *interfaces.ExecuteOptions) bool {
-            return strings.Contains(opts.ExploitPath, "test")
+        mock.MatchedBy(func(opts *interfaces.RunnerOptions) bool {
+            return strings.Contains(opts.CommandPath, "test")
         }),
     ).Run(func(args mock.Arguments) {
         require.Equal(t, 1, <-inOrder)
         inOrder <- 2
-    }).Return(&interfaces.TestResult{Success: true}, nil).Once()
+    }).Return(&interfaces.ValidationResult{Success: true}, nil).Once()
 
     // Execute in order
-    executor.Execute(context.Background(), &interfaces.ExecuteOptions{ExploitPath: "compile.sol"})
-    executor.Execute(context.Background(), &interfaces.ExecuteOptions{ExploitPath: "test.sol"})
+    executor.Execute(context.Background(), &interfaces.RunnerOptions{CommandPath: "compile.sol"})
+    executor.Execute(context.Background(), &interfaces.RunnerOptions{CommandPath: "test.sol"})
 
     require.Equal(t, 2, <-inOrder)
 }
@@ -512,35 +509,35 @@ func TestOrderedMockCalls(t *testing.T) {
 
 ```go
 func TestConcurrentMockUsage(t *testing.T) {
-    executor := mocks.NewMockForgeExecutor(t)
+    executor := mocks.NewMockCommandRunner(t)
 
     // Setup expectations for concurrent calls
     var callCount atomic.Int32
 
     executor.EXPECT().Execute(mock.Anything, mock.Anything).RunAndReturn(
-        func(ctx context.Context, opts *interfaces.ExecuteOptions) (*interfaces.TestResult, error) {
+        func(ctx context.Context, opts *interfaces.RunnerOptions) (*interfaces.ValidationResult, error) {
             count := callCount.Add(1)
 
             // Simulate some work
             time.Sleep(10 * time.Millisecond)
 
-            return &interfaces.TestResult{
+            return &interfaces.ValidationResult{
                 Success: true,
-                GasUsed: uint64(21000 * count),
+                PassCount: uint64(21000 * count),
             }, nil
         }).Times(10)
 
     // Run concurrent executions
     var wg sync.WaitGroup
-    results := make(chan *interfaces.TestResult, 10)
+    results := make(chan *interfaces.ValidationResult, 10)
 
     for i := 0; i < 10; i++ {
         wg.Add(1)
         go func(id int) {
             defer wg.Done()
 
-            result, err := executor.Execute(context.Background(), &interfaces.ExecuteOptions{
-                ExploitPath: fmt.Sprintf("test_%d.sol", id),
+            result, err := executor.Execute(context.Background(), &interfaces.RunnerOptions{
+                CommandPath: fmt.Sprintf("test_%d.sol", id),
             })
 
             require.NoError(t, err)
@@ -555,7 +552,7 @@ func TestConcurrentMockUsage(t *testing.T) {
     var totalGas uint64
     for result := range results {
         assert.True(t, result.Success)
-        totalGas += result.GasUsed
+        totalGas += result.PassCount
     }
 
     // Gas should be sum of 21000 * (1+2+...+10)
@@ -572,23 +569,23 @@ func TestRaceConditionDetection(t *testing.T) {
         t.Skip("Skipping race condition test in short mode")
     }
 
-    executor := mocks.NewMockForgeExecutor(t)
+    executor := mocks.NewMockCommandRunner(t)
 
     // Shared state to detect races
     var sharedCounter int
     var mu sync.Mutex
 
     executor.EXPECT().Execute(mock.Anything, mock.Anything).RunAndReturn(
-        func(ctx context.Context, opts *interfaces.ExecuteOptions) (*interfaces.TestResult, error) {
+        func(ctx context.Context, opts *interfaces.RunnerOptions) (*interfaces.ValidationResult, error) {
             // Proper synchronization
             mu.Lock()
             sharedCounter++
             count := sharedCounter
             mu.Unlock()
 
-            return &interfaces.TestResult{
+            return &interfaces.ValidationResult{
                 Success: true,
-                GasUsed: uint64(count * 1000),
+                PassCount: uint64(count * 1000),
             }, nil
         }).Times(100)
 
@@ -598,7 +595,7 @@ func TestRaceConditionDetection(t *testing.T) {
         wg.Add(1)
         go func() {
             defer wg.Done()
-            executor.Execute(context.Background(), &interfaces.ExecuteOptions{})
+            executor.Execute(context.Background(), &interfaces.RunnerOptions{})
         }()
     }
 
@@ -618,21 +615,21 @@ func TestNetworkErrorSimulation(t *testing.T) {
     attempts := 0
 
     // Fail first 2 attempts, succeed on third
-    provider.EXPECT().BlockNumber(mock.Anything).RunAndReturn(
+    provider.EXPECT().Timeout(mock.Anything).RunAndReturn(
         func(ctx context.Context) (uint64, error) {
             attempts++
             if attempts <= 2 {
                 return 0, errors.New("connection refused")
             }
-            return uint64(18500000), nil
+            return 30*time.Second, nil
         }).Times(3)
 
     // Service with retry logic
-    service := NewBlockchainServiceWithRetry(provider, 3)
+    service := NewConfigServiceWithRetry(provider, 3)
 
     blockNum, err := service.GetLatestBlockWithRetry(context.Background())
     require.NoError(t, err)
-    assert.Equal(t, uint64(18500000), blockNum)
+    assert.Equal(t, 30*time.Second, blockNum)
     assert.Equal(t, 3, attempts)
 }
 ```
@@ -641,13 +638,13 @@ func TestNetworkErrorSimulation(t *testing.T) {
 
 ```go
 func TestTimeoutSimulation(t *testing.T) {
-    executor := mocks.NewMockForgeExecutor(t)
+    executor := mocks.NewMockCommandRunner(t)
 
     executor.EXPECT().Execute(mock.Anything, mock.Anything).RunAndReturn(
-        func(ctx context.Context, opts *interfaces.ExecuteOptions) (*interfaces.TestResult, error) {
+        func(ctx context.Context, opts *interfaces.RunnerOptions) (*interfaces.ValidationResult, error) {
             select {
             case <-time.After(2 * time.Second):
-                return &interfaces.TestResult{Success: true}, nil
+                return &interfaces.ValidationResult{Success: true}, nil
             case <-ctx.Done():
                 return nil, ctx.Err()
             }
@@ -657,7 +654,7 @@ func TestTimeoutSimulation(t *testing.T) {
     ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
     defer cancel()
 
-    result, err := executor.Execute(ctx, &interfaces.ExecuteOptions{})
+    result, err := executor.Execute(ctx, &interfaces.RunnerOptions{})
 
     require.ErrorIs(t, err, context.DeadlineExceeded)
     assert.Nil(t, result)
@@ -673,17 +670,17 @@ func TestPartialMockVerification(t *testing.T) {
     provider := mocks.NewMockProvider(t)
 
     // Setup multiple expectations
-    provider.EXPECT().BlockNumber(mock.Anything).Return(uint64(18500000), nil).Maybe()
+    provider.EXPECT().Timeout(mock.Anything).Return(30*time.Second, nil).Maybe()
     provider.EXPECT().ChainID(mock.Anything).Return(big.NewInt(1), nil).Maybe()
     provider.EXPECT().SuggestGasPrice(mock.Anything).Return(big.NewInt(30000000000), nil).Maybe()
 
     // Service might call some or all methods
-    service := NewBlockchainService(provider)
+    service := NewConfigService(provider)
 
-    // Only BlockNumber is called
+    // Only Timeout is called
     blockNum, err := service.GetLatestBlock(context.Background())
     require.NoError(t, err)
-    assert.Equal(t, uint64(18500000), blockNum)
+    assert.Equal(t, 30*time.Second, blockNum)
 
     // Maybe() allows unused expectations - test still passes
 }
@@ -693,24 +690,24 @@ func TestPartialMockVerification(t *testing.T) {
 
 ```go
 func TestCustomAssertions(t *testing.T) {
-    executor := mocks.NewMockForgeExecutor(t)
+    executor := mocks.NewMockCommandRunner(t)
 
-    var capturedOptions *interfaces.ExecuteOptions
+    var capturedOptions *interfaces.RunnerOptions
 
     executor.EXPECT().Execute(mock.Anything, mock.Anything).Run(
         func(args mock.Arguments) {
             // Capture arguments for custom verification
-            capturedOptions = args.Get(1).(*interfaces.ExecuteOptions)
-        }).Return(&interfaces.TestResult{Success: true}, nil).Once()
+            capturedOptions = args.Get(1).(*interfaces.RunnerOptions)
+        }).Return(&interfaces.ValidationResult{Success: true}, nil).Once()
 
     // Execute
     service := NewForgeService(executor)
-    service.RunExploit(context.Background(), "test.sol", 18500000)
+    service.RunValidation(context.Background(), "test.sol", 30)
 
     // Custom assertions on captured arguments
     require.NotNil(t, capturedOptions)
-    assert.Equal(t, "test.sol", capturedOptions.ExploitPath)
-    assert.Equal(t, uint64(18500000), capturedOptions.BlockNumber)
+    assert.Equal(t, "test.sol", capturedOptions.CommandPath)
+    assert.Equal(t, 30*time.Second, capturedOptions.Timeout)
     assert.Greater(t, capturedOptions.Timeout, 30*time.Second)
 }
 ```
@@ -720,40 +717,40 @@ func TestCustomAssertions(t *testing.T) {
 ### Testing Multiple Components
 
 ```go
-func TestIntegration_ExploitAnalysisWorkflow(t *testing.T) {
+func TestIntegration_HookValidationWorkflow(t *testing.T) {
     // Create all necessary mocks
-    executor := mocks.NewMockForgeExecutor(t)
+    executor := mocks.NewMockCommandRunner(t)
     provider := mocks.NewMockProvider(t)
-    analyzer := mocks.NewMockExploitAnalyzer(t)
+    validator := mocks.NewMockHookValidator(t)
     logger := mocks.NewMockLogger(t)
 
     // Setup mock expectations for complete workflow
 
-    // 1. Fork creation
-    provider.EXPECT().BlockNumber(mock.Anything).Return(uint64(18500000), nil).Once()
-    provider.EXPECT().GetBlock(mock.Anything, mock.Anything).Return(&types.Block{}, nil).Once()
+    // 1. Config loading
+    provider.EXPECT().Timeout(mock.Anything).Return(30*time.Second, nil).Once()
+    provider.EXPECT().GetConfig(mock.Anything, mock.Anything).Return(&types.Config{}, nil).Once()
 
-    // 2. Exploit validation
-    analyzer.EXPECT().Validate("exploit.sol").Return(nil).Once()
+    // 2. Hook validation
+    validator.EXPECT().Validate("lint-command.sh").Return(nil).Once()
 
-    // 3. Exploit execution
+    // 3. Command execution
     executor.EXPECT().Execute(
         mock.Anything,
-        mock.MatchedBy(func(opts *interfaces.ExecuteOptions) bool {
-            return opts.ExploitPath == "exploit.sol" &&
-                   opts.BlockNumber == 18500000
+        mock.MatchedBy(func(opts *interfaces.RunnerOptions) bool {
+            return opts.CommandPath == "lint-command.sh" &&
+                   opts.Timeout == 30
         }),
-    ).Return(&interfaces.TestResult{
+    ).Return(&interfaces.ValidationResult{
         Success: true,
-        GasUsed: 150000,
+        PassCount: 150000,
     }, nil).Once()
 
     // 4. Analysis
-    analyzer.EXPECT().Analyze(
+    validator.EXPECT().Analyze(
         mock.Anything,
-        "exploit.sol",
-        uint64(18500000),
-    ).Return(&interfaces.AnalysisResult{
+        "lint-command.sh",
+        30*time.Second,
+    ).Return(&interfaces.ValidationResult{
         IsValid:    true,
         Severity:   "HIGH",
         Confidence: 0.95,
@@ -763,22 +760,22 @@ func TestIntegration_ExploitAnalysisWorkflow(t *testing.T) {
     logger.EXPECT().Log(mock.Anything, mock.Anything, mock.Anything).Maybe()
 
     // Create services with mocks
-    forkManager := forge.NewForkManager(provider)
-    analyzerService := analyzer.NewAnalyzerService(analyzer, logger)
-    exploitService := NewExploitService(executor, forkManager, analyzerService, logger)
+    configManager := command.NewConfigManager(provider)
+    validatorService := validator.NewValidatorService(validator, logger)
+    hookService := NewHookService(executor, configManager, validatorService, logger)
 
     // Run complete workflow
-    result, err := exploitService.RunExploitWorkflow(
+    result, err := hookService.RunValidationWorkflow(
         context.Background(),
-        "exploit.sol",
-        18500000,
+        "lint-command.sh",
+        30,
     )
 
     // Verify workflow completed successfully
     require.NoError(t, err)
     assert.True(t, result.Success)
     assert.Equal(t, "HIGH", result.Severity)
-    assert.Equal(t, uint64(150000), result.GasUsed)
+    assert.Equal(t, uint64(150000), result.PassCount)
 }
 ```
 
@@ -796,8 +793,8 @@ func NewMockFactory(t *testing.T) *MockFactory {
     return &MockFactory{t: t}
 }
 
-func (f *MockFactory) ForgeExecutor(opts ...ForgeExecutorOption) *mocks.MockForgeExecutor {
-    executor := mocks.NewMockForgeExecutor(f.t)
+func (f *MockFactory) CommandRunner(opts ...CommandRunnerOption) *mocks.MockCommandRunner {
+    executor := mocks.NewMockCommandRunner(f.t)
 
     // Apply default expectations
     executor.EXPECT().GetVersion(mock.Anything).Return("0.2.0", nil).Maybe()
@@ -810,13 +807,13 @@ func (f *MockFactory) ForgeExecutor(opts ...ForgeExecutorOption) *mocks.MockForg
     return executor
 }
 
-type ForgeExecutorOption func(*mocks.MockForgeExecutor)
+type CommandRunnerOption func(*mocks.MockCommandRunner)
 
-func WithSuccessfulExecution(gasUsed uint64) ForgeExecutorOption {
-    return func(m *mocks.MockForgeExecutor) {
-        m.EXPECT().Execute(mock.Anything, mock.Anything).Return(&interfaces.TestResult{
+func WithSuccessfulExecution(gasUsed uint64) CommandRunnerOption {
+    return func(m *mocks.MockCommandRunner) {
+        m.EXPECT().Execute(mock.Anything, mock.Anything).Return(&interfaces.ValidationResult{
             Success: true,
-            GasUsed: gasUsed,
+            PassCount: gasUsed,
         }, nil).Maybe()
     }
 }
@@ -825,7 +822,7 @@ func WithSuccessfulExecution(gasUsed uint64) ForgeExecutorOption {
 func TestWithMockFactory(t *testing.T) {
     factory := NewMockFactory(t)
 
-    executor := factory.ForgeExecutor(
+    executor := factory.CommandRunner(
         WithSuccessfulExecution(21000),
     )
 
@@ -837,36 +834,36 @@ func TestWithMockFactory(t *testing.T) {
 }
 ```
 
-## Common Patterns in Quanta
+## Common Patterns in cc-tools
 
 ### Mocking RPC Providers
 
 ```go
-func TestBlockchainService_GetBlockNumber(t *testing.T) {
+func TestConfigService_GetTimeout(t *testing.T) {
     provider := mocks.NewMockProvider(t)
 
-    provider.EXPECT().BlockNumber(mock.Anything).Return(uint64(18500000), nil).Once()
+    provider.EXPECT().Timeout(mock.Anything).Return(30*time.Second, nil).Once()
 
-    service := NewBlockchainService(provider)
+    service := NewConfigService(provider)
     blockNum, err := service.GetLatestBlock(context.Background())
 
     require.NoError(t, err)
-    assert.Equal(t, uint64(18500000), blockNum)
+    assert.Equal(t, 30*time.Second, blockNum)
 }
 ```
 
 ### Context Handling and Cancellation
 
 ```go
-func TestForgeExecutor_ContextCancellation(t *testing.T) {
-    executor := mocks.NewMockForgeExecutor(t)
+func TestCommandRunner_ContextCancellation(t *testing.T) {
+    executor := mocks.NewMockCommandRunner(t)
 
     // Mock long-running execution that respects context
     executor.EXPECT().Execute(mock.Anything, mock.Anything).RunAndReturn(
-        func(ctx context.Context, config foundry.ForgeConfig) (*foundry.ForgeResult, error) {
+        func(ctx context.Context, config hooks.HookConfig) (*hooks.ValidationResult, error) {
             select {
             case <-time.After(10 * time.Second):
-                return &foundry.ForgeResult{Success: true}, nil
+                return &hooks.ValidationResult{Success: true}, nil
             case <-ctx.Done():
                 return nil, ctx.Err()
             }
@@ -876,7 +873,7 @@ func TestForgeExecutor_ContextCancellation(t *testing.T) {
     ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
     defer cancel()
 
-    result, err := executor.Execute(ctx, foundry.ForgeConfig{})
+    result, err := executor.Execute(ctx, hooks.HookConfig{})
 
     // Verify context cancellation is respected
     require.ErrorIs(t, err, context.DeadlineExceeded)
@@ -919,17 +916,17 @@ mockProcessor.On("Process", mock.Anything, "test").
 ```go
 func BenchmarkMockOverhead(b *testing.B) {
     // Setup mock once
-    executor := mocks.NewMockForgeExecutor(b)
+    executor := mocks.NewMockCommandRunner(b)
 
     executor.EXPECT().Execute(mock.Anything, mock.Anything).Return(
-        &interfaces.TestResult{Success: true},
+        &interfaces.ValidationResult{Success: true},
         nil,
     ).Times(b.N)
 
     b.ResetTimer()
 
     for i := 0; i < b.N; i++ {
-        executor.Execute(context.Background(), &interfaces.ExecuteOptions{})
+        executor.Execute(context.Background(), &interfaces.RunnerOptions{})
     }
 }
 ```
@@ -940,13 +937,13 @@ func BenchmarkMockOverhead(b *testing.B) {
 func TestSuiteWithSharedMocks(t *testing.T) {
     // Setup phase - create all mocks once
     type testEnv struct {
-        executor *mocks.MockForgeExecutor
+        executor *mocks.MockCommandRunner
         provider *mocks.MockProvider
         service  *Service
     }
 
     setupEnv := func(t *testing.T) *testEnv {
-        executor := mocks.NewMockForgeExecutor(t)
+        executor := mocks.NewMockCommandRunner(t)
         provider := mocks.NewMockProvider(t)
 
         return &testEnv{
@@ -964,7 +961,7 @@ func TestSuiteWithSharedMocks(t *testing.T) {
 
     t.Run("test case 2", func(t *testing.T) {
         env := setupEnv(t)
-        env.provider.EXPECT().BlockNumber(mock.Anything).Return(uint64(18500000), nil).Once()
+        env.provider.EXPECT().Timeout(mock.Anything).Return(30*time.Second, nil).Once()
         // Test logic
     })
 }
@@ -1014,15 +1011,15 @@ func TestBadExample(t *testing.T) {
 // ✅ DO: Mock at boundaries, use real objects internally
 func TestGoodExample(t *testing.T) {
     // Mock only external dependencies
-    executor := mocks.NewMockForgeExecutor(t)
+    executor := mocks.NewMockCommandRunner(t)
 
-    executor.EXPECT().Execute(mock.Anything, mock.Anything).Return(&foundry.ForgeResult{
+    executor.EXPECT().Execute(mock.Anything, mock.Anything).Return(&hooks.ValidationResult{
         Success: true,
     }, nil).Once()
 
     // Use real internal components
-    service := NewExploitAnalysisService(executor)
-    result, err := service.AnalyzeExploit(context.Background(), "exploit.t.sol")
+    service := NewHookValidationService(executor)
+    result, err := service.ValidateHooks(context.Background(), "lint-command.sh")
 
     require.NoError(t, err)
     assert.True(t, result.IsValid)
@@ -1065,7 +1062,7 @@ func TestGoodExample(t *testing.T) {
 - ❌ Don't have mocks return other mocks (mock chains)
 - ❌ Don't verify implementation details
 - ❌ Don't use `.Return(mock.Anything)` - be explicit about return values
-- ❌ Don't forget to run `task mocks` after interface changes
+- ❌ Don't commandt to run `task mocks` after interface changes
 
 ## Debugging Mock Issues
 
@@ -1078,17 +1075,17 @@ func TestWithMockDebugging(t *testing.T) {
         mock.TestingT(t)
     }
 
-    executor := mocks.NewMockForgeExecutor(t)
+    executor := mocks.NewMockCommandRunner(t)
 
     // Add debug logging to expectations
     executor.EXPECT().Execute(mock.Anything, mock.Anything).Run(
         func(args mock.Arguments) {
             ctx := args.Get(0).(context.Context)
-            opts := args.Get(1).(*interfaces.ExecuteOptions)
+            opts := args.Get(1).(*interfaces.RunnerOptions)
 
             t.Logf("Execute called with context deadline: %v", ctx.Deadline())
             t.Logf("Execute options: %+v", opts)
-        }).Return(&interfaces.TestResult{Success: true}, nil).Once()
+        }).Return(&interfaces.ValidationResult{Success: true}, nil).Once()
 
     // Test execution
     service := NewForgeService(executor)
@@ -1107,7 +1104,7 @@ func TestWithMockDebugging(t *testing.T) {
 executor.EXPECT().Execute(mock.Anything, mock.Anything) // Missing .Return()
 
 // ✅ Solution: Always specify return values
-executor.EXPECT().Execute(mock.Anything, mock.Anything).Return(&foundry.ForgeResult{}, nil)
+executor.EXPECT().Execute(mock.Anything, mock.Anything).Return(&hooks.ValidationResult{}, nil)
 ```
 
 #### "Mock call missing" error
@@ -1152,7 +1149,7 @@ go test ./... -v
 task mocks
 
 # Verify mocks compile
-go build ./internal/foundry/mocks/...
+go build ./internal/hooks/mocks/...
 ```
 
 ## Mock Generation Workflow
@@ -1291,4 +1288,4 @@ logger := logr.Discard()
 - [Testify Mock Advanced Usage](https://pkg.go.dev/github.com/stretchr/testify/mock#readme-usage)
 - [Go Testing Tutorial](https://go.dev/doc/tutorial/add-a-test)
 - [Go Testing Best Practices](https://go.dev/doc/tutorial/fuzz)
-- [Quanta Mockery Implementation Guide](../../PRPs/research/mockery-v3-implementation-guide.md)
+- [cc-tools Mockery Implementation Guide](../../PRPs/research/mockery-v3-implementation-guide.md)

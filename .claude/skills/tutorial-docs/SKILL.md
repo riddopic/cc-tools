@@ -359,7 +359,7 @@ Before publishing, verify:
 title: "Build Your First Exploit Detector"
 linkTitle: "First Detector"
 weight: 10
-description: "Learn to build a custom vulnerability detector for Quanta"
+description: "Learn to build a custom vulnerability detector"
 ---
 ```
 
@@ -370,7 +370,7 @@ For tutorials teaching Go development:
 ```markdown
 # Build Your First Vulnerability Detector
 
-In this tutorial, you'll build a custom reentrancy detector for Quanta.
+In this tutorial, you'll build a custom reentrancy detector.
 By the end, you'll have a working detector that identifies unsafe external calls.
 
 ## What You'll Build
@@ -383,7 +383,7 @@ A detector that:
 ## Prerequisites
 
 - Go 1.21+ installed
-- Quanta repository cloned
+- Repository cloned
 - Basic understanding of smart contract vulnerabilities
 
 ## Step 1: Create the detector file
@@ -411,19 +411,19 @@ You should see all tests passing.
 
 ## What You've Learned
 
-- How to create a custom detector in Quanta
+- How to create a custom detector
 - The detector interface pattern
 - How to write tests for detectors
 
 ## Next Steps
 
 - [How to Register Custom Detectors](/docs/user-guide/custom-detectors/)
-- [Detector API Reference](/docs/cli/quanta_detector/)
+- [Detector API Reference](/docs/cli/detector/)
 ```
 
 ### Standard Markdown Only
 
-Use standard Markdown for Quanta docs. MDX components shown in examples are from other platforms.
+Use standard Markdown for documentation. MDX components shown in examples are from other platforms.
 
 ### Project References
 

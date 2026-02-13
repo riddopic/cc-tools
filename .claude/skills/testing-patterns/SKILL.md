@@ -3,7 +3,7 @@ name: testing-patterns
 description: Apply Go testing patterns and best practices. Use when writing tests, setting up mocks, creating test fixtures, or reviewing test code. Includes table-driven tests and Mockery v3.5 patterns.
 ---
 
-# Go Testing Patterns for Quanta
+# Go Testing Patterns
 
 ## Table-Driven Tests (Standard Pattern)
 

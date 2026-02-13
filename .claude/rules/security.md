@@ -5,7 +5,7 @@ paths:
 
 # Go Security Guidelines
 
-Security practices for the Quanta codebase.
+Security practices for cc-tools.
 
 ## Input Validation
 
@@ -53,9 +53,9 @@ func LoadFile(path string) ([]byte, error) {
 ```go
 // ✅ DO: Use environment variables for secrets
 func getAPIKey() (string, error) {
-    key := os.Getenv("QUANTA_API_KEY")
+    key := os.Getenv("CC_TOOLS_API_KEY")
     if key == "" {
-        return "", errors.New("QUANTA_API_KEY not configured")
+        return "", errors.New("CC_TOOLS_API_KEY not configured")
     }
     return key, nil
 }
@@ -115,15 +115,15 @@ func runShellCommand(userInput string) error {
 }
 
 // ✅ DO: Validate command arguments
-func runForge(testFile string) error {
-    if !strings.HasSuffix(testFile, ".t.sol") {
-        return errors.New("invalid test file extension")
+func runValidation(configFile string) error {
+    if !strings.HasSuffix(configFile, ".yaml") && !strings.HasSuffix(configFile, ".yml") {
+        return errors.New("invalid config file extension")
     }
-    if strings.ContainsAny(testFile, ";&|`$") {
+    if strings.ContainsAny(configFile, ";&|`$") {
         return errors.New("invalid characters in filename")
     }
 
-    cmd := exec.Command("forge", "test", "--match-path", testFile)
+    cmd := exec.Command("cc-tools", "validate", "--config", configFile)
     return cmd.Run()
 }
 ```

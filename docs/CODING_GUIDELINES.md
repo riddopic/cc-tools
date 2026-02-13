@@ -1,6 +1,6 @@
-# quanta Coding Guidelines
+# cc-tools Coding Guidelines
 
-> Comprehensive coding guidelines for the quanta project - a CLI tool that displays Claude Code session status in the terminal.
+> Comprehensive coding guidelines for the cc-tools project - a Claude Code integration toolkit providing hook validation, skip registries, debug logging, MCP server management, and configuration utilities.
 
 ## Table of Contents
 
@@ -38,44 +38,41 @@
 ## Project Structure
 
 ```text
-quanta/
-├── go.mod                   # Module definition
+cc-tools/
+├── go.mod                   # Module definition (github.com/riddopic/cc-tools)
 ├── go.sum                   # Dependency checksums
-├── main.go                  # Application entry point
-├── cmd/                     # Command implementations (Cobra)
-│   ├── root.go              # Root command setup
-│   ├── start.go             # Start statusline command
-│   ├── stop.go              # Stop statusline command
-│   ├── config.go            # Configuration management command
-│   └── version.go           # Version information command
+├── cmd/
+│   └── cc-tools/            # CLI application entry point
+│       ├── main.go          # Main CLI dispatcher
+│       ├── config.go        # Configuration management command
+│       ├── debug.go         # Debug logging utilities
+│       ├── mcp.go           # MCP server management command
+│       └── skip.go          # Skip registry commands
 ├── internal/                # Private application code
-│   ├── statusline/          # Core statusline logic
-│   │   ├── statusline.go    # Main statusline implementation
-│   │   ├── renderer.go      # Rendering engine
-│   │   ├── themes.go        # Theme definitions
-│   │   └── metrics.go       # Metrics collection
 │   ├── config/              # Configuration management
 │   │   ├── config.go        # Configuration structures
-│   │   ├── loader.go        # Configuration loading logic
-│   │   └── validator.go     # Configuration validation
-│   ├── claude/              # Claude Code integration
-│   │   ├── client.go        # Claude Code API client
-│   │   ├── monitor.go       # Session monitoring
-│   │   └── types.go         # Claude-specific types
-│   ├── display/             # Terminal display
-│   │   ├── terminal.go      # Terminal manipulation
-│   │   ├── colors.go        # Color management
-│   │   └── layout.go        # Layout calculations
-│   └── utils/               # Utility functions
-│       ├── format.go        # Formatting helpers
-│       └── system.go        # System utilities
-├── pkg/                     # Public packages (if any)
-├── configs/                 # Configuration files
-│   ├── default.yaml         # Default configuration
-│   └── themes/              # Theme configurations
-├── docs/examples/           # Usage examples
+│   │   ├── manager.go       # Configuration loading/saving
+│   │   └── *_test.go        # Tests
+│   ├── hooks/               # Hook validation and execution
+│   │   └── *.go             # Hook processing logic
+│   ├── mcp/                 # MCP server integration
+│   │   ├── mcp.go           # MCP server management
+│   │   └── *_test.go        # Tests
+│   ├── skipregistry/        # Skip tool registry
+│   │   └── *.go             # Skip registry logic
+│   ├── debug/               # Debug logging
+│   │   └── *.go             # Debug utilities
+│   ├── output/              # Terminal output formatting
+│   │   ├── output.go        # Output abstraction
+│   │   ├── table.go         # Table rendering
+│   │   └── hook.go          # Hook output formatting
+│   └── shared/              # Shared utilities
+│       ├── fs.go            # Filesystem abstractions
+│       ├── debug_paths.go   # Path resolution
+│       └── mocks/           # Test mocks
 ├── docs/                    # Documentation
-├── scripts/                 # Build and utility scripts
+│   ├── CODING_GUIDELINES.md # This document
+│   └── examples/            # Usage examples
 ├── testdata/                # Test fixtures
 └── .github/                 # GitHub configuration
     └── workflows/           # CI/CD workflows
@@ -93,8 +90,7 @@ quanta/
 
 ### Language Version
 
-- **Target Go 1.25** for development
-- **Use Go 1.23** for production builds (latest stable)
+- **Go 1.26** is the current version
 - Enable Go modules: `GO111MODULE=on`
 
 ### Code Formatting
@@ -123,8 +119,8 @@ import (
     "go.uber.org/zap"
 
     // Internal packages
-    "github.com/user/quanta/internal/config"
-    "github.com/user/quanta/internal/statusline"
+    "github.com/riddopic/cc-tools/internal/config"
+    "github.com/riddopic/cc-tools/internal/hooks"
 )
 ```
 
@@ -175,10 +171,10 @@ type DataInterface interface {}
 ### Error Creation and Wrapping
 
 ```go
-// Define quanta errors
+// Define cc-tools errors
 var (
     ErrConfigNotFound = errors.New("configuration file not found")
-    ErrInvalidTheme   = errors.New("invalid theme specified")
+    ErrInvalidHook    = errors.New("invalid hook configuration")
 )
 
 // Wrap errors with context
@@ -189,7 +185,7 @@ func LoadConfig(path string) (*Config, error) {
     }
 
     var cfg Config
-    if err := yaml.Unmarshal(data, &cfg); err != nil {
+    if err := json.Unmarshal(data, &cfg); err != nil {
         return nil, fmt.Errorf("failed to parse config: %w", err)
     }
 
@@ -243,32 +239,31 @@ if errors.As(err, &syntaxErr) {
 ### Package Documentation
 
 ```go
-// Package statusline provides a customizable terminal statusline
-// for displaying Claude Code session information.
+// Package hooks provides validation and execution utilities
+// for Claude Code hook configurations.
 //
-// The statusline supports multiple themes, real-time metrics,
-// and various display modes. It can be configured through
-// configuration files or command-line flags.
-package statusline
+// It supports PreToolUse, PostToolUse, and Stop hooks with
+// pattern matching and parameter validation.
+package hooks
 ```
 
 ### Function Documentation
 
 ```go
-// NewStatusLine creates a new statusline instance with the given configuration.
-// It validates the configuration and initializes all required components.
+// ValidateHook validates a hook configuration against the registered schema.
+// It checks pattern matching, required parameters, and execution permissions.
 //
-// The configuration must specify a valid theme and display settings.
+// The hook configuration must specify a valid matcher and command.
 // If the configuration is invalid, an error is returned.
 //
 // Example:
 //
-//  cfg := &Config{Theme: "powerline", Width: 80}
-//  sl, err := NewStatusLine(cfg)
+//  hook := &Hook{Matcher: "Edit", Command: "prettier"}
+//  err := ValidateHook(hook)
 //  if err != nil {
 //      log.Fatal(err)
 //  }
-func NewStatusLine(cfg *Config) (*StatusLine, error) {
+func ValidateHook(hook *Hook) error {
     // Implementation
 }
 ```
@@ -276,16 +271,15 @@ func NewStatusLine(cfg *Config) (*StatusLine, error) {
 ### Type Documentation
 
 ```go
-// StatusLine represents an active terminal statusline display.
-// It manages the rendering loop, metrics collection, and theme application.
+// Hook represents a Claude Code hook configuration entry.
+// It defines when and how a hook script should be executed.
 //
-// A StatusLine must be started with Start() before it begins displaying,
-// and should be stopped with Stop() to clean up resources.
-type StatusLine struct {
-    config   *Config
-    renderer *renderer
-    metrics  *metricsCollector
-    stop     chan struct{}
+// Hooks can be PreToolUse, PostToolUse, or Stop type, with
+// pattern matchers for tool names or output content.
+type Hook struct {
+    Matcher string
+    Command string
+    Type    HookType
 }
 ```
 
@@ -293,17 +287,17 @@ type StatusLine struct {
 
 ```go
 type Config struct {
-    // Theme specifies the visual theme for the statusline.
-    // Valid values are: "default", "powerline", "minimal", "classic"
-    Theme string `json:"theme" yaml:"theme"`
+    // DebugEnabled controls whether debug logging is enabled.
+    // When true, logs are written to ~/.claude/logs/
+    DebugEnabled bool `json:"debug_enabled"`
 
-    // RefreshInterval is the time between statusline updates in seconds.
-    // Must be between 1 and 60. Default is 1.
-    RefreshInterval int `json:"refresh_interval" yaml:"refresh_interval"`
+    // MCPServers contains the list of configured MCP server endpoints.
+    // Each server must specify a name and connection details.
+    MCPServers []MCPServer `json:"mcp_servers"`
 
-    // Width is the maximum width of the statusline in characters.
-    // Use 0 for automatic terminal width detection.
-    Width int `json:"width" yaml:"width"`
+    // SkipRegistry defines tools that should skip permission prompts.
+    // Tools are identified by name and can have optional glob patterns.
+    SkipRegistry []string `json:"skip_registry"`
 }
 ```
 
@@ -411,127 +405,103 @@ func TestClaudeClient_GetSession(t *testing.T) {
 - Run tests in parallel when possible
 - Use `t.Helper()` for test utilities
 
-### Database Isolation
+### Test Isolation
 
 Test isolation prevents state leakage between tests. Follow these patterns:
 
-**Unit Tests - Use In-Memory SQLite**
+**File-Based Tests - Use Temporary Directories**
 ```go
-func setupTestStorage(t *testing.T) interfaces.Storage {
-    t.Helper()
-    storage, err := NewSQLiteStorage(":memory:")
-    require.NoError(t, err)
-
-    t.Cleanup(func() {
-        _ = storage.Close()
-    })
-
-    return storage
-}
-```
-
-**Integration Tests - Use Temporary Directories**
-```go
-func setupIntegrationDB(t *testing.T) (*Storage, string) {
+func setupTestConfig(t *testing.T) string {
     t.Helper()
     tmpDir := t.TempDir()
-    dbPath := filepath.Join(tmpDir, "test.db")
+    configPath := filepath.Join(tmpDir, "config.json")
 
-    storage, err := NewSQLiteStorage(dbPath)
+    // Write test config
+    data := []byte(`{"debug_enabled": true}`)
+    err := os.WriteFile(configPath, data, 0644)
     require.NoError(t, err)
 
-    t.Cleanup(func() {
-        _ = storage.Close()
-    })
-
-    return storage, dbPath
+    return configPath
 }
-```
 
-**Viper State Isolation**
-```go
-t.Run("test case", func(t *testing.T) {
-    viper.Reset()  // Clear global state
-    viper.Set("analyze.db", ":memory:")  // Use in-memory DB
-    // ... test code
-})
+func TestConfigLoad(t *testing.T) {
+    configPath := setupTestConfig(t)
+
+    cfg, err := LoadConfig(configPath)
+    require.NoError(t, err)
+    assert.True(t, cfg.DebugEnabled)
+}
 ```
 
 **Rules**:
-- Never reference `~/.quanta/quanta.db` in tests
 - Always use `t.Cleanup()` or `defer` for resource cleanup
 - Use `t.TempDir()` for file-based tests (auto-cleanup)
-- Reset Viper state when tests modify configuration
+- Never reference real user config files like `~/.cc-tools/config.json` in tests
+- Use mocks for filesystem operations when appropriate
 
 ## CLI Development
 
-### Command Structure (Cobra)
+### Simple Command Structure
+
+cc-tools uses a simple command dispatcher pattern without Cobra:
 
 ```go
-// cmd/root.go
-var rootCmd = &cobra.Command{
-    Use:   "quanta",
-    Short: "Display Claude Code session status",
-    Long: `quanta provides a customizable terminal statusline
-for monitoring your Claude Code sessions with real-time metrics
-and multiple theme options.`,
-    PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-        // Initialize configuration
-        return initConfig()
-    },
-}
+// cmd/cc-tools/main.go
+func main() {
+    out := output.NewTerminal(os.Stdout, os.Stderr)
 
-// cmd/start.go
-var startCmd = &cobra.Command{
-    Use:   "start [flags]",
-    Short: "Start the statusline display",
-    Args:  cobra.NoArgs,
-    RunE: func(cmd *cobra.Command, args []string) error {
-        cfg, err := config.Load()
-        if err != nil {
-            return fmt.Errorf("failed to load config: %w", err)
-        }
+    if len(os.Args) < minArgs {
+        printUsage(out)
+        os.Exit(1)
+    }
 
-        sl, err := statusline.New(cfg)
-        if err != nil {
-            return fmt.Errorf("failed to create statusline: %w", err)
-        }
-
-        return sl.Start(cmd.Context())
-    },
+    switch os.Args[1] {
+    case "validate":
+        runValidate()
+    case "skip":
+        runSkipCommand()
+    case "config":
+        runConfigCommand()
+    case "mcp":
+        runMCPCommand()
+    case "debug":
+        runDebugCommand()
+    default:
+        printUsage(out)
+        os.Exit(1)
+    }
 }
 ```
 
-### Configuration Management (Viper)
+### Configuration Management
+
+cc-tools uses JSON-based configuration:
 
 ```go
-func initConfig() error {
-    // Set defaults
-    viper.SetDefault("theme", "default")
-    viper.SetDefault("refresh_interval", 1)
-    viper.SetDefault("colors.background", "#000000")
-    viper.SetDefault("colors.foreground", "#ffffff")
+// internal/config/config.go
+type Config struct {
+    DebugEnabled bool         `json:"debug_enabled"`
+    MCPServers   []MCPServer  `json:"mcp_servers"`
+    SkipRegistry []string     `json:"skip_registry"`
+}
 
-    // Set config search paths
-    viper.SetConfigName(".quanta")
-    viper.SetConfigType("yaml")
-    viper.AddConfigPath("$HOME")
-    viper.AddConfigPath(".")
-
-    // Environment variables
-    viper.SetEnvPrefix("CC_STATUSLINE")
-    viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-    viper.AutomaticEnv()
-
-    // Read config file
-    if err := viper.ReadInConfig(); err != nil {
-        if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-            return fmt.Errorf("failed to read config: %w", err)
-        }
+func LoadConfig(path string) (*Config, error) {
+    data, err := os.ReadFile(path)
+    if err != nil {
+        return nil, fmt.Errorf("failed to read config: %w", err)
     }
 
-    return nil
+    var cfg Config
+    if err := json.Unmarshal(data, &cfg); err != nil {
+        return nil, fmt.Errorf("failed to parse config: %w", err)
+    }
+
+    return &cfg, nil
 }
+
+// Environment variables
+// CC_TOOLS_DEBUG=true enables debug logging
+// CC_TOOLS_CONFIG=/custom/path sets config location
 ```
 
 ### User Interaction
@@ -543,9 +513,9 @@ if os.Getenv("NO_COLOR") != "" {
 }
 
 // Provide helpful error messages
-if err := cmd.Execute(); err != nil {
+if err := runCommand(); err != nil {
     fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-    fmt.Fprintf(os.Stderr, "Run 'quanta --help' for usage.\n")
+    fmt.Fprintf(os.Stderr, "Run 'cc-tools help' for usage.\n")
     os.Exit(1)
 }
 
@@ -647,32 +617,6 @@ func LoadConfigFile(path string) error {
 }
 ```
 
-### Network Client Creation
-
-All HTTP clients MUST use the centralized Tor-aware factory to ensure
-traffic routes through Tor when enabled:
-
-- Use `cmd.CreateHTTPClient()` for creating HTTP clients
-- Accept `*http.Client` in config structs for dependency injection
-- Never use `http.DefaultClient`, `http.Get()`, or `&http.Client{}`
-- Use `socks5h://` scheme for SOCKS5 proxies (prevents DNS leaks)
-
-```go
-// ✅ DO: Use centralized factory
-client, err := cmd.CreateHTTPClient()
-
-// ✅ DO: Accept injected client
-type Config struct {
-    HTTPClient *http.Client
-}
-
-// ❌ DON'T: Create bare clients
-client := &http.Client{Timeout: 30 * time.Second}
-
-// ❌ DON'T: Use default client
-resp, err := http.Get(url)
-```
-
 ### Sensitive Data
 
 - Never log sensitive information
@@ -719,7 +663,7 @@ task test          # Run fast unit tests (-short)
 task watch         # Auto-run tests on file changes (TDD essential!)
 task test-race     # Run tests with race detector
 task coverage      # Generate test coverage report
-task build         # Build binary with version info
+task build         # Build cc-tools binary
 
 # Benchmarking
 task bench         # Run benchmarks with memory stats
@@ -742,15 +686,10 @@ go tool pprof cpu.prof                # Analyze profile
 - [Effective Go](https://go.dev/doc/effective_go)
 - [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments)
 - [Google Go Style Guide](https://google.github.io/styleguide/go/)
-- [Cobra Documentation](https://github.com/spf13/cobra)
-- [Viper Documentation](https://github.com/spf13/viper)
 
 ## References
 
 For detailed information on specific topics, see:
 
-- [docs/research/go-best-practices-2025.md](docs/research/go-best-practices-2025.md)
-- [docs/research/go-project-structure.md](docs/research/go-project-structure.md)
-- [docs/research/go-cli-development.md](docs/research/go-cli-development.md)
-- [docs/research/go-testing-practices.md](docs/research/go-testing-practices.md)
+- [.claude/rules/](../.claude/rules/) - Project-specific coding rules
 - [docs/examples/](docs/examples/) - Example code and patterns

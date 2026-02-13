@@ -1,12 +1,12 @@
 # Agent Orchestration
 
-Guidelines for using specialized agents and skills in the Quanta project.
+Guidelines for using specialized agents and skills.
 
 ## Available Skills (Auto-Triggered)
 
-50 skills in `.claude/skills/` auto-trigger based on context. Organized by category:
+Skills in `.claude/skills/` auto-trigger based on context. Organized by category:
 
-### Core Development (8)
+### Core Development (7)
 
 | Skill | Triggers On |
 | ----- | ----------- |
@@ -17,7 +17,6 @@ Guidelines for using specialized agents and skills in the Quanta project.
 | `interface-design` | Defining interfaces, composition |
 | `cli-development` | Cobra/Viper CLI commands |
 | `concurrency-patterns` | Goroutines, channels, context |
-| `tui` | Building and reviewing TUI views, components, forms |
 
 ### Code Review (4)
 
@@ -27,15 +26,6 @@ Guidelines for using specialized agents and skills in the Quanta project.
 | `go-code-review` | Reviewing .go files for idiomatic patterns |
 | `go-testing-code-review` | Reviewing *_test.go files |
 | `review-verification-protocol` | Before reporting ANY code review findings |
-
-### A1-ASCEG (4)
-
-| Skill | Triggers On |
-| ----- | ----------- |
-| `exploit-debugging` | Debugging failed exploit tests |
-| `pattern-management` | Updating vulnerability patterns |
-| `a1-asceg-research` | Investigating A1-ASCEG methodology gaps |
-| `table-ix-testing` | Validating against TABLE IX contracts |
 
 ### Documentation (6)
 
@@ -48,7 +38,7 @@ Guidelines for using specialized agents and skills in the Quanta project.
 | `reference-docs` | API and symbol reference documentation |
 | `writing-clearly-and-concisely` | Any prose humans will read |
 
-### Workflow (12)
+### Workflow (13)
 
 | Skill | Triggers On |
 | ----- | ----------- |
@@ -64,36 +54,22 @@ Guidelines for using specialized agents and skills in the Quanta project.
 | `using-git-worktrees` | Feature work needing workspace isolation |
 | `using-superpowers` | Start of conversation, finding skills |
 | `writing-skills` | Creating or editing skill files |
+| `prp-workflow` | Working with PRP workflow patterns |
 
-### Analysis & Patterns (10)
+### Analysis & Patterns (5)
 
 | Skill | Triggers On |
 | ----- | ----------- |
 | `systematic-debugging` | Bugs, test failures, root cause investigation |
-| `discovery-oriented-prompts` | Writing LLM prompts for autonomous discovery |
-| `regression-baseline-tracking` | Validating regression performance |
 | `audit-context-building` | Line-by-line code analysis for deep context |
-| `rag-knowledge-system` | RAG retrieval, vector indexing, safety gates |
-| `multi-model-ensemble` | Multi-model analysis with weighted voting |
-| `multi-actor-coordination` | Multi-transaction exploits with role-based actors |
 | `continuous-learning` | Extracting reusable patterns from sessions |
 | `recursive-decomposition` | Breaking complex problems into sub-problems |
 | `coding-philosophy` | LEVER decisions + Karpathy execution guidelines |
 
-### Networking & Integration (3)
+### Specialized (1)
 
 | Skill | Triggers On |
 | ----- | ----------- |
-| `tor-networking` | Creating HTTP clients, making network calls |
-| `tor-networking-review` | Reviewing .go files for Tor routing compliance |
-| `prp-workflow` | Working with PRP workflow patterns |
-
-### Specialized (3)
-
-| Skill | Triggers On |
-| ----- | ----------- |
-| `chroma` | Vector store operations, embedding persistence, semantic search |
-| `clarity-gate` | Pre-ingestion verification for RAG systems |
 | `commit` | Staging changes, creating atomic git commits |
 
 ## When to Use Agents Immediately
@@ -145,8 +121,6 @@ For complex problems, use multiple perspectives:
 | Documentation | `technical-docs-writer` agent |
 | Debugging bugs | `systematic-debugging` skill → `code-analyzer-debugger` agent |
 | Large-scale analysis | `recursive-decomposition` skill |
-| Exploit generation | `exploit-generator` → `exploit-validator` agents |
-| Smart contracts | `smart-contract-writer` / `blockchain-developer` agents |
 | Code refactoring | `code-refactoring-expert` agent |
 
 ## Quick Reference

@@ -5,7 +5,7 @@ paths:
 
 # Go Patterns
 
-Common patterns used in the Quanta codebase.
+Common patterns used in cc-tools.
 
 ## Interface Composition
 
@@ -39,28 +39,27 @@ type LRUCacheWithShutdown interface {
 
 ```go
 // ✅ DO: Use RunE for error handling, PreRunE for validation
-var startCmd = &cobra.Command{
-    Use:     "start [flags]",
-    Short:   "Start the statusline display",
-    Example: "  quanta start --theme powerline",
-    PreRunE: validateStartFlags,
-    RunE:    runStart,
+var validateCmd = &cobra.Command{
+    Use:     "validate [flags]",
+    Short:   "Validate configuration and setup",
+    Example: "  cc-tools validate --timeout 30",
+    PreRunE: validateFlags,
+    RunE:    runValidate,
 }
 
 func init() {
-    rootCmd.AddCommand(startCmd)
+    rootCmd.AddCommand(validateCmd)
 
-    startCmd.Flags().StringVarP(&theme, "theme", "t", "default",
-        "statusline theme (default|powerline|minimal)")
+    validateCmd.Flags().IntVarP(&timeout, "timeout", "t", 30,
+        "validation timeout in seconds")
 
     // Enable shell completion
-    startCmd.RegisterFlagCompletionFunc("theme", themeCompletion)
+    validateCmd.RegisterFlagCompletionFunc("timeout", timeoutCompletion)
 }
 
-func validateStartFlags(cmd *cobra.Command, args []string) error {
-    validThemes := []string{"default", "powerline", "minimal"}
-    if !slices.Contains(validThemes, theme) {
-        return fmt.Errorf("invalid theme: %s", theme)
+func validateFlags(cmd *cobra.Command, args []string) error {
+    if timeout < 1 || timeout > 300 {
+        return fmt.Errorf("invalid timeout: %d (must be 1-300)", timeout)
     }
     return nil
 }
@@ -71,15 +70,15 @@ func validateStartFlags(cmd *cobra.Command, args []string) error {
 ```go
 // ✅ DO: Set defaults, support env vars, read config files
 func initConfig() error {
-    viper.SetDefault("theme", "default")
-    viper.SetDefault("refresh_interval", 1)
+    viper.SetDefault("timeout", 30)
+    viper.SetDefault("verbose", false)
 
-    viper.SetConfigName(".quanta")
+    viper.SetConfigName(".cc-tools")
     viper.SetConfigType("yaml")
     viper.AddConfigPath("$HOME")
     viper.AddConfigPath(".")
 
-    viper.SetEnvPrefix("QUANTA")
+    viper.SetEnvPrefix("CC_TOOLS")
     viper.AutomaticEnv()
 
     if err := viper.ReadInConfig(); err != nil {
@@ -183,13 +182,13 @@ func main() {
 
 ```go
 // ✅ DO: Verify interface implementation at compile time
-var _ Runner = (*StatusLine)(nil)
-var _ io.Closer = (*StatusLine)(nil)
+var _ hooks.Runner = (*commandRunner)(nil)
+var _ io.Closer = (*commandRunner)(nil)
 
 // Multiple checks
 var (
-    _ interfaces.ForgeExecutor = (*ForgeRunner)(nil)
-    _ interfaces.Shutdowner    = (*ForgeRunner)(nil)
+    _ hooks.Validator  = (*configValidator)(nil)
+    _ hooks.Shutdowner = (*configValidator)(nil)
 )
 ```
 
@@ -239,9 +238,9 @@ type Logger interface {
 }
 
 // ✅ DO: Import and reuse
-import "github.com/riddopic/quanta/internal/interfaces"
+import "github.com/riddopic/cc-tools/internal/hooks"
 type Config struct {
-    Logger interfaces.Logger
+    Logger hooks.Logger
 }
 
 // ❌ DON'T: Redefine the same interface in another package

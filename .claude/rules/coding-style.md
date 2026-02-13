@@ -5,7 +5,7 @@ paths:
 
 # Go Coding Standards
 
-Go idioms and coding standards for the Quanta project. Reference `docs/CODING_GUIDELINES.md` for comprehensive details.
+Go idioms and coding standards. Reference `docs/CODING_GUIDELINES.md` for comprehensive details.
 
 ## Core Principles
 
@@ -128,8 +128,8 @@ import (
     "go.uber.org/zap"
 
     // Internal packages
-    "github.com/riddopic/quanta/internal/config"
-    "github.com/riddopic/quanta/internal/statusline"
+    "github.com/riddopic/cc-tools/internal/config"
+    "github.com/riddopic/cc-tools/internal/statusline"
 )
 ```
 

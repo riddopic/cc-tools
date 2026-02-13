@@ -3,7 +3,7 @@ name: cli-development
 description: Apply CLI development patterns with Cobra and Viper. Use when creating CLI commands, adding flags, implementing subcommands, managing configuration, or working on terminal UI.
 ---
 
-# CLI Development Patterns for Quanta
+# CLI Development Patterns
 
 ## Command Structure with Cobra
 
@@ -11,7 +11,7 @@ description: Apply CLI development patterns with Cobra and Viper. Use when creat
 
 ```go
 var rootCmd = &cobra.Command{
-    Use:   "quanta",
+    Use:   "cc-tools",
     Short: "Short description",
     Long:  `Detailed description with examples`,
     Version: "1.0.0",
@@ -22,7 +22,7 @@ func init() {
 
     // Global flags
     rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "",
-        "config file (default: $HOME/.quanta.yaml)")
+        "config file (default: $HOME/.cc-tools.yaml)")
     rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
         "verbose output")
 
@@ -37,7 +37,7 @@ func init() {
 var startCmd = &cobra.Command{
     Use:     "start [flags]",
     Short:   "Start the service",
-    Example: `  quanta start --theme powerline`,
+    Example: `  cc-tools start --theme powerline`,
     PreRunE: validateFlags,  // Validate before running
     RunE:    runStart,       // Main logic
 }
@@ -63,13 +63,13 @@ func initConfig() {
     viper.SetDefault("refresh_interval", 1)
 
     // Config file locations
-    viper.SetConfigName(".quanta")
+    viper.SetConfigName(".cc-tools")
     viper.SetConfigType("yaml")
     viper.AddConfigPath("$HOME")
     viper.AddConfigPath(".")
 
     // Environment variables
-    viper.SetEnvPrefix("QUANTA")
+    viper.SetEnvPrefix("CC_TOOLS")
     viper.AutomaticEnv()
 
     viper.ReadInConfig()

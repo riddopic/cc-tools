@@ -1,6 +1,6 @@
 # Git Workflow
 
-Git conventions for the Quanta project.
+Git conventions for cc-tools.
 
 ## Commit Message Format
 
@@ -56,16 +56,16 @@ When creating PRs:
 3. **Create PR with comprehensive summary**
 
    ```bash
-   gh pr create --title "feat: add theme switcher" --body "$(cat <<'EOF'
+   gh pr create --title "feat: add config validation" --body "$(cat <<'EOF'
    ## Summary
-   - Add `theme switch` command for runtime theme changes
-   - Support for all built-in themes
-   - Persist selection to config file
+   - Add `config show` command for displaying configuration
+   - Support for all config sources
+   - Validate configuration format
 
    ## Test plan
-   - [ ] Run `quanta theme switch powerline`
-   - [ ] Verify theme persists after restart
-   - [ ] Test invalid theme handling
+   - [ ] Run `cc-tools config show`
+   - [ ] Verify config output format
+   - [ ] Test invalid config handling
    EOF
    )"
    ```

@@ -3,7 +3,7 @@ name: concurrency-patterns
 description: Apply Go concurrency patterns safely. Use when working with goroutines, channels, worker pools, context cancellation, or any concurrent code. Helps avoid goroutine leaks and race conditions.
 ---
 
-# Go Concurrency Patterns for Quanta
+# Go Concurrency Patterns
 
 ## Core Principles
 

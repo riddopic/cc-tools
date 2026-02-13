@@ -96,7 +96,7 @@ Common issues:
 
 ## Project-Specific Hooks
 
-For Quanta, ensure these run before commits:
+Ensure these run before commits:
 
 ```bash
 # These should pass before any commit

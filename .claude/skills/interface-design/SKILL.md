@@ -3,7 +3,7 @@ name: interface-design
 description: Apply Go interface design patterns. Use when defining interfaces, composing behaviors, implementing mocking boundaries, or reviewing interface usage. Helps create small, focused, testable interfaces.
 ---
 
-# Go Interface Design for Quanta
+# Go Interface Design
 
 ## Core Principles
 

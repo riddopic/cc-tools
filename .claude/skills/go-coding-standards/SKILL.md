@@ -1,9 +1,9 @@
 ---
 name: go-coding-standards
-description: Apply Go idioms and Quanta project coding standards. Use when writing Go code, reviewing implementations, making architectural decisions, or when the user asks about Go best practices.
+description: Apply Go idioms and project coding standards. Use when writing Go code, reviewing implementations, making architectural decisions, or when the user asks about Go best practices.
 ---
 
-# Go Coding Standards for Quanta
+# Go Coding Standards
 
 Apply these standards when writing or reviewing Go code in this project.
 

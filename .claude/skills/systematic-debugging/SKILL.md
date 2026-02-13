@@ -225,7 +225,7 @@ You MUST complete each phase before proceeding to the next.
 
 ## Go Debugging Tools
 
-When investigating in the Quanta codebase, use these tools:
+When investigating in the codebase, use these tools:
 
 | Tool | Purpose | Command |
 |------|---------|---------|
