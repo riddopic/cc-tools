@@ -211,8 +211,10 @@ func TestTerminalPrint(t *testing.T) {
 
 			term := NewTerminal(stdout, stderr)
 
-			// Print should not panic
-			term.Print(tt.level, tt.format, tt.args...)
+			err := term.Print(tt.level, tt.format, tt.args...)
+			if err != nil {
+				t.Fatalf("Print() returned error: %v", err)
+			}
 
 			// Check something was written to stdout
 			if stdout.Len() == 0 {
@@ -261,8 +263,10 @@ func TestTerminalPrintError(t *testing.T) {
 
 			term := NewTerminal(stdout, stderr)
 
-			// PrintError should not panic
-			term.PrintError(tt.level, tt.format, tt.args...)
+			err := term.PrintError(tt.level, tt.format, tt.args...)
+			if err != nil {
+				t.Fatalf("PrintError() returned error: %v", err)
+			}
 
 			// Check something was written to stderr
 			if stderr.Len() == 0 {
@@ -286,7 +290,7 @@ func TestTerminalPrintError(t *testing.T) {
 func TestTerminalConvenienceMethods(t *testing.T) {
 	tests := []struct {
 		name         string
-		method       func(*Terminal, string, ...any)
+		method       func(*Terminal, string, ...any) error
 		format       string
 		args         []any
 		expectStdout bool
@@ -342,7 +346,10 @@ func TestTerminalConvenienceMethods(t *testing.T) {
 			term := NewTerminal(stdout, stderr)
 
 			// Call the method
-			tt.method(term, tt.format, tt.args...)
+			err := tt.method(term, tt.format, tt.args...)
+			if err != nil {
+				t.Fatalf("method returned error: %v", err)
+			}
 
 			// Check output destinations
 			if tt.expectStdout && stdout.Len() == 0 {
@@ -399,8 +406,10 @@ func TestTerminalRaw(t *testing.T) {
 
 			term := NewTerminal(stdout, stderr)
 
-			// Raw should not panic
-			term.Raw(tt.message)
+			err := term.Raw(tt.message)
+			if err != nil {
+				t.Fatalf("Raw() returned error: %v", err)
+			}
 
 			// Check exact output (no newline added)
 			if stdout.String() != tt.message {
@@ -441,8 +450,10 @@ func TestTerminalRawError(t *testing.T) {
 
 			term := NewTerminal(stdout, stderr)
 
-			// RawError should not panic
-			term.RawError(tt.message)
+			err := term.RawError(tt.message)
+			if err != nil {
+				t.Fatalf("RawError() returned error: %v", err)
+			}
 
 			// Check exact output (no newline added)
 			if stderr.String() != tt.message {
@@ -625,42 +636,42 @@ func TestConcurrentWrites(t *testing.T) {
 
 	// Run multiple goroutines writing concurrently
 	go func() {
-		for i := 0; i < 10; i++ {
-			term.Info("Info %d", i)
+		for i := range 10 {
+			_ = term.Info("Info %d", i)
 		}
 		done <- true
 	}()
 
 	go func() {
-		for i := 0; i < 10; i++ {
-			term.Success("Success %d", i)
+		for i := range 10 {
+			_ = term.Success("Success %d", i)
 		}
 		done <- true
 	}()
 
 	go func() {
-		for i := 0; i < 10; i++ {
-			term.Warning("Warning %d", i)
+		for i := range 10 {
+			_ = term.Warning("Warning %d", i)
 		}
 		done <- true
 	}()
 
 	go func() {
-		for i := 0; i < 10; i++ {
-			term.Error("Error %d", i)
+		for i := range 10 {
+			_ = term.Error("Error %d", i)
 		}
 		done <- true
 	}()
 
 	go func() {
-		for i := 0; i < 10; i++ {
-			term.Debug("Debug %d", i)
+		for i := range 10 {
+			_ = term.Debug("Debug %d", i)
 		}
 		done <- true
 	}()
 
 	// Wait for all goroutines
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		<-done
 	}
 

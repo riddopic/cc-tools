@@ -50,18 +50,18 @@ func main() {
 		runConfigCommand()
 	case "version":
 		// Print version to stdout as intended output
-		out.Raw(fmt.Sprintf("cc-tools %s\n", version))
+		_ = out.Raw(fmt.Sprintf("cc-tools %s\n", version))
 	case helpCommand, "-h", helpFlag:
 		printUsage(out)
 	default:
-		out.Error("Unknown command: %s", os.Args[1])
+		_ = out.Error("Unknown command: %s", os.Args[1])
 		printUsage(out)
 		os.Exit(1)
 	}
 }
 
 func printUsage(out *output.Terminal) {
-	out.RawError(`cc-tools - Claude Code Tools
+	_ = out.RawError(`cc-tools - Claude Code Tools
 
 Usage:
   cc-tools <command> [arguments]

@@ -34,31 +34,31 @@ func runSkipCommand() {
 	switch os.Args[2] {
 	case skipLint:
 		if err := addSkip(ctx, out, registry, skipregistry.SkipTypeLint); err != nil {
-			out.Error("Error: %v", err)
+			_ = out.Error("Error: %v", err)
 			os.Exit(1)
 		}
 	case skipTest:
 		if err := addSkip(ctx, out, registry, skipregistry.SkipTypeTest); err != nil {
-			out.Error("Error: %v", err)
+			_ = out.Error("Error: %v", err)
 			os.Exit(1)
 		}
 	case skipAll:
 		if err := addSkip(ctx, out, registry, skipregistry.SkipTypeAll); err != nil {
-			out.Error("Error: %v", err)
+			_ = out.Error("Error: %v", err)
 			os.Exit(1)
 		}
 	case listCommand:
 		if err := listSkips(ctx, out, registry); err != nil {
-			out.Error("Error: %v", err)
+			_ = out.Error("Error: %v", err)
 			os.Exit(1)
 		}
 	case "status":
 		if err := showStatus(ctx, out, registry); err != nil {
-			out.Error("Error: %v", err)
+			_ = out.Error("Error: %v", err)
 			os.Exit(1)
 		}
 	default:
-		out.Error("Unknown skip subcommand: %s", os.Args[2])
+		_ = out.Error("Unknown skip subcommand: %s", os.Args[2])
 		printSkipUsage(out)
 		os.Exit(1)
 	}
@@ -80,30 +80,30 @@ func runUnskipCommand() {
 	switch os.Args[2] {
 	case skipLint:
 		if err := removeSkip(ctx, out, registry, skipregistry.SkipTypeLint); err != nil {
-			out.Error("Error: %v", err)
+			_ = out.Error("Error: %v", err)
 			os.Exit(1)
 		}
 	case skipTest:
 		if err := removeSkip(ctx, out, registry, skipregistry.SkipTypeTest); err != nil {
-			out.Error("Error: %v", err)
+			_ = out.Error("Error: %v", err)
 			os.Exit(1)
 		}
 	case skipAll:
 		if err := clearSkips(ctx, out, registry); err != nil {
-			out.Error("Error: %v", err)
+			_ = out.Error("Error: %v", err)
 			os.Exit(1)
 		}
 	default:
 		// If no argument, default to "all"
 		if err := clearSkips(ctx, out, registry); err != nil {
-			out.Error("Error: %v", err)
+			_ = out.Error("Error: %v", err)
 			os.Exit(1)
 		}
 	}
 }
 
 func printSkipUsage(out *output.Terminal) {
-	out.RawError(`Usage: cc-tools skip <subcommand>
+	_ = out.RawError(`Usage: cc-tools skip <subcommand>
 
 Subcommands:
   lint      Skip linting in the current directory
@@ -121,7 +121,7 @@ Examples:
 }
 
 func printUnskipUsage(out *output.Terminal) {
-	out.RawError(`Usage: cc-tools unskip [<type>]
+	_ = out.RawError(`Usage: cc-tools unskip [<type>]
 
 Types:
   lint      Remove skip for linting in the current directory
@@ -154,11 +154,11 @@ func addSkip(
 	// Print confirmation
 	switch skipType {
 	case skipregistry.SkipTypeLint:
-		out.Success("✓ Linting will be skipped in %s", dir)
+		_ = out.Success("✓ Linting will be skipped in %s", dir)
 	case skipregistry.SkipTypeTest:
-		out.Success("✓ Testing will be skipped in %s", dir)
+		_ = out.Success("✓ Testing will be skipped in %s", dir)
 	case skipregistry.SkipTypeAll:
-		out.Success("✓ Linting and testing will be skipped in %s", dir)
+		_ = out.Success("✓ Linting and testing will be skipped in %s", dir)
 	}
 
 	return nil
@@ -182,9 +182,9 @@ func removeSkip(
 	// Print confirmation
 	switch skipType {
 	case skipregistry.SkipTypeLint:
-		out.Success("✓ Linting will no longer be skipped in %s", dir)
+		_ = out.Success("✓ Linting will no longer be skipped in %s", dir)
 	case skipregistry.SkipTypeTest:
-		out.Success("✓ Testing will no longer be skipped in %s", dir)
+		_ = out.Success("✓ Testing will no longer be skipped in %s", dir)
 	case skipregistry.SkipTypeAll:
 		// This case won't occur as we expand SkipTypeAll earlier
 	}
@@ -206,7 +206,7 @@ func clearSkips(
 		return fmt.Errorf("clear skips: %w", clearErr)
 	}
 
-	out.Success("✓ All skips removed from %s", dir)
+	_ = out.Success("✓ All skips removed from %s", dir)
 	return nil
 }
 
@@ -221,7 +221,7 @@ func listSkips(
 	}
 
 	if len(entries) == 0 {
-		out.Info("No directories have skip configurations")
+		_ = out.Info("No directories have skip configurations")
 		return nil
 	}
 
@@ -247,7 +247,7 @@ func listSkips(
 		})
 	}
 
-	out.Info("Skip configurations:")
+	_ = out.Info("Skip configurations:")
 	_ = out.Write(table.Render())
 
 	return nil
@@ -269,7 +269,7 @@ func showStatus(
 	}
 
 	if len(types) == 0 {
-		out.Info("No skips configured for %s", dir)
+		_ = out.Info("No skips configured for %s", dir)
 		return nil
 	}
 
@@ -307,7 +307,7 @@ func showStatus(
 		table.AddRow([]string{"Testing", "Active"})
 	}
 
-	out.Info("Skip status for %s:", dir)
+	_ = out.Info("Skip status for %s:", dir)
 	_ = out.Write(table.Render())
 
 	return nil

@@ -154,20 +154,20 @@ func (m *Manager) Enable(ctx context.Context, name string) error {
 	// Add any additional args
 	args = append(args, server.Args...)
 
-	m.output.Info("Enabling MCP server '%s'...", actualName)
+	_ = m.output.Info("Enabling MCP server '%s'...", actualName)
 
 	cmd := m.executor.CommandContext(ctx, "claude", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Check if it's already enabled
 		if strings.Contains(string(output), "already exists") {
-			m.output.Warning("MCP server '%s' is already enabled", actualName)
+			_ = m.output.Warning("MCP server '%s' is already enabled", actualName)
 			return nil
 		}
 		return fmt.Errorf("enabling MCP: %w\nOutput: %s", err, output)
 	}
 
-	m.output.Success("✓ Enabled MCP server '%s'", actualName)
+	_ = m.output.Success("✓ Enabled MCP server '%s'", actualName)
 	return nil
 }
 
@@ -191,20 +191,20 @@ func (m *Manager) Disable(ctx context.Context, name string) error {
 
 // removeMCP runs the claude mcp remove command.
 func (m *Manager) removeMCP(ctx context.Context, name string) error {
-	m.output.Info("Disabling MCP server '%s'...", name)
+	_ = m.output.Info("Disabling MCP server '%s'...", name)
 
 	cmd := m.executor.CommandContext(ctx, "claude", "mcp", "remove", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Check if it doesn't exist
 		if strings.Contains(string(output), "not found") {
-			m.output.Warning("MCP server '%s' is not enabled", name)
+			_ = m.output.Warning("MCP server '%s' is not enabled", name)
 			return nil
 		}
 		return fmt.Errorf("disabling MCP: %w\nOutput: %s", err, output)
 	}
 
-	m.output.Success("✓ Disabled MCP server '%s'", name)
+	_ = m.output.Success("✓ Disabled MCP server '%s'", name)
 	return nil
 }
 
@@ -215,12 +215,12 @@ func (m *Manager) EnableAll(ctx context.Context) error {
 		return err
 	}
 
-	m.output.Info("Enabling all %d MCP servers...", len(settings.MCPServers))
+	_ = m.output.Info("Enabling all %d MCP servers...", len(settings.MCPServers))
 
 	hasError := false
 	for name := range settings.MCPServers {
 		if enableErr := m.Enable(ctx, name); enableErr != nil {
-			m.output.Error("Error enabling %s: %v", name, enableErr)
+			_ = m.output.Error("Error enabling %s: %v", name, enableErr)
 			hasError = true
 		}
 	}
@@ -229,7 +229,7 @@ func (m *Manager) EnableAll(ctx context.Context) error {
 		return fmt.Errorf("some MCP servers failed to enable")
 	}
 
-	m.output.Success("✓ All MCP servers enabled")
+	_ = m.output.Success("✓ All MCP servers enabled")
 	return nil
 }
 
@@ -260,16 +260,16 @@ func (m *Manager) DisableAll(ctx context.Context) error {
 	}
 
 	if len(mcpNames) == 0 {
-		m.output.Info("No MCP servers are currently enabled")
+		_ = m.output.Info("No MCP servers are currently enabled")
 		return nil
 	}
 
-	m.output.Info("Disabling %d MCP servers...", len(mcpNames))
+	_ = m.output.Info("Disabling %d MCP servers...", len(mcpNames))
 
 	hasError := false
 	for _, name := range mcpNames {
 		if disableErr := m.removeMCP(ctx, name); disableErr != nil {
-			m.output.Error("Error disabling %s: %v", name, disableErr)
+			_ = m.output.Error("Error disabling %s: %v", name, disableErr)
 			hasError = true
 		}
 	}
@@ -278,6 +278,6 @@ func (m *Manager) DisableAll(ctx context.Context) error {
 		return fmt.Errorf("some MCP servers failed to disable")
 	}
 
-	m.output.Success("✓ All MCP servers disabled")
+	_ = m.output.Success("✓ All MCP servers disabled")
 	return nil
 }

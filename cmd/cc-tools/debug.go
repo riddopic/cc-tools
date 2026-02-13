@@ -30,35 +30,35 @@ func runDebugCommand() {
 	switch os.Args[2] {
 	case "enable":
 		if err := enableDebug(ctx, out, manager); err != nil {
-			out.Error("Error: %v", err)
+			_ = out.Error("Error: %v", err)
 			os.Exit(1)
 		}
 	case "disable":
 		if err := disableDebug(ctx, out, manager); err != nil {
-			out.Error("Error: %v", err)
+			_ = out.Error("Error: %v", err)
 			os.Exit(1)
 		}
 	case "status":
 		if err := showDebugStatus(ctx, out, manager); err != nil {
-			out.Error("Error: %v", err)
+			_ = out.Error("Error: %v", err)
 			os.Exit(1)
 		}
 	case listCommand:
 		if err := listDebugDirs(ctx, out, manager); err != nil {
-			out.Error("Error: %v", err)
+			_ = out.Error("Error: %v", err)
 			os.Exit(1)
 		}
 	case "filename":
 		showDebugFilename(out)
 	default:
-		out.Error("Unknown debug subcommand: %s", os.Args[2])
+		_ = out.Error("Unknown debug subcommand: %s", os.Args[2])
 		printDebugUsage(out)
 		os.Exit(1)
 	}
 }
 
 func printDebugUsage(out *output.Terminal) {
-	out.RawError(`Usage: cc-tools debug <subcommand>
+	_ = out.RawError(`Usage: cc-tools debug <subcommand>
 
 Subcommands:
   enable    Enable debug logging for the current directory
@@ -87,10 +87,10 @@ func enableDebug(ctx context.Context, out *output.Terminal, manager *debug.Manag
 		return fmt.Errorf("enable debug: %w", err)
 	}
 
-	out.Success("✓ Debug logging enabled for %s", dir)
-	out.Info("  Log file: %s", logFile)
+	_ = out.Success("✓ Debug logging enabled for %s", dir)
+	_ = out.Info("  Log file: %s", logFile)
 	_ = out.Write("")
-	out.Info("cc-tools-validate will write debug logs to this file.")
+	_ = out.Info("cc-tools-validate will write debug logs to this file.")
 
 	return nil
 }
@@ -105,7 +105,7 @@ func disableDebug(ctx context.Context, out *output.Terminal, manager *debug.Mana
 		return fmt.Errorf("disable debug: %w", disableErr)
 	}
 
-	out.Success("✓ Debug logging disabled for %s", dir)
+	_ = out.Success("✓ Debug logging disabled for %s", dir)
 
 	return nil
 }
@@ -135,7 +135,7 @@ func showDebugStatus(ctx context.Context, out *output.Terminal, manager *debug.M
 		table.AddRow([]string{"Status", "DISABLED"})
 	}
 
-	out.Info("Debug status for %s:", dir)
+	_ = out.Info("Debug status for %s:", dir)
 	_ = out.Write(table.Render())
 
 	return nil
@@ -148,7 +148,7 @@ func listDebugDirs(ctx context.Context, out *output.Terminal, manager *debug.Man
 	}
 
 	if len(dirs) == 0 {
-		out.Info("No directories have debug logging enabled")
+		_ = out.Info("No directories have debug logging enabled")
 		return nil
 	}
 
@@ -170,7 +170,7 @@ func listDebugDirs(ctx context.Context, out *output.Terminal, manager *debug.Man
 		})
 	}
 
-	out.Info("Directories with debug logging enabled:")
+	_ = out.Info("Directories with debug logging enabled:")
 	_ = out.Write(table.Render())
 
 	return nil
@@ -180,9 +180,9 @@ func showDebugFilename(out *output.Terminal) {
 	// Print the debug log filename for the current directory
 	wd, err := os.Getwd()
 	if err != nil {
-		out.Error("Error getting current directory: %v", err)
+		_ = out.Error("Error getting current directory: %v", err)
 		os.Exit(1)
 	}
-	out.Raw(shared.GetDebugLogPathForDir(wd))
-	out.Raw("\n")
+	_ = out.Raw(shared.GetDebugLogPathForDir(wd))
+	_ = out.Raw("\n")
 }

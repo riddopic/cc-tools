@@ -55,7 +55,7 @@ func executeMCPCommand(out *output.Terminal, subcommand string) int {
 	case "disable-all":
 		return handleMCPDisableAll(ctx, out, manager)
 	default:
-		out.Error("Unknown MCP subcommand: %s", subcommand)
+		_ = out.Error("Unknown MCP subcommand: %s", subcommand)
 		printMCPUsage(out)
 		return 1
 	}
@@ -63,7 +63,7 @@ func executeMCPCommand(out *output.Terminal, subcommand string) int {
 
 func handleMCPList(ctx context.Context, out *output.Terminal, manager *mcp.Manager) int {
 	if err := manager.List(ctx); err != nil {
-		out.Error("Error: %v", err)
+		_ = out.Error("Error: %v", err)
 		return 1
 	}
 	return 0
@@ -71,12 +71,12 @@ func handleMCPList(ctx context.Context, out *output.Terminal, manager *mcp.Manag
 
 func handleMCPEnable(ctx context.Context, out *output.Terminal, manager *mcp.Manager) int {
 	if len(os.Args) < mcpSubCmdArgs {
-		out.Error("Error: 'enable' requires an MCP name")
+		_ = out.Error("Error: 'enable' requires an MCP name")
 		printMCPUsage(out)
 		return 1
 	}
 	if err := manager.Enable(ctx, os.Args[3]); err != nil {
-		out.Error("Error: %v", err)
+		_ = out.Error("Error: %v", err)
 		return 1
 	}
 	return 0
@@ -84,12 +84,12 @@ func handleMCPEnable(ctx context.Context, out *output.Terminal, manager *mcp.Man
 
 func handleMCPDisable(ctx context.Context, out *output.Terminal, manager *mcp.Manager) int {
 	if len(os.Args) < mcpSubCmdArgs {
-		out.Error("Error: 'disable' requires an MCP name")
+		_ = out.Error("Error: 'disable' requires an MCP name")
 		printMCPUsage(out)
 		return 1
 	}
 	if err := manager.Disable(ctx, os.Args[3]); err != nil {
-		out.Error("Error: %v", err)
+		_ = out.Error("Error: %v", err)
 		return 1
 	}
 	return 0
@@ -97,7 +97,7 @@ func handleMCPDisable(ctx context.Context, out *output.Terminal, manager *mcp.Ma
 
 func handleMCPEnableAll(ctx context.Context, out *output.Terminal, manager *mcp.Manager) int {
 	if err := manager.EnableAll(ctx); err != nil {
-		out.Error("Error: %v", err)
+		_ = out.Error("Error: %v", err)
 		return 1
 	}
 	return 0
@@ -105,14 +105,14 @@ func handleMCPEnableAll(ctx context.Context, out *output.Terminal, manager *mcp.
 
 func handleMCPDisableAll(ctx context.Context, out *output.Terminal, manager *mcp.Manager) int {
 	if err := manager.DisableAll(ctx); err != nil {
-		out.Error("Error: %v", err)
+		_ = out.Error("Error: %v", err)
 		return 1
 	}
 	return 0
 }
 
 func printMCPUsage(out *output.Terminal) {
-	out.RawError(`cc-tools mcp - Manage Claude MCP servers
+	_ = out.RawError(`cc-tools mcp - Manage Claude MCP servers
 
 Usage:
   cc-tools mcp <subcommand> [arguments]
