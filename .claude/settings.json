@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "mcp__Ref",
+      "mcp__serena",
+      "mcp__augments",
+      "mcp__sequential-thinking",
+      "mcp__mcp-deepwiki",
+      "mcp__ide",
+      "mcp__context7",
+      "mcp__github",
+      "mcp__codex",
+      "mcp__firecrawl",
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "Bash(make lint:*)",
+      "Bash(make test:*)",
+      "Bash(make test-integration:*)",
+      "Bash(make test-race:*)",
+      "Bash(while read f)",
+      "Bash(done)",
+      "Bash(source:*)",
+      "Bash(chmod:*)",
+      "Bash(./scripts/validate_contracts.sh:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ],
+    "deny": [
+      "Read(./NOTES.md)",
+      "Read(./doc-site/**)"
+    ],
+    "defaultMode": "plan"
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "sequential-thinking",
+    "memory"
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/suggest-compact.js\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-commit-reminder.sh"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-compact.js\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-start.js\""
+          }
+        ]
+      },
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/start-superpowers.sh",
+            "async": false
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/bin/cc-tools-validate"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/sentinel"
+          },
+          {
+            "type": "command",
+            "command": "uv run \"${CLAUDE_PROJECT_DIR}/.claude/hooks/play_audio.py\""
+          },
+          {
+            "type": "command",
+            "command": "uv run \"${CLAUDE_PROJECT_DIR}/.claude/hooks/macos_notification.py\""
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/skills/continuous-learning/evaluate-session.sh"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/sentinel"
+          },
+          {
+            "type": "command",
+            "command": "uv run \"${CLAUDE_PROJECT_DIR}/.claude/hooks/play_audio.py\""
+          },
+          {
+            "type": "command",
+            "command": "uv run \"${CLAUDE_PROJECT_DIR}/.claude/hooks/macos_notification.py\""
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-end.js\""
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/evaluate-session.js\""
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "claude-mem@thedotmack": true
+  }
+}

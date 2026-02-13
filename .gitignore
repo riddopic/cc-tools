@@ -1,0 +1,123 @@
+# OS specific files
+.DS_Store
+
+# IDE and editor files
+.idea/
+#.vscode/
+**/.idea/
+*.swp
+*.swo
+
+# Build artifacts and binaries
+bin/
+build/
+dist/
+tmp/
+main
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+__debug_bin
+
+# Go build cache
+.gocache/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage/
+coverage.txt
+coverage.html
+go.work
+
+# Dependency directories
+vendor/
+
+# DO NOT ignore generated mocks - they are checked into version control
+# The following patterns are commented out to ensure mocks are committed:
+# **/mocks/
+# **/*_mock.go
+# **/mock_*.go
+
+# Temporary mock generation artifacts
+*.mockery.tmp
+.mockery-cache/
+.mockgen-cache/
+.mockcache/
+
+# Configuration and credentials
+.env
+.env.local
+.envrc
+
+# Claude Code user-specific settings
+.claude/settings.local.json
+.claude/plans/
+.claude/scratchpad/
+.claude/sessions/
+
+# Backup and temporary files
+*.backup
+analyze.json
+
+# Version file
+.version
+__debug_*
+
+# Serena cache
+.serena/cache/
+
+# Code Reviews
+docs/code-reviews/
+
+# Generated reports
+.reports/
+
+# Temporary files
+NOTES.md
+PROMPT.md
+AGENTS.md
+discovered_contracts.csv
+
+# Export command artifacts (leaked from tests)
+exploit_*.sol
+test_*.sol
+export_summary.json
+
+# Security runtime data
+internal/security/blacklist.db
+
+# Quanta storage and cache (user-specific analysis data)
+.quanta/
+.quanta
+
+# Task (taskfile.dev) checksum cache
+.task/
+
+# Regression baseline output directories (keep ground-truth JSON, ignore per-test results)
+baselines/post-boost-*/
+baselines/post-r*/
+baselines/pre-boost-*/
+
+# Foundry artifacts
+/cache/
+/out/
+/lib/
+foundry.lock
+/src/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Hugo documentation site artifacts
+.hugo_build.lock
+docs-site/public/
+docs-site/resources/
+public/
+
+.obsidian/

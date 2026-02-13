@@ -1,0 +1,19 @@
+{
+  "recommendations": [
+    "golang.go",
+    "usernamehw.errorlens",
+    "eamodio.gitlens",
+    "editorconfig.editorconfig",
+    "redhat.vscode-yaml",
+    "streetsidesoftware.code-spell-checker",
+    "davidanson.vscode-markdownlint",
+    "github.vscode-github-actions",
+    "tal7aouy.rainbow-bracket",
+    "IBM.output-colorizer",
+    "rangav.vscode-thunder-client",
+    "juanblanco.solidity",
+    "tamasfe.even-better-toml",
+    "timonwong.shellcheck"
+  ],
+  "unwantedRecommendations": []
+}
