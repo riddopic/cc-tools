@@ -1,4 +1,4 @@
-package shared
+package shared_test
 
 import (
 	"errors"
@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/riddopic/cc-tools/internal/shared"
 )
 
 // Mock implementations for testing.
@@ -33,7 +35,7 @@ func (m *mockFileSystem) Abs(path string) (string, error) {
 	if m.absFunc != nil {
 		return m.absFunc(path)
 	}
-	// Simple mock implementation
+	// Simple mock implementation.
 	if path == "" || path[0] != '/' {
 		return filepath.Join("/home/user/project", path), nil
 	}
@@ -57,204 +59,237 @@ func (m mockFileInfo) IsDir() bool        { return m.isDir }
 
 func (m mockFileInfo) Sys() any { return nil }
 
+// newMockFileInfo creates a mockFileInfo with all fields explicitly set.
+func newMockFileInfo(name string, isDir bool) mockFileInfo {
+	return mockFileInfo{
+		name:    name,
+		size:    0,
+		mode:    0,
+		modTime: time.Time{},
+		isDir:   isDir,
+	}
+}
+
+// newMockFS creates a mockFileSystem with all fields explicitly set.
+func newMockFS(
+	statFunc func(string) (os.FileInfo, error),
+	getwdFunc func() (string, error),
+	absFunc func(string) (string, error),
+) *mockFileSystem {
+	return &mockFileSystem{
+		statFunc:  statFunc,
+		getwdFunc: getwdFunc,
+		absFunc:   absFunc,
+	}
+}
+
+// identityAbs returns an Abs function that returns paths unchanged.
+func identityAbs() func(string) (string, error) {
+	return func(path string) (string, error) {
+		return path, nil
+	}
+}
+
+// assertFindProjectRoot validates a single FindProjectRoot test case.
+func assertFindProjectRoot(t *testing.T, startDir string, mockFS shared.FS, expected string, expectErr bool) {
+	t.Helper()
+
+	deps := &shared.Dependencies{FS: mockFS}
+	result, err := shared.FindProjectRoot(startDir, deps)
+
+	if expectErr {
+		if err == nil {
+			t.Errorf("expected error but got none")
+		}
+		return
+	}
+
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+		return
+	}
+
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
 func TestFindProjectRoot(t *testing.T) {
 	tests := []struct {
 		name      string
 		startDir  string
-		mockFS    *mockFileSystem
+		mockFS    shared.FS
 		expected  string
 		expectErr bool
 	}{
 		{
-			name:     "finds git project root",
-			startDir: "/home/user/project/src/nested",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/home/user/project/.git" {
-						return mockFileInfo{name: ".git", isDir: true}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-				absFunc: func(path string) (string, error) {
-					return path, nil
-				},
-			},
-			expected: "/home/user/project",
+			name:      "finds git project root",
+			startDir:  "/home/user/project/src/nested",
+			mockFS:    newMockFS(statForDir("/home/user/project/.git", ".git"), nil, identityAbs()),
+			expected:  "/home/user/project",
+			expectErr: false,
 		},
 		{
-			name:     "finds go.mod project root",
-			startDir: "/home/user/goproject/internal",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/home/user/goproject/go.mod" {
-						return mockFileInfo{name: "go.mod"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-				absFunc: func(path string) (string, error) {
-					return path, nil
-				},
-			},
-			expected: "/home/user/goproject",
+			name:      "finds go.mod project root",
+			startDir:  "/home/user/goproject/internal",
+			mockFS:    newMockFS(statForFile("/home/user/goproject/go.mod", "go.mod"), nil, identityAbs()),
+			expected:  "/home/user/goproject",
+			expectErr: false,
 		},
 		{
-			name:     "finds package.json project root",
-			startDir: "/home/user/jsproject/src",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/home/user/jsproject/package.json" {
-						return mockFileInfo{name: "package.json"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-				absFunc: func(path string) (string, error) {
-					return path, nil
-				},
-			},
-			expected: "/home/user/jsproject",
+			name:      "finds package.json project root",
+			startDir:  "/home/user/jsproject/src",
+			mockFS:    newMockFS(statForFile("/home/user/jsproject/package.json", "package.json"), nil, identityAbs()),
+			expected:  "/home/user/jsproject",
+			expectErr: false,
 		},
 		{
-			name:     "returns original dir when no root found",
-			startDir: "/tmp/no-project",
-			mockFS: &mockFileSystem{
-				statFunc: func(_ string) (os.FileInfo, error) {
-					return nil, os.ErrNotExist
-				},
-				absFunc: func(path string) (string, error) {
-					return path, nil
-				},
-			},
-			expected: "/tmp/no-project",
+			name:      "returns original dir when no root found",
+			startDir:  "/tmp/no-project",
+			mockFS:    newMockFS(nothingExists(), nil, identityAbs()),
+			expected:  "/tmp/no-project",
+			expectErr: false,
 		},
 		{
 			name:     "uses working dir when startDir is empty",
 			startDir: "",
-			mockFS: &mockFileSystem{
-				getwdFunc: func() (string, error) {
-					return "/home/user/current", nil
-				},
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/home/user/current/.git" {
-						return mockFileInfo{name: ".git", isDir: true}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-				absFunc: func(path string) (string, error) {
+			mockFS: newMockFS(
+				statForDir("/home/user/current/.git", ".git"),
+				func() (string, error) { return "/home/user/current", nil },
+				func(path string) (string, error) {
 					if path == "" {
 						return "/home/user/current", nil
 					}
 					return path, nil
 				},
-			},
-			expected: "/home/user/current",
+			),
+			expected:  "/home/user/current",
+			expectErr: false,
 		},
 		{
-			name:     "error getting working directory",
-			startDir: "",
-			mockFS: &mockFileSystem{
-				getwdFunc: func() (string, error) {
-					return "", errors.New("permission denied")
-				},
-			},
+			name:      "error getting working directory",
+			startDir:  "",
+			mockFS:    newMockFS(nil, failingGetwd("permission denied"), nil),
+			expected:  "",
 			expectErr: true,
 		},
 		{
-			name:     "error getting absolute path",
-			startDir: "relative/path",
-			mockFS: &mockFileSystem{
-				absFunc: func(_ string) (string, error) {
-					return "", errors.New("invalid path")
-				},
-			},
+			name:      "error getting absolute path",
+			startDir:  "relative/path",
+			mockFS:    newMockFS(nil, nil, failingAbs("invalid path")),
+			expected:  "",
 			expectErr: true,
 		},
 		{
-			name:     "finds Makefile project root",
-			startDir: "/home/user/makeproject/src",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/home/user/makeproject/Makefile" {
-						return mockFileInfo{name: "Makefile"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-				absFunc: func(path string) (string, error) {
-					return path, nil
-				},
-			},
-			expected: "/home/user/makeproject",
+			name:      "finds Makefile project root",
+			startDir:  "/home/user/makeproject/src",
+			mockFS:    newMockFS(statForFile("/home/user/makeproject/Makefile", "Makefile"), nil, identityAbs()),
+			expected:  "/home/user/makeproject",
+			expectErr: false,
 		},
 		{
-			name:     "finds justfile project root (lowercase)",
-			startDir: "/home/user/justproject/src",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/home/user/justproject/justfile" {
-						return mockFileInfo{name: "justfile"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-				absFunc: func(path string) (string, error) {
-					return path, nil
-				},
-			},
-			expected: "/home/user/justproject",
+			name:      "finds justfile project root (lowercase)",
+			startDir:  "/home/user/justproject/src",
+			mockFS:    newMockFS(statForFile("/home/user/justproject/justfile", "justfile"), nil, identityAbs()),
+			expected:  "/home/user/justproject",
+			expectErr: false,
 		},
 		{
-			name:     "finds Cargo.toml project root",
-			startDir: "/home/user/rustproject/src",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/home/user/rustproject/Cargo.toml" {
-						return mockFileInfo{name: "Cargo.toml"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-				absFunc: func(path string) (string, error) {
-					return path, nil
-				},
-			},
-			expected: "/home/user/rustproject",
+			name:     "finds Taskfile.yml project root",
+			startDir: "/home/user/taskproject/src",
+			mockFS: newMockFS(
+				statForFile("/home/user/taskproject/Taskfile.yml", "Taskfile.yml"),
+				nil,
+				identityAbs(),
+			),
+			expected:  "/home/user/taskproject",
+			expectErr: false,
+		},
+		{
+			name:      "finds Cargo.toml project root",
+			startDir:  "/home/user/rustproject/src",
+			mockFS:    newMockFS(statForFile("/home/user/rustproject/Cargo.toml", "Cargo.toml"), nil, identityAbs()),
+			expected:  "/home/user/rustproject",
+			expectErr: false,
 		},
 		{
 			name:     "finds pyproject.toml project root",
 			startDir: "/home/user/pythonproject/lib",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/home/user/pythonproject/pyproject.toml" {
-						return mockFileInfo{name: "pyproject.toml"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-				absFunc: func(path string) (string, error) {
-					return path, nil
-				},
-			},
-			expected: "/home/user/pythonproject",
+			mockFS: newMockFS(
+				statForFile("/home/user/pythonproject/pyproject.toml", "pyproject.toml"),
+				nil,
+				identityAbs(),
+			),
+			expected:  "/home/user/pythonproject",
+			expectErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			deps := &Dependencies{FS: tt.mockFS}
-			result, err := FindProjectRoot(tt.startDir, deps)
-
-			if tt.expectErr {
-				if err == nil {
-					t.Errorf("expected error but got none")
-				}
-				return
-			}
-
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-				return
-			}
-
-			if result != tt.expected {
-				t.Errorf("expected %q, got %q", tt.expected, result)
-			}
+			assertFindProjectRoot(t, tt.startDir, tt.mockFS, tt.expected, tt.expectErr)
 		})
+	}
+}
+
+// assertDetectProjectType validates a single DetectProjectType test case.
+func assertDetectProjectType(t *testing.T, projectDir string, mockFS shared.FS, expected []string) {
+	t.Helper()
+
+	deps := &shared.Dependencies{FS: mockFS}
+	result := shared.DetectProjectType(projectDir, deps)
+
+	if len(result) != len(expected) {
+		t.Errorf("expected %v, got %v", expected, result)
+		return
+	}
+
+	for i := range result {
+		if result[i] != expected[i] {
+			t.Errorf("expected %v, got %v", expected, result)
+			return
+		}
+	}
+}
+
+// statForFile returns a stat function that recognizes only the given path as a file.
+func statForFile(matchPath, fileName string) func(string) (os.FileInfo, error) {
+	return func(name string) (os.FileInfo, error) {
+		if name == matchPath {
+			return newMockFileInfo(fileName, false), nil
+		}
+		return nil, os.ErrNotExist
+	}
+}
+
+// statForDir returns a stat function that recognizes only the given path as a directory.
+func statForDir(matchPath, dirName string) func(string) (os.FileInfo, error) {
+	return func(name string) (os.FileInfo, error) {
+		if name == matchPath {
+			return newMockFileInfo(dirName, true), nil
+		}
+		return nil, os.ErrNotExist
+	}
+}
+
+// nothingExists returns a stat function where no files exist.
+func nothingExists() func(string) (os.FileInfo, error) {
+	return func(_ string) (os.FileInfo, error) {
+		return nil, os.ErrNotExist
+	}
+}
+
+// failingGetwd returns a Getwd function that always returns an error.
+func failingGetwd(msg string) func() (string, error) {
+	return func() (string, error) {
+		return "", errors.New(msg)
+	}
+}
+
+// failingAbs returns an Abs function that always returns an error.
+func failingAbs(msg string) func(string) (string, error) {
+	return func(_ string) (string, error) {
+		return "", errors.New(msg)
 	}
 }
 
@@ -262,198 +297,112 @@ func TestDetectProjectType(t *testing.T) {
 	tests := []struct {
 		name       string
 		projectDir string
-		mockFS     *mockFileSystem
+		mockFS     shared.FS
 		expected   []string
 	}{
 		{
 			name:       "go project with go.mod",
 			projectDir: "/project",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/project/go.mod" {
-						return mockFileInfo{name: "go.mod"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-			},
-			expected: []string{"go"},
+			mockFS:     newMockFS(statForFile("/project/go.mod", "go.mod"), nil, nil),
+			expected:   []string{"go"},
 		},
 		{
 			name:       "go project with go.sum",
 			projectDir: "/project",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/project/go.sum" {
-						return mockFileInfo{name: "go.sum"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-			},
-			expected: []string{"go"},
+			mockFS:     newMockFS(statForFile("/project/go.sum", "go.sum"), nil, nil),
+			expected:   []string{"go"},
 		},
 		{
 			name:       "python project with pyproject.toml",
 			projectDir: "/project",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/project/pyproject.toml" {
-						return mockFileInfo{name: "pyproject.toml"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-			},
-			expected: []string{"python"},
+			mockFS:     newMockFS(statForFile("/project/pyproject.toml", "pyproject.toml"), nil, nil),
+			expected:   []string{"python"},
 		},
 		{
 			name:       "python project with setup.py",
 			projectDir: "/project",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/project/setup.py" {
-						return mockFileInfo{name: "setup.py"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-			},
-			expected: []string{"python"},
+			mockFS:     newMockFS(statForFile("/project/setup.py", "setup.py"), nil, nil),
+			expected:   []string{"python"},
 		},
 		{
 			name:       "python project with requirements.txt",
 			projectDir: "/project",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/project/requirements.txt" {
-						return mockFileInfo{name: "requirements.txt"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-			},
-			expected: []string{"python"},
+			mockFS:     newMockFS(statForFile("/project/requirements.txt", "requirements.txt"), nil, nil),
+			expected:   []string{"python"},
 		},
 		{
 			name:       "javascript project with package.json",
 			projectDir: "/project",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/project/package.json" {
-						return mockFileInfo{name: "package.json"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-			},
-			expected: []string{"javascript"},
+			mockFS:     newMockFS(statForFile("/project/package.json", "package.json"), nil, nil),
+			expected:   []string{"javascript"},
 		},
 		{
 			name:       "typescript project with tsconfig.json",
 			projectDir: "/project",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/project/tsconfig.json" {
-						return mockFileInfo{name: "tsconfig.json"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-			},
-			expected: []string{"javascript"},
+			mockFS:     newMockFS(statForFile("/project/tsconfig.json", "tsconfig.json"), nil, nil),
+			expected:   []string{"javascript"},
 		},
 		{
 			name:       "rust project",
 			projectDir: "/project",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/project/Cargo.toml" {
-						return mockFileInfo{name: "Cargo.toml"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-			},
-			expected: []string{"rust"},
+			mockFS:     newMockFS(statForFile("/project/Cargo.toml", "Cargo.toml"), nil, nil),
+			expected:   []string{"rust"},
 		},
 		{
 			name:       "nix project with flake.nix",
 			projectDir: "/project",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/project/flake.nix" {
-						return mockFileInfo{name: "flake.nix"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-			},
-			expected: []string{"nix"},
+			mockFS:     newMockFS(statForFile("/project/flake.nix", "flake.nix"), nil, nil),
+			expected:   []string{"nix"},
 		},
 		{
 			name:       "nix project with default.nix",
 			projectDir: "/project",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/project/default.nix" {
-						return mockFileInfo{name: "default.nix"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-			},
-			expected: []string{"nix"},
+			mockFS:     newMockFS(statForFile("/project/default.nix", "default.nix"), nil, nil),
+			expected:   []string{"nix"},
 		},
 		{
 			name:       "nix project with shell.nix",
 			projectDir: "/project",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/project/shell.nix" {
-						return mockFileInfo{name: "shell.nix"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-			},
-			expected: []string{"nix"},
+			mockFS:     newMockFS(statForFile("/project/shell.nix", "shell.nix"), nil, nil),
+			expected:   []string{"nix"},
 		},
 		{
 			name:       "multi-language project",
 			projectDir: "/project",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
+			mockFS: newMockFS(
+				func(name string) (os.FileInfo, error) {
 					switch name {
 					case "/project/go.mod":
-						return mockFileInfo{name: "go.mod"}, nil
+						return newMockFileInfo("go.mod", false), nil
 					case "/project/package.json":
-						return mockFileInfo{name: "package.json"}, nil
+						return newMockFileInfo("package.json", false), nil
 					case "/project/requirements.txt":
-						return mockFileInfo{name: "requirements.txt"}, nil
+						return newMockFileInfo("requirements.txt", false), nil
 					}
 					return nil, os.ErrNotExist
 				},
-			},
+				nil,
+				nil,
+			),
 			expected: []string{"go", "python", "javascript"},
 		},
 		{
 			name:       "unknown project type",
 			projectDir: "/project",
-			mockFS: &mockFileSystem{
-				statFunc: func(_ string) (os.FileInfo, error) {
+			mockFS: newMockFS(
+				func(_ string) (os.FileInfo, error) {
 					return nil, os.ErrNotExist
 				},
-			},
+				nil,
+				nil,
+			),
 			expected: []string{"unknown"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			deps := &Dependencies{FS: tt.mockFS}
-			result := DetectProjectType(tt.projectDir, deps)
-
-			if len(result) != len(tt.expected) {
-				t.Errorf("expected %v, got %v", tt.expected, result)
-				return
-			}
-
-			for i := range result {
-				if result[i] != tt.expected[i] {
-					t.Errorf("expected %v, got %v", tt.expected, result)
-					return
-				}
-			}
+			assertDetectProjectType(t, tt.projectDir, tt.mockFS, tt.expected)
 		})
 	}
 }
@@ -462,64 +411,45 @@ func TestGetPackageManager(t *testing.T) {
 	tests := []struct {
 		name       string
 		projectDir string
-		mockFS     *mockFileSystem
+		mockFS     shared.FS
 		expected   string
 	}{
 		{
 			name:       "yarn project",
 			projectDir: "/project",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/project/yarn.lock" {
-						return mockFileInfo{name: "yarn.lock"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-			},
-			expected: "yarn",
+			mockFS:     newMockFS(statForFile("/project/yarn.lock", "yarn.lock"), nil, nil),
+			expected:   "yarn",
 		},
 		{
 			name:       "pnpm project",
 			projectDir: "/project",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/project/pnpm-lock.yaml" {
-						return mockFileInfo{name: "pnpm-lock.yaml"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-			},
-			expected: "pnpm",
+			mockFS:     newMockFS(statForFile("/project/pnpm-lock.yaml", "pnpm-lock.yaml"), nil, nil),
+			expected:   "pnpm",
 		},
 		{
 			name:       "bun project",
 			projectDir: "/project",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/project/bun.lockb" {
-						return mockFileInfo{name: "bun.lockb"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-			},
-			expected: "bun",
+			mockFS:     newMockFS(statForFile("/project/bun.lockb", "bun.lockb"), nil, nil),
+			expected:   "bun",
 		},
 		{
 			name:       "npm project (default)",
 			projectDir: "/project",
-			mockFS: &mockFileSystem{
-				statFunc: func(_ string) (os.FileInfo, error) {
+			mockFS: newMockFS(
+				func(_ string) (os.FileInfo, error) {
 					return nil, os.ErrNotExist
 				},
-			},
+				nil,
+				nil,
+			),
 			expected: "npm",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			deps := &Dependencies{FS: tt.mockFS}
-			result := GetPackageManager(tt.projectDir, deps)
+			deps := &shared.Dependencies{FS: tt.mockFS}
+			result := shared.GetPackageManager(tt.projectDir, deps)
 
 			if result != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, result)
@@ -534,7 +464,7 @@ func TestShouldSkipFile(t *testing.T) {
 		filePath string
 		expected bool
 	}{
-		// Skip patterns
+		// Skip patterns.
 		{"vendor directory", "/project/vendor/github.com/lib/file.go", true},
 		{"node_modules", "/project/node_modules/package/index.js", true},
 		{"build directory", "/project/build/output.js", true},
@@ -545,7 +475,7 @@ func TestShouldSkipFile(t *testing.T) {
 		{"rust target", "/project/target/release/binary", true},
 		{"next.js cache", "/project/.next/static/chunks/main.js", true},
 
-		// Test files
+		// Test files.
 		{"go test file", "/project/main_test.go", true},
 		{"python test file", "/project/test_module_test.py", true},
 		{"js test file", "/project/component.test.js", true},
@@ -557,13 +487,13 @@ func TestShouldSkipFile(t *testing.T) {
 		{"jsx spec file", "/project/component.spec.jsx", true},
 		{"tsx spec file", "/project/component.spec.tsx", true},
 
-		// Generated files
+		// Generated files.
 		{"generated go file", "/project/api.generated.go", true},
 		{"protobuf go file", "/project/service.pb.go", true},
 		{"gen go file", "/project/models.gen.go", true},
 		{"underscore gen go file", "/project/types_gen.go", true},
 
-		// Should not skip
+		// Should not skip.
 		{"regular go file", "/project/main.go", false},
 		{"regular js file", "/project/index.js", false},
 		{"regular py file", "/project/module.py", false},
@@ -574,7 +504,7 @@ func TestShouldSkipFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ShouldSkipFile(tt.filePath)
+			result := shared.ShouldSkipFile(tt.filePath)
 			if result != tt.expected {
 				t.Errorf("ShouldSkipFile(%q) = %v, expected %v", tt.filePath, result, tt.expected)
 			}
@@ -584,22 +514,24 @@ func TestShouldSkipFile(t *testing.T) {
 
 func TestProjectHelper(t *testing.T) {
 	t.Run("NewProjectHelper with nil deps", func(t *testing.T) {
-		helper := NewProjectHelper(nil)
+		helper := shared.NewProjectHelper(nil)
 		if helper == nil {
 			t.Fatal("expected non-nil helper")
 		}
-		if helper.deps == nil {
+		if helper.ProjectHelperDeps() == nil {
 			t.Error("expected non-nil deps")
 		}
 	})
 
 	t.Run("NewProjectHelper with deps", func(t *testing.T) {
-		deps := &Dependencies{FS: &mockFileSystem{}}
-		helper := NewProjectHelper(deps)
+		deps := &shared.Dependencies{
+			FS: newMockFS(nil, nil, nil),
+		}
+		helper := shared.NewProjectHelper(deps)
 		if helper == nil {
 			t.Fatal("expected non-nil helper")
 		}
-		if helper.deps != deps {
+		if helper.ProjectHelperDeps() != deps {
 			t.Error("expected same deps")
 		}
 	})
@@ -609,48 +541,45 @@ func TestFileExistsWithDeps(t *testing.T) {
 	tests := []struct {
 		name     string
 		path     string
-		mockFS   *mockFileSystem
+		mockFS   shared.FS
 		expected bool
 	}{
 		{
-			name: "file exists",
-			path: "/project/file.txt",
-			mockFS: &mockFileSystem{
-				statFunc: func(name string) (os.FileInfo, error) {
-					if name == "/project/file.txt" {
-						return mockFileInfo{name: "file.txt"}, nil
-					}
-					return nil, os.ErrNotExist
-				},
-			},
+			name:     "file exists",
+			path:     "/project/file.txt",
+			mockFS:   newMockFS(statForFile("/project/file.txt", "file.txt"), nil, nil),
 			expected: true,
 		},
 		{
 			name: "file does not exist",
 			path: "/project/missing.txt",
-			mockFS: &mockFileSystem{
-				statFunc: func(_ string) (os.FileInfo, error) {
+			mockFS: newMockFS(
+				func(_ string) (os.FileInfo, error) {
 					return nil, os.ErrNotExist
 				},
-			},
+				nil,
+				nil,
+			),
 			expected: false,
 		},
 		{
 			name: "permission error treated as not exists",
 			path: "/project/forbidden.txt",
-			mockFS: &mockFileSystem{
-				statFunc: func(_ string) (os.FileInfo, error) {
+			mockFS: newMockFS(
+				func(_ string) (os.FileInfo, error) {
 					return nil, os.ErrPermission
 				},
-			},
+				nil,
+				nil,
+			),
 			expected: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			deps := &Dependencies{FS: tt.mockFS}
-			result := fileExists(tt.path, deps)
+			deps := &shared.Dependencies{FS: tt.mockFS}
+			result := shared.ExportFileExists(tt.path, deps)
 			if result != tt.expected {
 				t.Errorf("expected %v, got %v", tt.expected, result)
 			}
@@ -659,15 +588,15 @@ func TestFileExistsWithDeps(t *testing.T) {
 }
 
 func TestFileExists(t *testing.T) {
-	// Test convenience wrapper - just ensure it doesn't panic
-	result := fileExists("/probably/nonexistent/file.txt", nil)
+	// Test convenience wrapper - just ensure it doesn't panic.
+	result := shared.ExportFileExists("/probably/nonexistent/file.txt", nil)
 	if result {
 		t.Log("Unexpectedly found file /probably/nonexistent/file.txt")
 	}
 }
 
 func TestNewDefaultDependencies(t *testing.T) {
-	deps := NewDefaultDependencies()
+	deps := shared.NewDefaultDependencies()
 	if deps == nil {
 		t.Fatal("expected non-nil dependencies")
 	}
@@ -675,7 +604,7 @@ func TestNewDefaultDependencies(t *testing.T) {
 		t.Fatal("expected non-nil filesystem")
 	}
 
-	// Test that the real filesystem implementation works
+	// Test that the real filesystem implementation works.
 	_, err := deps.FS.Getwd()
 	if err != nil {
 		t.Errorf("Getwd failed: %v", err)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 )
 
 // SkipType represents what type of operations to skip.
@@ -82,12 +83,7 @@ func expandSkipType(skipType SkipType) []SkipType {
 
 // containsSkipType checks if a slice contains a specific skip type.
 func containsSkipType(types []SkipType, target SkipType) bool {
-	for _, t := range types {
-		if t == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(types, target)
 }
 
 // removeSkipType removes a skip type from a slice.

@@ -132,8 +132,8 @@ func runValidate() {
 func debugLog() {
 	// Create or append to debug log file for current directory
 	debugFile := getDebugLogPath()
-	//nolint:gosec // Debug log file path is controlled
-	f, err := os.OpenFile(debugFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+
+	f, err := os.OpenFile(debugFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return // Silently fail if we can't write debug log
 	}
@@ -151,7 +151,7 @@ func debugLog() {
 			// Create a new reader from the data we just read
 			// This will be used by the actual commands
 			// Actually, we need to pipe it back - create a temp file
-			if tmpFile, tmpErr := os.CreateTemp("", "cc-tools-stdin-"); tmpErr == nil { //nolint:forbidigo // Debug temp file
+			if tmpFile, tmpErr := os.CreateTemp("", "cc-tools-stdin-"); tmpErr == nil {
 				_, _ = tmpFile.Write(stdinDebugData)
 				_, _ = tmpFile.Seek(0, 0)
 				os.Stdin = tmpFile //nolint:reassign // Resetting stdin for subsequent reads

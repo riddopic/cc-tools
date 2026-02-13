@@ -4,6 +4,7 @@ package output
 import (
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -32,6 +33,7 @@ type Writer interface {
 
 // Terminal provides beautiful terminal output using lipgloss.
 type Terminal struct {
+	mu     sync.Mutex
 	stdout io.Writer
 	stderr io.Writer
 	styles map[Level]lipgloss.Style
@@ -40,6 +42,7 @@ type Terminal struct {
 // NewTerminal creates a new Terminal with default styling.
 func NewTerminal(stdout, stderr io.Writer) *Terminal {
 	return &Terminal{
+		mu:     sync.Mutex{},
 		stdout: stdout,
 		stderr: stderr,
 		styles: defaultStyles(),
@@ -59,6 +62,9 @@ func defaultStyles() map[Level]lipgloss.Style {
 
 // Write writes a plain message to stdout.
 func (t *Terminal) Write(message string) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	_, err := fmt.Fprintln(t.stdout, message)
 	if err != nil {
 		return fmt.Errorf("write to stdout: %w", err)
@@ -68,6 +74,9 @@ func (t *Terminal) Write(message string) error {
 
 // WriteError writes a plain message to stderr.
 func (t *Terminal) WriteError(message string) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	_, err := fmt.Fprintln(t.stderr, message)
 	if err != nil {
 		return fmt.Errorf("write to stderr: %w", err)
@@ -116,6 +125,9 @@ func (t *Terminal) Debug(format string, args ...any) error {
 
 // Raw writes a raw string without any formatting to stdout.
 func (t *Terminal) Raw(s string) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	if _, err := fmt.Fprint(t.stdout, s); err != nil {
 		return fmt.Errorf("write raw to stdout: %w", err)
 	}
@@ -124,6 +136,9 @@ func (t *Terminal) Raw(s string) error {
 
 // RawError writes a raw string without any formatting to stderr.
 func (t *Terminal) RawError(s string) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	if _, err := fmt.Fprint(t.stderr, s); err != nil {
 		return fmt.Errorf("write raw to stderr: %w", err)
 	}

@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
 
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/riddopic/cc-tools/internal/config"
 	"github.com/riddopic/cc-tools/internal/output"
 )
@@ -111,7 +113,7 @@ func handleConfigGet(ctx context.Context, out *output.Terminal, manager *config.
 		for _, k := range keys {
 			_ = out.Info("  %s", k)
 		}
-		return fmt.Errorf("key not found")
+		return errors.New("key not found")
 	}
 
 	_ = out.Raw(fmt.Sprintf("%v\n", value))

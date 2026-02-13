@@ -64,6 +64,11 @@ func (cd *CommandDiscovery) DiscoverCommand(
 			return cmd, nil
 		}
 
+		// Check for Taskfile
+		if cmd := cd.checkTaskfile(ctx, currentDir, cmdType); cmd != nil {
+			return cmd, nil
+		}
+
 		// Check for justfile
 		if cmd := cd.checkJustfile(ctx, currentDir, cmdType); cmd != nil {
 			return cmd, nil
@@ -126,6 +131,39 @@ func (cd *CommandDiscovery) checkMakefile(
 				Args:       []string{target},
 				WorkingDir: dir,
 				Source:     makefile,
+			}
+		}
+	}
+
+	return nil
+}
+
+// checkTaskfile checks for Taskfile tasks.
+func (cd *CommandDiscovery) checkTaskfile(
+	ctx context.Context,
+	dir string,
+	cmdType CommandType,
+) *DiscoveredCommand {
+	taskfiles := []string{"Taskfile.yml", "Taskfile.yaml"}
+
+	for _, taskfile := range taskfiles {
+		path := filepath.Join(dir, taskfile)
+		if _, err := cd.deps.FS.Stat(path); err != nil {
+			continue
+		}
+
+		task := string(cmdType)
+		// Check if task exists using task --dry
+		timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(cd.timeout)*time.Second)
+		_, err := cd.deps.Runner.RunContext(timeoutCtx, dir, "task", "--taskfile", path, "--dry", task)
+		cancel()
+		if err == nil {
+			return &DiscoveredCommand{
+				Type:       cmdType,
+				Command:    "task",
+				Args:       []string{task},
+				WorkingDir: dir,
+				Source:     taskfile,
 			}
 		}
 	}
@@ -213,7 +251,7 @@ func (cd *CommandDiscovery) checkScriptsDir(
 	}
 
 	// Check if it's executable
-	if info.Mode()&0111 == 0 {
+	if info.Mode()&0o111 == 0 {
 		return nil
 	}
 

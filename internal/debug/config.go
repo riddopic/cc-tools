@@ -29,8 +29,9 @@ type Manager struct {
 func NewManager() *Manager {
 	configPath := filepath.Join(getConfigDir(), "debug-config.json")
 	return &Manager{
-		filepath: configPath,
+		mu:       sync.RWMutex{},
 		config:   &Config{EnabledDirs: make(map[string]bool)},
+		filepath: configPath,
 	}
 }
 
@@ -75,14 +76,14 @@ func (m *Manager) Save(_ context.Context) error {
 	}
 
 	dir := filepath.Dir(m.filepath)
-	if mkdirErr := os.MkdirAll(dir, 0750); mkdirErr != nil {
+	if mkdirErr := os.MkdirAll(dir, 0o750); mkdirErr != nil {
 		return fmt.Errorf("create config dir: %w", mkdirErr)
 	}
 
 	data = append(data, '\n')
 
 	tempFile := m.filepath + ".tmp"
-	if writeErr := os.WriteFile(tempFile, data, 0600); writeErr != nil {
+	if writeErr := os.WriteFile(tempFile, data, 0o600); writeErr != nil {
 		return fmt.Errorf("write temp file: %w", writeErr)
 	}
 

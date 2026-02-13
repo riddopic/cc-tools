@@ -452,6 +452,12 @@ linters:
       - text: 'comment on exported \S+ \S+ should be of the form ".+"'
         source: "// ?(nolint|TODO)"
         linters: [revive, staticcheck]
+      - path: 'export_test\.go'
+        text: "var-naming: avoid package names that conflict with Go standard library"
+        linters: [revive]
+      - path: 'internal/shared/'
+        text: "var-naming: avoid meaningless package names"
+        linters: [revive]
       - path: '_test\.go'
         linters:
           - bodyclose

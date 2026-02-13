@@ -2,7 +2,7 @@ package shared
 
 // Dependencies holds all external dependencies for the shared package.
 type Dependencies struct {
-	FS SharedFS
+	FS FS
 }
 
 // NewDefaultDependencies creates production dependencies.

@@ -1,4 +1,4 @@
-package config
+package config_test
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/riddopic/cc-tools/internal/config"
 )
 
 func TestLoadFromJSON(t *testing.T) {
@@ -43,7 +45,7 @@ func TestLoadFromJSON(t *testing.T) {
 	}
 
 	// Load config
-	cfg, err := Load()
+	cfg, err := config.Load()
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
@@ -65,7 +67,7 @@ func TestLoadDefaults(t *testing.T) {
 	tempDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tempDir, "nonexistent"))
 
-	cfg, err := Load()
+	cfg, err := config.Load()
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
@@ -86,7 +88,7 @@ func TestLoadDelegatesToManager(t *testing.T) {
 
 	// Use manager to set some values
 	ctx := context.Background()
-	manager := NewManager()
+	manager := config.NewManager()
 	if err := manager.EnsureConfig(ctx); err != nil {
 		t.Fatalf("Failed to ensure config: %v", err)
 	}
@@ -104,7 +106,7 @@ func TestLoadDelegatesToManager(t *testing.T) {
 	}
 
 	// Load via the public Load() function
-	cfg, err := Load()
+	cfg, err := config.Load()
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}

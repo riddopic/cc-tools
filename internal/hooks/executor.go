@@ -52,8 +52,12 @@ func NewCommandExecutor(timeoutSecs int, debug bool, deps *Dependencies) *Comman
 func (ce *CommandExecutor) Execute(ctx context.Context, cmd *DiscoveredCommand) *ExecutorResult {
 	if cmd == nil {
 		return &ExecutorResult{
-			Success: false,
-			Error:   fmt.Errorf("no command to execute"),
+			Success:  false,
+			ExitCode: 0,
+			Stdout:   "",
+			Stderr:   "",
+			Error:    errors.New("no command to execute"),
+			TimedOut: false,
 		}
 	}
 
@@ -171,9 +175,9 @@ func logHookStart(logger *debuglog.Logger, hookType CommandType, timeoutSecs, co
 	}
 	cwd, _ := os.Getwd()
 	logger.LogSection(fmt.Sprintf("Starting %s hook", hookType))
-	logger.Log("Working directory: %s", cwd)
-	logger.Log("Timeout: %d seconds", timeoutSecs)
-	logger.Log("Cooldown: %d seconds", cooldownSecs)
+	logger.Logf("Working directory: %s", cwd)
+	logger.Logf("Timeout: %d seconds", timeoutSecs)
+	logger.Logf("Cooldown: %d seconds", cooldownSecs)
 }
 
 // processHookInput reads and validates the hook input.
@@ -188,20 +192,20 @@ func processHookInput(deps *Dependencies, logger *debuglog.Logger, debug bool) (
 	}
 
 	if logger != nil && logger.IsEnabled() && input != nil {
-		logger.Log("Hook event: %s", input.HookEventName)
-		logger.Log("Tool name: %s", input.ToolName)
+		logger.Logf("Hook event: %s", input.HookEventName)
+		logger.Logf("Tool name: %s", input.ToolName)
 	}
 
 	filePath, shouldProcess := validateHookEvent(input, debug, deps.Stderr)
 	if !shouldProcess {
 		if logger != nil && logger.IsEnabled() {
-			logger.Log("Event validation failed, not processing")
+			logger.Logf("Event validation failed, not processing")
 		}
 		return input, "", false
 	}
 
 	if logger != nil && logger.IsEnabled() {
-		logger.Log("Processing file: %s", filePath)
+		logger.Logf("Processing file: %s", filePath)
 	}
 
 	return input, filePath, true
@@ -238,7 +242,7 @@ func RunSmartHook(
 	// Check if file should be skipped
 	if shared.ShouldSkipFile(filePath) {
 		if logger != nil && logger.IsEnabled() {
-			logger.Log("File skipped by filter: %s", filePath)
+			logger.Logf("File skipped by filter: %s", filePath)
 		}
 		return 0
 	}
@@ -257,7 +261,7 @@ func RunSmartHook(
 	}
 
 	if logger != nil && logger.IsEnabled() {
-		logger.Log("Project root: %s", projectRoot)
+		logger.Logf("Project root: %s", projectRoot)
 	}
 
 	// Acquire lock
@@ -316,7 +320,7 @@ func acquireLock(lockMgr *LockManager, debug bool, stderr OutputWriter, logger *
 	}
 	if !acquired {
 		if logger != nil && logger.IsEnabled() {
-			logger.Log("Another instance is running or in cooldown")
+			logger.Logf("Another instance is running or in cooldown")
 		}
 		if debug {
 			_, _ = fmt.Fprintf(stderr, "Another instance is running or in cooldown\n")
@@ -324,7 +328,7 @@ func acquireLock(lockMgr *LockManager, debug bool, stderr OutputWriter, logger *
 		return false
 	}
 	if logger != nil && logger.IsEnabled() {
-		logger.Log("Lock acquired successfully")
+		logger.Logf("Lock acquired successfully")
 	}
 	return true
 }
@@ -356,7 +360,7 @@ func discoverCommand(
 
 	if cmd == nil {
 		if logger != nil && logger.IsEnabled() {
-			logger.Log("No %s command found", hookType)
+			logger.Logf("No %s command found", hookType)
 		}
 		if debug {
 			_, _ = fmt.Fprintf(deps.Stderr, "No %s command found\n", hookType)
@@ -390,9 +394,9 @@ func executeCommand(
 	exitCode, message := executor.ExecuteForHook(ctx, cmd, hookType)
 
 	if logger != nil && logger.IsEnabled() {
-		logger.Log("Exit code: %d", exitCode)
+		logger.Logf("Exit code: %d", exitCode)
 		if message != "" {
-			logger.Log("Message: %s", message)
+			logger.Logf("Message: %s", message)
 		}
 	}
 

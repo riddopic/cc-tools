@@ -1,4 +1,4 @@
-package mcp
+package mcp_test
 
 import (
 	"bytes"
@@ -7,35 +7,35 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/riddopic/cc-tools/internal/mcp"
 	"github.com/riddopic/cc-tools/internal/output"
 )
 
-// MockCommandExecutor is a mock implementation of CommandExecutor for testing.
-type MockCommandExecutor struct {
+// mockCommandExecutor is a mock implementation of [mcp.CommandExecutor] for testing.
+type mockCommandExecutor struct {
 	capturedCmd  string
 	capturedArgs []string
 	mockOutput   string
 	shouldFail   bool
-	// For more complex tests that need varying responses
-	commandHandler func(name string, args []string) *exec.Cmd
+	// commandHandler provides varying responses for complex tests.
+	commandHandler func(_ string, args []string) *exec.Cmd
 }
 
-// CommandContext captures the command and returns a mock exec.Cmd.
-func (m *MockCommandExecutor) CommandContext(ctx context.Context, name string, args ...string) *exec.Cmd {
+// CommandContext captures the command and returns a mock [exec.Cmd].
+func (m *mockCommandExecutor) CommandContext(_ context.Context, name string, args ...string) *exec.Cmd {
 	m.capturedCmd = name
 	m.capturedArgs = args
 
-	// If a custom handler is set, use it
 	if m.commandHandler != nil {
 		return m.commandHandler(name, args)
 	}
 
 	if m.shouldFail {
 		if m.mockOutput != "" {
-			// Create a command that outputs our mock message and fails
 			return exec.Command("sh", "-c", "echo '"+m.mockOutput+"' && false")
 		}
 		return exec.Command("false")
@@ -48,47 +48,61 @@ func (m *MockCommandExecutor) CommandContext(ctx context.Context, name string, a
 
 func TestNewManager(t *testing.T) {
 	out := output.NewTerminal(&bytes.Buffer{}, &bytes.Buffer{})
-	m := NewManager(out)
+	m := mcp.NewManager(out)
 
-	if m.settingsPath == "" {
+	settingsPath := mcp.ManagerSettingsPath(m)
+	if settingsPath == "" {
 		t.Error("settingsPath should not be empty")
 	}
-
-	if !strings.Contains(m.settingsPath, "settings.json") {
-		t.Errorf("settingsPath should contain settings.json, got %s", m.settingsPath)
+	if !strings.Contains(settingsPath, "settings.json") {
+		t.Errorf("settingsPath should contain settings.json, got %s", settingsPath)
 	}
-
-	if m.output == nil {
+	if mcp.ManagerOutput(m) == nil {
 		t.Error("output should be set")
 	}
-
-	if m.executor == nil {
+	if !mcp.ManagerHasExecutor(m) {
 		t.Error("executor should be set")
 	}
 }
 
 func TestNewManagerWithExecutor(t *testing.T) {
 	out := output.NewTerminal(&bytes.Buffer{}, &bytes.Buffer{})
-	mockExecutor := &MockCommandExecutor{}
-	m := NewManagerWithExecutor(out, mockExecutor)
+	mockExec := &mockCommandExecutor{
+		capturedCmd:    "",
+		capturedArgs:   nil,
+		mockOutput:     "",
+		shouldFail:     false,
+		commandHandler: nil,
+	}
+	m := mcp.NewManagerWithExecutor(out, mockExec)
 
-	if m.executor != mockExecutor {
+	if !mcp.ManagerExecutorIs(m, mockExec) {
 		t.Error("custom executor should be set")
 	}
+}
+
+// assertSettingsLoaded verifies that loadSettings returned valid settings.
+func assertSettingsLoaded(t *testing.T, settings *mcp.Settings, err error, wantErr bool) bool {
+	t.Helper()
+	if (err != nil) != wantErr {
+		t.Errorf("loadSettings() error = %v, wantErr %v", err, wantErr)
+		return false
+	}
+	return err == nil && settings != nil
 }
 
 func TestLoadSettings(t *testing.T) {
 	tests := []struct {
 		name      string
-		setupFunc func(t *testing.T, settingsPath string)
-		checkFunc func(t *testing.T, settings *Settings)
+		setupFunc func(_ *testing.T, settingsPath string)
+		checkFunc func(t *testing.T, settings *mcp.Settings)
 		wantErr   bool
 	}{
 		{
 			name: "loads valid settings",
-			setupFunc: func(t *testing.T, settingsPath string) {
-				settings := &Settings{
-					MCPServers: map[string]MCPServer{
+			setupFunc: func(_ *testing.T, settingsPath string) {
+				settings := &mcp.Settings{
+					MCPServers: map[string]mcp.Server{
 						"targetprocess": {
 							Type:    "local",
 							Command: "node",
@@ -101,56 +115,48 @@ func TestLoadSettings(t *testing.T) {
 							Type:    "local",
 							Command: "python",
 							Args:    []string{"jira_mcp.py"},
+							Env:     nil,
 						},
 					},
 				}
 				data, _ := json.MarshalIndent(settings, "", "  ")
-				os.MkdirAll(filepath.Dir(settingsPath), 0755)
-				os.WriteFile(settingsPath, data, 0600)
+				os.MkdirAll(filepath.Dir(settingsPath), 0o755)
+				os.WriteFile(settingsPath, data, 0o600)
 			},
-			checkFunc: func(t *testing.T, settings *Settings) {
-				if len(settings.MCPServers) != 2 {
-					t.Errorf("expected 2 MCP servers, got %d", len(settings.MCPServers))
-				}
-
-				if tp, ok := settings.MCPServers["targetprocess"]; !ok {
-					t.Error("targetprocess server should exist")
-				} else {
-					if tp.Type != "local" {
-						t.Errorf("targetprocess type = %s, want local", tp.Type)
-					}
-					if tp.Command != "node" {
-						t.Errorf("targetprocess command = %s, want node", tp.Command)
-					}
-					if len(tp.Args) != 1 || tp.Args[0] != "server.js" {
-						t.Errorf("targetprocess args = %v, want [server.js]", tp.Args)
-					}
-				}
+			checkFunc: func(t *testing.T, settings *mcp.Settings) {
+				t.Helper()
+				assertMCPServerCount(t, settings, 2)
+				assertTargetprocessServer(t, settings)
 			},
+			wantErr: false,
 		},
 		{
-			name:    "handles missing file",
-			wantErr: true,
+			name:      "handles missing file",
+			setupFunc: nil,
+			checkFunc: nil,
+			wantErr:   true,
 		},
 		{
 			name: "handles corrupt JSON",
-			setupFunc: func(t *testing.T, settingsPath string) {
-				os.MkdirAll(filepath.Dir(settingsPath), 0755)
-				os.WriteFile(settingsPath, []byte("{invalid json}"), 0600)
+			setupFunc: func(_ *testing.T, settingsPath string) {
+				os.MkdirAll(filepath.Dir(settingsPath), 0o755)
+				os.WriteFile(settingsPath, []byte("{invalid json}"), 0o600)
 			},
-			wantErr: true,
+			checkFunc: nil,
+			wantErr:   true,
 		},
 		{
 			name: "handles empty MCP servers",
-			setupFunc: func(t *testing.T, settingsPath string) {
-				settings := &Settings{
-					MCPServers: map[string]MCPServer{},
+			setupFunc: func(_ *testing.T, settingsPath string) {
+				settings := &mcp.Settings{
+					MCPServers: map[string]mcp.Server{},
 				}
 				data, _ := json.MarshalIndent(settings, "", "  ")
-				os.MkdirAll(filepath.Dir(settingsPath), 0755)
-				os.WriteFile(settingsPath, data, 0600)
+				os.MkdirAll(filepath.Dir(settingsPath), 0o755)
+				os.WriteFile(settingsPath, data, 0o600)
 			},
-			checkFunc: func(t *testing.T, settings *Settings) {
+			checkFunc: func(t *testing.T, settings *mcp.Settings) {
+				t.Helper()
 				if settings.MCPServers == nil {
 					t.Error("MCPServers should be initialized")
 				}
@@ -158,6 +164,7 @@ func TestLoadSettings(t *testing.T) {
 					t.Error("MCPServers should be empty")
 				}
 			},
+			wantErr: false,
 		},
 	}
 
@@ -170,36 +177,89 @@ func TestLoadSettings(t *testing.T) {
 				tt.setupFunc(t, settingsPath)
 			}
 
-			m := &Manager{
-				settingsPath: settingsPath,
-			}
-
-			settings, err := m.loadSettings()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("loadSettings() error = %v, wantErr %v", err, tt.wantErr)
-			}
-
-			if err == nil && tt.checkFunc != nil {
+			m := mcp.NewTestManager(settingsPath, nil, nil)
+			settings, err := mcp.ManagerLoadSettings(m)
+			if assertSettingsLoaded(t, settings, err, tt.wantErr) && tt.checkFunc != nil {
 				tt.checkFunc(t, settings)
 			}
 		})
 	}
 }
 
+// assertMCPServerCount verifies the number of MCP servers in settings.
+func assertMCPServerCount(t *testing.T, settings *mcp.Settings, expected int) {
+	t.Helper()
+	if len(settings.MCPServers) != expected {
+		t.Errorf("expected %d MCP servers, got %d", expected, len(settings.MCPServers))
+	}
+}
+
+// assertTargetprocessServer verifies the targetprocess server config.
+func assertTargetprocessServer(t *testing.T, settings *mcp.Settings) {
+	t.Helper()
+	tp, ok := settings.MCPServers["targetprocess"]
+	if !ok {
+		t.Error("targetprocess server should exist")
+		return
+	}
+	if tp.Type != "local" {
+		t.Errorf("targetprocess type = %s, want local", tp.Type)
+	}
+	if tp.Command != "node" {
+		t.Errorf("targetprocess command = %s, want node", tp.Command)
+	}
+	if len(tp.Args) != 1 || tp.Args[0] != "server.js" {
+		t.Errorf("targetprocess args = %v, want [server.js]", tp.Args)
+	}
+}
+
+// assertServerFound verifies that findMCPByName returned the expected key and server.
+func assertServerFound(t *testing.T, key string, server *mcp.Server, err error, wantKey string) {
+	t.Helper()
+	if err != nil {
+		t.Errorf("findMCPByName() error = %v, want found", err)
+		return
+	}
+	if key != wantKey {
+		t.Errorf("findMCPByName() key = %s, want %s", key, wantKey)
+	}
+	if server == nil {
+		t.Error("findMCPByName() server should not be nil")
+	}
+}
+
+// assertServerNotFound verifies that findMCPByName returned a not-found error.
+func assertServerNotFound(t *testing.T, err error) {
+	t.Helper()
+	if err == nil {
+		t.Error("findMCPByName() should return error for not found")
+		return
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("error should mention 'not found', got %v", err)
+	}
+}
+
 func TestFindMCPByName(t *testing.T) {
-	settings := &Settings{
-		MCPServers: map[string]MCPServer{
+	settings := &mcp.Settings{
+		MCPServers: map[string]mcp.Server{
 			"targetprocess": {
 				Type:    "local",
 				Command: "node",
+				Args:    nil,
+				Env:     nil,
 			},
 			"jira-mcp": {
 				Type:    "local",
 				Command: "python",
+				Args:    nil,
+				Env:     nil,
 			},
 			"GitHub": {
 				Type:    "local",
 				Command: "gh",
+				Args:    nil,
+				Env:     nil,
 			},
 		},
 	}
@@ -249,33 +309,20 @@ func TestFindMCPByName(t *testing.T) {
 		{
 			name:       "not found",
 			searchName: "nonexistent",
+			wantKey:    "",
 			wantFound:  false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := &Manager{}
-
-			key, server, err := m.findMCPByName(settings, tt.searchName)
+			m := mcp.NewTestManager("", nil, nil)
+			key, server, err := mcp.ManagerFindMCPByName(m, settings, tt.searchName)
 
 			if tt.wantFound {
-				if err != nil {
-					t.Errorf("findMCPByName() error = %v, want found", err)
-				}
-				if key != tt.wantKey {
-					t.Errorf("findMCPByName() key = %s, want %s", key, tt.wantKey)
-				}
-				if server == nil {
-					t.Error("findMCPByName() server should not be nil")
-				}
+				assertServerFound(t, key, server, err, tt.wantKey)
 			} else {
-				if err == nil {
-					t.Error("findMCPByName() should return error for not found")
-				}
-				if !strings.Contains(err.Error(), "not found") {
-					t.Errorf("error should mention 'not found', got %v", err)
-				}
+				assertServerNotFound(t, err)
 			}
 		})
 	}
@@ -285,7 +332,7 @@ func TestEnable(t *testing.T) {
 	tests := []struct {
 		name         string
 		mcpName      string
-		settings     *Settings
+		settings     *mcp.Settings
 		mockOutput   string
 		shouldFail   bool
 		wantErr      bool
@@ -294,20 +341,21 @@ func TestEnable(t *testing.T) {
 		{
 			name:    "enables MCP successfully",
 			mcpName: "targetprocess",
-			settings: &Settings{
-				MCPServers: map[string]MCPServer{
+			settings: &mcp.Settings{
+				MCPServers: map[string]mcp.Server{
 					"targetprocess": {
 						Type:    "local",
 						Command: "node",
 						Args:    []string{"server.js"},
+						Env:     nil,
 					},
 				},
 			},
 			mockOutput: "",
-			checkCommand: func(t *testing.T, cmd string, args []string) {
-				if cmd != "claude" {
-					t.Errorf("command = %s, want claude", cmd)
-				}
+			shouldFail: false,
+			wantErr:    false,
+			checkCommand: func(t *testing.T, _ string, args []string) {
+				t.Helper()
 				expectedArgs := []string{"mcp", "add", "targetprocess", "node", "server.js"}
 				if !slicesEqual(args, expectedArgs) {
 					t.Errorf("args = %v, want %v", args, expectedArgs)
@@ -317,20 +365,25 @@ func TestEnable(t *testing.T) {
 		{
 			name:    "expands home directory in command",
 			mcpName: "test",
-			settings: &Settings{
-				MCPServers: map[string]MCPServer{
+			settings: &mcp.Settings{
+				MCPServers: map[string]mcp.Server{
 					"test": {
+						Type:    "",
 						Command: "~/bin/mcp",
 						Args:    []string{"--port", "3000"},
+						Env:     nil,
 					},
 				},
 			},
-			checkCommand: func(t *testing.T, cmd string, args []string) {
-				// Check that ~/ was expanded
+			mockOutput: "",
+			shouldFail: false,
+			wantErr:    false,
+			checkCommand: func(t *testing.T, _ string, args []string) {
+				t.Helper()
 				if len(args) < 4 {
 					t.Fatalf("Not enough args: %v", args)
 				}
-				commandPath := args[2]
+				commandPath := args[3]
 				if strings.Contains(commandPath, "~") {
 					t.Error("Command path should have ~ expanded")
 				}
@@ -342,22 +395,31 @@ func TestEnable(t *testing.T) {
 		{
 			name:    "handles already enabled",
 			mcpName: "jira",
-			settings: &Settings{
-				MCPServers: map[string]MCPServer{
-					"jira": {Command: "jira-mcp"},
+			settings: &mcp.Settings{
+				MCPServers: map[string]mcp.Server{
+					"jira": {
+						Type:    "",
+						Command: "jira-mcp",
+						Args:    nil,
+						Env:     nil,
+					},
 				},
 			},
-			mockOutput: "MCP server 'jira' already exists",
-			shouldFail: true,
-			wantErr:    false, // Should not error when already enabled
+			mockOutput:   "MCP server 'jira' already exists",
+			shouldFail:   true,
+			wantErr:      false,
+			checkCommand: nil,
 		},
 		{
 			name:    "MCP not in settings",
 			mcpName: "nonexistent",
-			settings: &Settings{
-				MCPServers: map[string]MCPServer{},
+			settings: &mcp.Settings{
+				MCPServers: map[string]mcp.Server{},
 			},
-			wantErr: true,
+			mockOutput:   "",
+			shouldFail:   false,
+			wantErr:      true,
+			checkCommand: nil,
 		},
 	}
 
@@ -366,22 +428,19 @@ func TestEnable(t *testing.T) {
 			tmpDir := t.TempDir()
 			settingsPath := filepath.Join(tmpDir, "settings.json")
 
-			// Write settings
 			data, _ := json.MarshalIndent(tt.settings, "", "  ")
-			os.WriteFile(settingsPath, data, 0600)
+			os.WriteFile(settingsPath, data, 0o600)
 
-			// Create mock executor
-			mockExecutor := &MockCommandExecutor{
-				mockOutput: tt.mockOutput,
-				shouldFail: tt.shouldFail,
+			mockExec := &mockCommandExecutor{
+				capturedCmd:    "",
+				capturedArgs:   nil,
+				mockOutput:     tt.mockOutput,
+				shouldFail:     tt.shouldFail,
+				commandHandler: nil,
 			}
 
 			out := output.NewTerminal(&bytes.Buffer{}, &bytes.Buffer{})
-			m := &Manager{
-				settingsPath: settingsPath,
-				output:       out,
-				executor:     mockExecutor,
-			}
+			m := mcp.NewTestManager(settingsPath, out, mockExec)
 
 			err := m.Enable(context.Background(), tt.mcpName)
 			if (err != nil) != tt.wantErr {
@@ -389,7 +448,7 @@ func TestEnable(t *testing.T) {
 			}
 
 			if tt.checkCommand != nil && !tt.wantErr {
-				tt.checkCommand(t, mockExecutor.capturedCmd, mockExecutor.capturedArgs)
+				tt.checkCommand(t, mockExec.capturedCmd, mockExec.capturedArgs)
 			}
 		})
 	}
@@ -399,7 +458,7 @@ func TestDisable(t *testing.T) {
 	tests := []struct {
 		name         string
 		mcpName      string
-		settings     *Settings
+		settings     *mcp.Settings
 		mockOutput   string
 		shouldFail   bool
 		wantErr      bool
@@ -408,15 +467,21 @@ func TestDisable(t *testing.T) {
 		{
 			name:    "disables MCP successfully",
 			mcpName: "targetprocess",
-			settings: &Settings{
-				MCPServers: map[string]MCPServer{
-					"targetprocess": {Type: "local"},
+			settings: &mcp.Settings{
+				MCPServers: map[string]mcp.Server{
+					"targetprocess": {
+						Type:    "local",
+						Command: "",
+						Args:    nil,
+						Env:     nil,
+					},
 				},
 			},
-			checkCommand: func(t *testing.T, cmd string, args []string) {
-				if cmd != "claude" {
-					t.Errorf("command = %s, want claude", cmd)
-				}
+			mockOutput: "",
+			shouldFail: false,
+			wantErr:    false,
+			checkCommand: func(t *testing.T, _ string, args []string) {
+				t.Helper()
 				expectedArgs := []string{"mcp", "remove", "targetprocess"}
 				if !slicesEqual(args, expectedArgs) {
 					t.Errorf("args = %v, want %v", args, expectedArgs)
@@ -424,21 +489,27 @@ func TestDisable(t *testing.T) {
 			},
 		},
 		{
-			name:       "handles not found",
-			mcpName:    "nonexistent",
-			settings:   &Settings{MCPServers: map[string]MCPServer{}},
-			mockOutput: "MCP server 'nonexistent' not found",
-			shouldFail: true,
-			wantErr:    false, // Should not error when not found
+			name:    "handles not found",
+			mcpName: "nonexistent",
+			settings: &mcp.Settings{
+				MCPServers: map[string]mcp.Server{},
+			},
+			mockOutput:   "MCP server 'nonexistent' not found",
+			shouldFail:   true,
+			wantErr:      false,
+			checkCommand: nil,
 		},
 		{
 			name:    "uses provided name when not in settings",
 			mcpName: "custom-mcp",
-			settings: &Settings{
-				MCPServers: map[string]MCPServer{},
+			settings: &mcp.Settings{
+				MCPServers: map[string]mcp.Server{},
 			},
-			checkCommand: func(t *testing.T, cmd string, args []string) {
-				// Should still try to remove with the provided name
+			mockOutput: "",
+			shouldFail: false,
+			wantErr:    false,
+			checkCommand: func(t *testing.T, _ string, args []string) {
+				t.Helper()
 				expectedArgs := []string{"mcp", "remove", "custom-mcp"}
 				if !slicesEqual(args, expectedArgs) {
 					t.Errorf("args = %v, want %v", args, expectedArgs)
@@ -452,22 +523,19 @@ func TestDisable(t *testing.T) {
 			tmpDir := t.TempDir()
 			settingsPath := filepath.Join(tmpDir, "settings.json")
 
-			// Write settings
 			data, _ := json.MarshalIndent(tt.settings, "", "  ")
-			os.WriteFile(settingsPath, data, 0600)
+			os.WriteFile(settingsPath, data, 0o600)
 
-			// Create mock executor
-			mockExecutor := &MockCommandExecutor{
-				mockOutput: tt.mockOutput,
-				shouldFail: tt.shouldFail,
+			mockExec := &mockCommandExecutor{
+				capturedCmd:    "",
+				capturedArgs:   nil,
+				mockOutput:     tt.mockOutput,
+				shouldFail:     tt.shouldFail,
+				commandHandler: nil,
 			}
 
 			out := output.NewTerminal(&bytes.Buffer{}, &bytes.Buffer{})
-			m := &Manager{
-				settingsPath: settingsPath,
-				output:       out,
-				executor:     mockExecutor,
-			}
+			m := mcp.NewTestManager(settingsPath, out, mockExec)
 
 			err := m.Disable(context.Background(), tt.mcpName)
 			if (err != nil) != tt.wantErr {
@@ -475,37 +543,49 @@ func TestDisable(t *testing.T) {
 			}
 
 			if tt.checkCommand != nil && !tt.wantErr {
-				tt.checkCommand(t, mockExecutor.capturedCmd, mockExecutor.capturedArgs)
+				tt.checkCommand(t, mockExec.capturedCmd, mockExec.capturedArgs)
 			}
 		})
+	}
+}
+
+// assertServersEnabled checks that all expected servers were attempted for enable.
+func assertServersEnabled(t *testing.T, enabledServers map[string]bool, expected []string) {
+	t.Helper()
+	for _, name := range expected {
+		if !enabledServers[name] {
+			t.Errorf("Server %s was not attempted to enable", name)
+		}
 	}
 }
 
 func TestEnableAll(t *testing.T) {
 	tests := []struct {
 		name           string
-		settings       *Settings
+		settings       *mcp.Settings
 		enabledServers []string
 		failServers    []string
 		wantErr        bool
 	}{
 		{
 			name: "enables all servers",
-			settings: &Settings{
-				MCPServers: map[string]MCPServer{
-					"server1": {Command: "cmd1"},
-					"server2": {Command: "cmd2"},
-					"server3": {Command: "cmd3"},
+			settings: &mcp.Settings{
+				MCPServers: map[string]mcp.Server{
+					"server1": {Type: "", Command: "cmd1", Args: nil, Env: nil},
+					"server2": {Type: "", Command: "cmd2", Args: nil, Env: nil},
+					"server3": {Type: "", Command: "cmd3", Args: nil, Env: nil},
 				},
 			},
 			enabledServers: []string{"server1", "server2", "server3"},
+			failServers:    nil,
+			wantErr:        false,
 		},
 		{
 			name: "handles partial failures",
-			settings: &Settings{
-				MCPServers: map[string]MCPServer{
-					"server1": {Command: "cmd1"},
-					"server2": {Command: "cmd2"},
+			settings: &mcp.Settings{
+				MCPServers: map[string]mcp.Server{
+					"server1": {Type: "", Command: "cmd1", Args: nil, Env: nil},
+					"server2": {Type: "", Command: "cmd2", Args: nil, Env: nil},
 				},
 			},
 			enabledServers: []string{"server1"},
@@ -514,10 +594,12 @@ func TestEnableAll(t *testing.T) {
 		},
 		{
 			name: "handles empty servers",
-			settings: &Settings{
-				MCPServers: map[string]MCPServer{},
+			settings: &mcp.Settings{
+				MCPServers: map[string]mcp.Server{},
 			},
 			enabledServers: []string{},
+			failServers:    nil,
+			wantErr:        false,
 		},
 	}
 
@@ -526,25 +608,23 @@ func TestEnableAll(t *testing.T) {
 			tmpDir := t.TempDir()
 			settingsPath := filepath.Join(tmpDir, "settings.json")
 
-			// Write settings
 			data, _ := json.MarshalIndent(tt.settings, "", "  ")
-			os.WriteFile(settingsPath, data, 0600)
+			os.WriteFile(settingsPath, data, 0o600)
 
-			// Track which servers were attempted to enable
 			enabledServers := make(map[string]bool)
+			failServers := tt.failServers
 
-			// Create mock executor with custom handler
-			mockExecutor := &MockCommandExecutor{
-				commandHandler: func(name string, args []string) *exec.Cmd {
+			mockExec := &mockCommandExecutor{
+				capturedCmd:  "",
+				capturedArgs: nil,
+				mockOutput:   "",
+				shouldFail:   false,
+				commandHandler: func(_ string, args []string) *exec.Cmd {
 					if len(args) >= 3 && args[0] == "mcp" && args[1] == "add" {
 						serverName := args[2]
 						enabledServers[serverName] = true
-
-						// Check if this server should fail
-						for _, failServer := range tt.failServers {
-							if serverName == failServer {
-								return exec.Command("false")
-							}
+						if slices.Contains(failServers, serverName) {
+							return exec.Command("false")
 						}
 					}
 					return exec.Command("echo", "success")
@@ -552,24 +632,30 @@ func TestEnableAll(t *testing.T) {
 			}
 
 			out := output.NewTerminal(&bytes.Buffer{}, &bytes.Buffer{})
-			m := &Manager{
-				settingsPath: settingsPath,
-				output:       out,
-				executor:     mockExecutor,
-			}
+			m := mcp.NewTestManager(settingsPath, out, mockExec)
 
 			err := m.EnableAll(context.Background())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("EnableAll() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			// Check that all expected servers were attempted
-			for _, expected := range tt.enabledServers {
-				if !enabledServers[expected] {
-					t.Errorf("Server %s was not attempted to enable", expected)
-				}
-			}
+			assertServersEnabled(t, enabledServers, tt.enabledServers)
 		})
+	}
+}
+
+// assertServersRemoved checks that expected servers were removed and no unexpected ones.
+func assertServersRemoved(t *testing.T, removedServers map[string]bool, expected []string) {
+	t.Helper()
+	for _, name := range expected {
+		if !removedServers[name] {
+			t.Errorf("Server %s was not removed", name)
+		}
+	}
+	for removed := range removedServers {
+		if !slices.Contains(expected, removed) {
+			t.Errorf("Unexpected server %s was removed", removed)
+		}
 	}
 }
 
@@ -582,44 +668,48 @@ func TestDisableAll(t *testing.T) {
 	}{
 		{
 			name: "disables all listed servers",
-			listOutput: `Checking MCP servers...
-targetprocess: Running
-jira-mcp: Running
-github: Stopped`,
+			listOutput: "Checking MCP servers...\n" +
+				"targetprocess: Running\n" +
+				"jira-mcp: Running\n" +
+				"github: Stopped",
 			expectedRemove: []string{"targetprocess", "jira-mcp", "github"},
+			wantErr:        false,
 		},
 		{
 			name:           "handles no servers",
 			listOutput:     "Checking MCP servers...\n",
 			expectedRemove: []string{},
+			wantErr:        false,
 		},
 		{
 			name: "parses various output formats",
-			listOutput: `Some header text
-server1: Status information here
-server2: Different status
-Other text that should be ignored
-server3: More status`,
+			listOutput: "Some header text\n" +
+				"server1: Status information here\n" +
+				"server2: Different status\n" +
+				"Other text that should be ignored\n" +
+				"server3: More status",
 			expectedRemove: []string{"server1", "server2", "server3"},
+			wantErr:        false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Track which servers were removed
 			removedServers := make(map[string]bool)
+			listOutput := tt.listOutput
 
-			// Create mock executor with custom handler
-			mockExecutor := &MockCommandExecutor{
-				commandHandler: func(name string, args []string) *exec.Cmd {
+			mockExec := &mockCommandExecutor{
+				capturedCmd:  "",
+				capturedArgs: nil,
+				mockOutput:   "",
+				shouldFail:   false,
+				commandHandler: func(_ string, args []string) *exec.Cmd {
 					if len(args) >= 2 && args[0] == "mcp" {
 						if args[1] == "list" {
-							// Return mock list output
-							return exec.Command("echo", tt.listOutput)
+							return exec.Command("echo", listOutput)
 						}
 						if args[1] == "remove" && len(args) >= 3 {
-							serverName := args[2]
-							removedServers[serverName] = true
+							removedServers[args[2]] = true
 						}
 					}
 					return exec.Command("echo", "success")
@@ -627,36 +717,14 @@ server3: More status`,
 			}
 
 			out := output.NewTerminal(&bytes.Buffer{}, &bytes.Buffer{})
-			m := &Manager{
-				output:   out,
-				executor: mockExecutor,
-			}
+			m := mcp.NewTestManager("", out, mockExec)
 
 			err := m.DisableAll(context.Background())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DisableAll() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			// Check that all expected servers were removed
-			for _, expected := range tt.expectedRemove {
-				if !removedServers[expected] {
-					t.Errorf("Server %s was not removed", expected)
-				}
-			}
-
-			// Check no unexpected servers were removed
-			for removed := range removedServers {
-				found := false
-				for _, expected := range tt.expectedRemove {
-					if removed == expected {
-						found = true
-						break
-					}
-				}
-				if !found {
-					t.Errorf("Unexpected server %s was removed", removed)
-				}
-			}
+			assertServersRemoved(t, removedServers, tt.expectedRemove)
 		})
 	}
 }
@@ -668,8 +736,9 @@ func TestList(t *testing.T) {
 		wantErr    bool
 	}{
 		{
-			name:    "lists successfully",
-			wantErr: false,
+			name:       "lists successfully",
+			shouldFail: false,
+			wantErr:    false,
 		},
 		{
 			name:       "handles command error",
@@ -680,17 +749,16 @@ func TestList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create mock executor
-			mockExecutor := &MockCommandExecutor{
-				shouldFail: tt.shouldFail,
-				mockOutput: "MCP list output",
+			mockExec := &mockCommandExecutor{
+				capturedCmd:    "",
+				capturedArgs:   nil,
+				mockOutput:     "MCP list output",
+				shouldFail:     tt.shouldFail,
+				commandHandler: nil,
 			}
 
 			out := output.NewTerminal(&bytes.Buffer{}, &bytes.Buffer{})
-			m := &Manager{
-				output:   out,
-				executor: mockExecutor,
-			}
+			m := mcp.NewTestManager("", out, mockExec)
 
 			err := m.List(context.Background())
 			if (err != nil) != tt.wantErr {
@@ -698,15 +766,20 @@ func TestList(t *testing.T) {
 			}
 
 			if !tt.wantErr {
-				if mockExecutor.capturedCmd != "claude" {
-					t.Errorf("command = %s, want claude", mockExecutor.capturedCmd)
-				}
-				expectedArgs := []string{"mcp", "list"}
-				if !slicesEqual(mockExecutor.capturedArgs, expectedArgs) {
-					t.Errorf("args = %v, want %v", mockExecutor.capturedArgs, expectedArgs)
-				}
+				assertCapturedCommand(t, mockExec, "claude", []string{"mcp", "list"})
 			}
 		})
+	}
+}
+
+// assertCapturedCommand verifies the captured command and args on the mock executor.
+func assertCapturedCommand(t *testing.T, mockExec *mockCommandExecutor, wantCmd string, wantArgs []string) {
+	t.Helper()
+	if mockExec.capturedCmd != wantCmd {
+		t.Errorf("command = %s, want %s", mockExec.capturedCmd, wantCmd)
+	}
+	if !slicesEqual(mockExec.capturedArgs, wantArgs) {
+		t.Errorf("args = %v, want %v", mockExec.capturedArgs, wantArgs)
 	}
 }
 
@@ -719,15 +792,18 @@ func TestRemoveMCP(t *testing.T) {
 		wantErr    bool
 	}{
 		{
-			name:    "removes successfully",
-			mcpName: "test-mcp",
+			name:       "removes successfully",
+			mcpName:    "test-mcp",
+			mockOutput: "",
+			shouldFail: false,
+			wantErr:    false,
 		},
 		{
 			name:       "handles not found",
 			mcpName:    "nonexistent",
 			mockOutput: "MCP server 'nonexistent' not found",
 			shouldFail: true,
-			wantErr:    false, // Should not error when not found
+			wantErr:    false,
 		},
 		{
 			name:       "handles other errors",
@@ -740,19 +816,18 @@ func TestRemoveMCP(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create mock executor
-			mockExecutor := &MockCommandExecutor{
-				mockOutput: tt.mockOutput,
-				shouldFail: tt.shouldFail,
+			mockExec := &mockCommandExecutor{
+				capturedCmd:    "",
+				capturedArgs:   nil,
+				mockOutput:     tt.mockOutput,
+				shouldFail:     tt.shouldFail,
+				commandHandler: nil,
 			}
 
 			out := output.NewTerminal(&bytes.Buffer{}, &bytes.Buffer{})
-			m := &Manager{
-				output:   out,
-				executor: mockExecutor,
-			}
+			m := mcp.NewTestManager("", out, mockExec)
 
-			err := m.removeMCP(context.Background(), tt.mcpName)
+			err := mcp.ManagerRemoveMCP(context.Background(), m, tt.mcpName)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("removeMCP() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -787,7 +862,6 @@ func TestHomeDirectoryExpansion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test the expansion logic
 			command := tt.command
 			if strings.HasPrefix(command, "~/") {
 				command = filepath.Join(homeDir, command[2:])
@@ -800,7 +874,7 @@ func TestHomeDirectoryExpansion(t *testing.T) {
 	}
 }
 
-// Helper function to compare slices
+// slicesEqual compares two string slices for equality.
 func slicesEqual(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

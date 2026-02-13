@@ -24,21 +24,21 @@ type RegistryFS interface {
 	UserHomeDir() (string, error)
 }
 
-// SharedFS provides filesystem operations needed by the shared package.
-type SharedFS interface {
+// FS provides filesystem operations needed by the shared package.
+type FS interface {
 	Stat(name string) (os.FileInfo, error)
 	Getwd() (string, error)
 	Abs(path string) (string, error)
 }
 
-// RealFS implements HooksFS, RegistryFS, and SharedFS using the real filesystem.
+// RealFS implements HooksFS, RegistryFS, and FS using the real filesystem.
 type RealFS struct{}
 
 // Compile-time interface checks.
 var (
 	_ HooksFS    = (*RealFS)(nil)
 	_ RegistryFS = (*RealFS)(nil)
-	_ SharedFS   = (*RealFS)(nil)
+	_ FS         = (*RealFS)(nil)
 )
 
 func (r *RealFS) Stat(name string) (os.FileInfo, error) {

@@ -7,8 +7,9 @@ package mocks
 import (
 	"context"
 
-	"github.com/riddopic/cc-tools/internal/hooks"
 	mock "github.com/stretchr/testify/mock"
+
+	"github.com/riddopic/cc-tools/internal/hooks"
 )
 
 // NewMockCommandRunner creates a new instance of MockCommandRunner. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

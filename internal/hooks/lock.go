@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-const lockFileMode = 0600 // Read/write for owner only
+const lockFileMode = 0o600 // Read/write for owner only
 
 // LockManager handles process locking to prevent concurrent hook execution.
 type LockManager struct {

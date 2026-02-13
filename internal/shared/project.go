@@ -53,6 +53,8 @@ func FindProjectRoot(startDir string, deps *Dependencies) (string, error) {
 			"Makefile",
 			"justfile",
 			"Justfile",
+			"Taskfile.yml",
+			"Taskfile.yaml",
 		}
 
 		for _, marker := range markers {

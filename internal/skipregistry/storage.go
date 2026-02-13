@@ -59,7 +59,7 @@ func (s *JSONStorage) Load(_ context.Context) (RegistryData, error) {
 func (s *JSONStorage) Save(_ context.Context, data RegistryData) error {
 	// Ensure directory exists
 	dir := filepath.Dir(s.filePath)
-	const dirPerm = 0755
+	const dirPerm = 0o755
 	if err := s.fs.MkdirAll(dir, os.FileMode(dirPerm)); err != nil {
 		return fmt.Errorf("create registry directory: %w", err)
 	}
@@ -75,7 +75,7 @@ func (s *JSONStorage) Save(_ context.Context, data RegistryData) error {
 
 	// Write atomically by writing to temp file and moving
 	tempFile := s.filePath + ".tmp"
-	const filePerm = 0644
+	const filePerm = 0o644
 	if writeErr := s.fs.WriteFile(tempFile, jsonData, os.FileMode(filePerm)); writeErr != nil {
 		return fmt.Errorf("write temp registry file: %w", writeErr)
 	}

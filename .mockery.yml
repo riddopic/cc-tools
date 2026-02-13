@@ -24,4 +24,4 @@ packages:
     interfaces:
       HooksFS:
       RegistryFS:
-      SharedFS:
+      FS:

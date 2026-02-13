@@ -119,7 +119,11 @@ func (pve *ParallelValidateExecutor) ExecuteValidations(
 
 	// If neither command found, return empty result
 	if lintCmd == nil && testCmd == nil {
-		return &ValidateResult{BothPassed: true}, nil
+		return &ValidateResult{
+			LintResult: nil,
+			TestResult: nil,
+			BothPassed: true,
+		}, nil
 	}
 
 	// Execute commands in parallel
@@ -156,27 +160,27 @@ func (pve *ParallelValidateExecutor) executeParallel(
 	lintCmd, testCmd *DiscoveredCommand,
 ) *ValidateResult {
 	var wg sync.WaitGroup
-	result := &ValidateResult{}
+	result := &ValidateResult{
+		LintResult: nil,
+		TestResult: nil,
+		BothPassed: false,
+	}
 
 	skipLint := pve.skipConfig != nil && pve.skipConfig.SkipLint
 	skipTest := pve.skipConfig != nil && pve.skipConfig.SkipTest
 
 	// Launch lint if available and not skipped
 	if lintCmd != nil && !skipLint {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			result.LintResult = pve.executeCommand(ctx, lintCmd, CommandTypeLint)
-		}()
+		})
 	}
 
 	// Launch test if available and not skipped
 	if testCmd != nil && !skipTest {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			result.TestResult = pve.executeCommand(ctx, testCmd, CommandTypeTest)
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -206,6 +210,7 @@ func (pve *ParallelValidateExecutor) executeCommand(
 		Type:     cmdType,
 		Success:  execResult.Success,
 		ExitCode: execResult.ExitCode,
+		Message:  "",
 		Command:  cmd,
 		Error:    execResult.Error,
 	}

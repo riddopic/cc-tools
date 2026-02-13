@@ -1,4 +1,4 @@
-package hooks
+package hooks_test
 
 import (
 	"bytes"
@@ -8,10 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/riddopic/cc-tools/internal/hooks"
 )
 
 func TestValidateWithSkipCheck_RealIntegration(t *testing.T) {
-	// Skip if running in CI or short mode
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -37,7 +38,8 @@ func TestValidateWithSkipCheck_RealIntegration(t *testing.T) {
 				},
 			},
 			debug:        false,
-			wantExitCode: 2, // Shows validation pass message
+			wantExitCode: 2,
+			wantInStderr: nil,
 		},
 		{
 			name: "skip both with debug messages",
@@ -53,7 +55,7 @@ func TestValidateWithSkipCheck_RealIntegration(t *testing.T) {
 				},
 			},
 			debug:        true,
-			wantExitCode: 2, // Shows validation pass message even with skips
+			wantExitCode: 2,
 			wantInStderr: []string{
 				"Checking skips for project root",
 			},
@@ -62,53 +64,51 @@ func TestValidateWithSkipCheck_RealIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create temp directory
 			tmpDir := t.TempDir()
 			t.Chdir(tmpDir)
 
-			// Setup skip if needed
 			if tt.setupSkip != nil {
 				tt.setupSkip(t, tmpDir)
 			}
 
-			// Update input with absolute path
-			if toolInput, ok := tt.input["tool_input"].(map[string]any); ok {
-				if filePath, fpOk := toolInput["file_path"].(string); fpOk {
-					toolInput["file_path"] = filepath.Join(tmpDir, filePath)
-				}
-			}
+			updateToolInputPathIntegration(tt.input, tmpDir)
 
-			// Prepare stdin
 			inputJSON, _ := json.Marshal(tt.input)
 			stdin := bytes.NewReader(inputJSON)
-
-			// Capture output
 			var stdout, stderr bytes.Buffer
 
-			// Run validation
-			exitCode := ValidateWithSkipCheck(
+			exitCode := hooks.ValidateWithSkipCheck(
 				context.Background(),
-				stdin,
-				&stdout,
-				&stderr,
-				tt.debug,
-				5, // timeout
-				0, // cooldown
+				stdin, &stdout, &stderr,
+				tt.debug, 5, 0,
 			)
 
-			// Check exit code
-			if exitCode != tt.wantExitCode {
-				t.Errorf("ValidateWithSkipCheck() exit code = %v, want %v", exitCode, tt.wantExitCode)
-			}
-
-			// Check stderr content
-			stderrStr := stderr.String()
-			for _, expected := range tt.wantInStderr {
-				if !strings.Contains(stderrStr, expected) {
-					t.Errorf("Expected stderr to contain %q, got: %s", expected, stderrStr)
-				}
-			}
+			assertExitCode(t, exitCode, tt.wantExitCode)
+			assertStderrStringsIntegration(t, stderr.String(), tt.wantInStderr)
 		})
+	}
+}
+
+// updateToolInputPathIntegration updates the file_path in tool_input to use an absolute path.
+func updateToolInputPathIntegration(input map[string]any, baseDir string) {
+	toolInput, ok := input["tool_input"].(map[string]any)
+	if !ok {
+		return
+	}
+	filePath, fpOk := toolInput["file_path"].(string)
+	if !fpOk {
+		return
+	}
+	toolInput["file_path"] = filepath.Join(baseDir, filePath)
+}
+
+// assertStderrStringsIntegration checks that stderr contains all expected substrings.
+func assertStderrStringsIntegration(t *testing.T, stderrStr string, expected []string) {
+	t.Helper()
+	for _, exp := range expected {
+		if !strings.Contains(stderrStr, exp) {
+			t.Errorf("Expected stderr to contain %q, got: %s", exp, stderrStr)
+		}
 	}
 }
 
@@ -170,18 +170,11 @@ func TestCheckSkipsFromInput_Unit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			var stderr bytes.Buffer
+			var stderr hooks.MockOutputWriter
 
-			// Call the function
-			_, _ = checkSkipsFromInput(ctx, []byte(tt.input), tt.debug, &stderr)
+			hooks.CheckSkipsFromInputForTest(ctx, []byte(tt.input), tt.debug, &stderr)
 
-			// Check debug logs
-			stderrStr := stderr.String()
-			for _, expectedLog := range tt.wantLogs {
-				if !strings.Contains(stderrStr, expectedLog) {
-					t.Errorf("Expected stderr to contain %q, got: %s", expectedLog, stderrStr)
-				}
-			}
+			assertStderrStringsIntegration(t, stderr.String(), tt.wantLogs)
 		})
 	}
 }
@@ -204,8 +197,8 @@ func TestValidateWithSkipCheck_ErrorHandling(t *testing.T) {
 		},
 		{
 			name:         "reader that returns error",
-			stdin:        &errorReader{err: context.DeadlineExceeded},
-			wantExitCode: 0, // Falls back to RunValidateHook
+			stdin:        &errorReaderIntegration{err: context.DeadlineExceeded},
+			wantExitCode: 0,
 		},
 	}
 
@@ -213,28 +206,22 @@ func TestValidateWithSkipCheck_ErrorHandling(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 
-			exitCode := ValidateWithSkipCheck(
+			exitCode := hooks.ValidateWithSkipCheck(
 				context.Background(),
-				tt.stdin,
-				&stdout,
-				&stderr,
-				false,
-				1,
-				0,
+				tt.stdin, &stdout, &stderr,
+				false, 1, 0,
 			)
 
-			if exitCode != tt.wantExitCode {
-				t.Errorf("ValidateWithSkipCheck() = %v, want %v", exitCode, tt.wantExitCode)
-			}
+			assertExitCode(t, exitCode, tt.wantExitCode)
 		})
 	}
 }
 
-// errorReader is a reader that always returns an error.
-type errorReader struct {
+// errorReaderIntegration is a reader that always returns an error.
+type errorReaderIntegration struct {
 	err error
 }
 
-func (r *errorReader) Read(_ []byte) (int, error) {
+func (r *errorReaderIntegration) Read(_ []byte) (int, error) {
 	return 0, r.err
 }

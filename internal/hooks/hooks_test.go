@@ -1,4 +1,4 @@
-package hooks
+package hooks_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/riddopic/cc-tools/internal/hooks"
 	"github.com/riddopic/cc-tools/internal/shared"
 )
 
@@ -51,17 +52,21 @@ func TestHookInputParsing(t *testing.T) {
 			name:        "invalid JSON",
 			input:       `{invalid json}`,
 			expectError: true,
+			expectEvent: "",
+			expectTool:  "",
 		},
 		{
 			name:        "empty input",
 			input:       ``,
 			expectError: true,
+			expectEvent: "",
+			expectTool:  "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var input HookInput
+			var input hooks.HookInput
 			err := json.Unmarshal([]byte(tt.input), &input)
 
 			if tt.expectError {
@@ -91,42 +96,62 @@ func TestHookInputParsing(t *testing.T) {
 func TestGetFilePathOld(t *testing.T) {
 	tests := []struct {
 		name       string
-		input      *HookInput
+		input      *hooks.HookInput
 		expectPath string
 	}{
 		{
 			name: "Edit tool file path",
-			input: &HookInput{
-				ToolName: "Edit",
-				ToolInput: mustMarshalJSON(map[string]any{
+			input: &hooks.HookInput{
+				HookEventName:  "",
+				SessionID:      "",
+				TranscriptPath: "",
+				CWD:            "",
+				ToolName:       "Edit",
+				ToolInput: hooks.MustMarshalJSON(map[string]any{
 					"file_path": "/path/to/file.go",
 				}),
+				ToolResponse: nil,
 			},
 			expectPath: "/path/to/file.go",
 		},
 		{
 			name: "NotebookEdit tool notebook path",
-			input: &HookInput{
-				ToolName: "NotebookEdit",
-				ToolInput: mustMarshalJSON(map[string]any{
+			input: &hooks.HookInput{
+				HookEventName:  "",
+				SessionID:      "",
+				TranscriptPath: "",
+				CWD:            "",
+				ToolName:       "NotebookEdit",
+				ToolInput: hooks.MustMarshalJSON(map[string]any{
 					"notebook_path": "/path/to/notebook.ipynb",
 				}),
+				ToolResponse: nil,
 			},
 			expectPath: "/path/to/notebook.ipynb",
 		},
 		{
 			name: "nil tool input",
-			input: &HookInput{
-				ToolName:  "Edit",
-				ToolInput: nil,
+			input: &hooks.HookInput{
+				HookEventName:  "",
+				SessionID:      "",
+				TranscriptPath: "",
+				CWD:            "",
+				ToolName:       "Edit",
+				ToolInput:      nil,
+				ToolResponse:   nil,
 			},
 			expectPath: "",
 		},
 		{
 			name: "empty file paths",
-			input: &HookInput{
-				ToolName:  "Edit",
-				ToolInput: mustMarshalJSON(map[string]any{}),
+			input: &hooks.HookInput{
+				HookEventName:  "",
+				SessionID:      "",
+				TranscriptPath: "",
+				CWD:            "",
+				ToolName:       "Edit",
+				ToolInput:      hooks.MustMarshalJSON(map[string]any{}),
+				ToolResponse:   nil,
 			},
 			expectPath: "",
 		},
@@ -146,41 +171,71 @@ func TestGetFilePathOld(t *testing.T) {
 func TestIsEditToolOld(t *testing.T) {
 	tests := []struct {
 		name       string
-		input      *HookInput
+		input      *hooks.HookInput
 		expectEdit bool
 	}{
 		{
 			name: "Edit is an edit tool",
-			input: &HookInput{
-				ToolName: "Edit",
+			input: &hooks.HookInput{
+				HookEventName:  "",
+				SessionID:      "",
+				TranscriptPath: "",
+				CWD:            "",
+				ToolName:       "Edit",
+				ToolInput:      nil,
+				ToolResponse:   nil,
 			},
 			expectEdit: true,
 		},
 		{
 			name: "MultiEdit is an edit tool",
-			input: &HookInput{
-				ToolName: "MultiEdit",
+			input: &hooks.HookInput{
+				HookEventName:  "",
+				SessionID:      "",
+				TranscriptPath: "",
+				CWD:            "",
+				ToolName:       "MultiEdit",
+				ToolInput:      nil,
+				ToolResponse:   nil,
 			},
 			expectEdit: true,
 		},
 		{
 			name: "Write is an edit tool",
-			input: &HookInput{
-				ToolName: "Write",
+			input: &hooks.HookInput{
+				HookEventName:  "",
+				SessionID:      "",
+				TranscriptPath: "",
+				CWD:            "",
+				ToolName:       "Write",
+				ToolInput:      nil,
+				ToolResponse:   nil,
 			},
 			expectEdit: true,
 		},
 		{
 			name: "NotebookEdit is an edit tool",
-			input: &HookInput{
-				ToolName: "NotebookEdit",
+			input: &hooks.HookInput{
+				HookEventName:  "",
+				SessionID:      "",
+				TranscriptPath: "",
+				CWD:            "",
+				ToolName:       "NotebookEdit",
+				ToolInput:      nil,
+				ToolResponse:   nil,
 			},
 			expectEdit: true,
 		},
 		{
 			name: "Bash is not an edit tool",
-			input: &HookInput{
-				ToolName: "Bash",
+			input: &hooks.HookInput{
+				HookEventName:  "",
+				SessionID:      "",
+				TranscriptPath: "",
+				CWD:            "",
+				ToolName:       "Bash",
+				ToolInput:      nil,
+				ToolResponse:   nil,
 			},
 			expectEdit: false,
 		},
@@ -204,7 +259,7 @@ func TestLockManager(t *testing.T) {
 	t.Setenv("TMPDIR", tmpDir)
 
 	t.Run("acquire and release lock", func(t *testing.T) {
-		lm := NewLockManager("/test/project", "test", 2, nil)
+		lm := hooks.NewLockManager("/test/project", "test", 2, nil)
 
 		// Should acquire lock successfully
 		acquired, err := lm.TryAcquire()
@@ -221,13 +276,13 @@ func TestLockManager(t *testing.T) {
 		}
 
 		// Check that lock file exists
-		if _, statErr := os.Stat(lm.lockFile); os.IsNotExist(statErr) {
+		if _, statErr := os.Stat(lm.LockFileForTest()); os.IsNotExist(statErr) {
 			t.Error("Lock file should exist after release")
 		}
 	})
 
 	t.Run("respects cooldown", func(t *testing.T) {
-		lm1 := NewLockManager("/test/project", "cooldown", 2, nil)
+		lm1 := hooks.NewLockManager("/test/project", "cooldown", 2, nil)
 
 		// First process acquires and releases
 		acquired, err := lm1.TryAcquire()
@@ -237,7 +292,7 @@ func TestLockManager(t *testing.T) {
 		lm1.Release()
 
 		// Second process tries immediately
-		lm2 := NewLockManager("/test/project", "cooldown", 2, nil)
+		lm2 := hooks.NewLockManager("/test/project", "cooldown", 2, nil)
 		acquired, _ = lm2.TryAcquire()
 		if acquired {
 			t.Error("Should not acquire lock during cooldown")
@@ -258,7 +313,7 @@ func TestLockManager(t *testing.T) {
 func TestDiscoveredCommandStringOld(t *testing.T) {
 	tests := []struct {
 		name     string
-		cmd      *DiscoveredCommand
+		cmd      *hooks.DiscoveredCommand
 		expected string
 	}{
 		{
@@ -268,25 +323,34 @@ func TestDiscoveredCommandStringOld(t *testing.T) {
 		},
 		{
 			name: "command without args",
-			cmd: &DiscoveredCommand{
-				Command: "make",
-				Args:    []string{},
+			cmd: &hooks.DiscoveredCommand{
+				Type:       "",
+				Command:    "make",
+				Args:       []string{},
+				WorkingDir: "",
+				Source:     "",
 			},
 			expected: "make",
 		},
 		{
 			name: "command with single arg",
-			cmd: &DiscoveredCommand{
-				Command: "make",
-				Args:    []string{"lint"},
+			cmd: &hooks.DiscoveredCommand{
+				Type:       "",
+				Command:    "make",
+				Args:       []string{"lint"},
+				WorkingDir: "",
+				Source:     "",
 			},
 			expected: "make lint",
 		},
 		{
 			name: "command with multiple args",
-			cmd: &DiscoveredCommand{
-				Command: "cargo",
-				Args:    []string{"clippy", "--", "-D", "warnings"},
+			cmd: &hooks.DiscoveredCommand{
+				Type:       "",
+				Command:    "cargo",
+				Args:       []string{"clippy", "--", "-D", "warnings"},
+				WorkingDir: "",
+				Source:     "",
 			},
 			expected: "cargo clippy -- -D warnings",
 		},
@@ -305,13 +369,14 @@ func TestDiscoveredCommandStringOld(t *testing.T) {
 // TestCommandExecutorBasic tests basic command execution.
 func TestCommandExecutorBasic(t *testing.T) {
 	t.Run("execute simple command", func(t *testing.T) {
-		executor := NewCommandExecutor(5, false, nil)
+		executor := hooks.NewCommandExecutor(5, false, nil)
 
-		cmd := &DiscoveredCommand{
-			Type:       CommandTypeTest,
+		cmd := &hooks.DiscoveredCommand{
+			Type:       hooks.CommandTypeTest,
 			Command:    "echo",
 			Args:       []string{"hello"},
 			WorkingDir: ".",
+			Source:     "",
 		}
 
 		result := executor.Execute(context.Background(), cmd)
@@ -321,13 +386,14 @@ func TestCommandExecutorBasic(t *testing.T) {
 	})
 
 	t.Run("handle command timeout", func(t *testing.T) {
-		executor := NewCommandExecutor(1, false, nil) // 1 second timeout
+		executor := hooks.NewCommandExecutor(1, false, nil) // 1 second timeout
 
-		cmd := &DiscoveredCommand{
-			Type:       CommandTypeTest,
+		cmd := &hooks.DiscoveredCommand{
+			Type:       hooks.CommandTypeTest,
 			Command:    "sleep",
 			Args:       []string{"2"}, // Sleep longer than timeout
 			WorkingDir: ".",
+			Source:     "",
 		}
 
 		result := executor.Execute(context.Background(), cmd)
@@ -340,13 +406,14 @@ func TestCommandExecutorBasic(t *testing.T) {
 	})
 
 	t.Run("handle non-existent command", func(t *testing.T) {
-		executor := NewCommandExecutor(5, false, nil)
+		executor := hooks.NewCommandExecutor(5, false, nil)
 
-		cmd := &DiscoveredCommand{
-			Type:       CommandTypeTest,
+		cmd := &hooks.DiscoveredCommand{
+			Type:       hooks.CommandTypeTest,
 			Command:    "nonexistentcommand12345",
 			Args:       []string{},
 			WorkingDir: ".",
+			Source:     "",
 		}
 
 		result := executor.Execute(context.Background(), cmd)
@@ -361,7 +428,7 @@ func TestRunSmartHookBasic(t *testing.T) {
 	t.Run("exits early when disabled", func(t *testing.T) {
 		t.Setenv("CLAUDE_HOOKS_LINT_ENABLED", "false")
 
-		code := RunSmartHook(context.Background(), CommandTypeLint, false, 20, 2, nil)
+		code := hooks.RunSmartHook(context.Background(), hooks.CommandTypeLint, false, 20, 2, nil)
 		if code != 0 {
 			t.Errorf("Expected exit code 0 when disabled, got %d", code)
 		}
@@ -382,15 +449,15 @@ test:
 	@echo "Running tests"
 `
 	makefilePath := filepath.Join(tmpDir, "Makefile")
-	if err := os.WriteFile(makefilePath, []byte(makefileContent), 0644); err != nil {
+	if err := os.WriteFile(makefilePath, []byte(makefileContent), 0o644); err != nil {
 		t.Fatalf("Failed to create Makefile: %v", err)
 	}
 
 	t.Run("discover Makefile targets", func(t *testing.T) {
-		discovery := NewCommandDiscovery(tmpDir, 20, nil)
+		discovery := hooks.NewCommandDiscovery(tmpDir, 20, nil)
 
 		// Test lint discovery
-		cmd, err := discovery.DiscoverCommand(context.Background(), CommandTypeLint, tmpDir)
+		cmd, err := discovery.DiscoverCommand(context.Background(), hooks.CommandTypeLint, tmpDir)
 		if err != nil {
 			t.Errorf("Failed to discover lint command: %v", err)
 		}
@@ -402,7 +469,7 @@ test:
 		}
 
 		// Test test discovery
-		cmd, err = discovery.DiscoverCommand(context.Background(), CommandTypeTest, tmpDir)
+		cmd, err = discovery.DiscoverCommand(context.Background(), hooks.CommandTypeTest, tmpDir)
 		if err != nil {
 			t.Errorf("Failed to discover test command: %v", err)
 		}
@@ -467,13 +534,13 @@ func BenchmarkDiscovery(b *testing.B) {
 	makefileContent := `lint:
 	@echo "lint"
 `
-	os.WriteFile(filepath.Join(tmpDir, "Makefile"), []byte(makefileContent), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "Makefile"), []byte(makefileContent), 0o644)
 
-	discovery := NewCommandDiscovery(tmpDir, 20, nil)
+	discovery := hooks.NewCommandDiscovery(tmpDir, 20, nil)
 
 	b.ResetTimer()
 	for range b.N {
-		discovery.DiscoverCommand(context.Background(), CommandTypeLint, tmpDir)
+		discovery.DiscoverCommand(context.Background(), hooks.CommandTypeLint, tmpDir)
 	}
 }
 
@@ -484,7 +551,7 @@ func BenchmarkLockManager(b *testing.B) {
 
 	b.ResetTimer()
 	for i := range b.N {
-		lm := NewLockManager(fmt.Sprintf("/project%d", i), "bench", 0, nil)
+		lm := hooks.NewLockManager(fmt.Sprintf("/project%d", i), "bench", 0, nil)
 		lm.TryAcquire()
 		lm.Release()
 	}

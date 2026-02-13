@@ -1,18 +1,96 @@
-package config
+package config_test
 
 import (
 	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/riddopic/cc-tools/internal/config"
 )
 
-func TestNewManager(t *testing.T) {
-	// Save original env
-	origHome := os.Getenv("XDG_CONFIG_HOME")
-	defer func() { os.Setenv("XDG_CONFIG_HOME", origHome) }()
+// assertConfigSavedToFile reads the config file and unmarshals it, failing the
+// test if the file cannot be read or parsed.
+func assertConfigSavedToFile(t *testing.T, configPath string) config.Values {
+	t.Helper()
 
+	data, readErr := os.ReadFile(configPath)
+	if readErr != nil {
+		t.Fatalf("Failed to read config file: %v", readErr)
+	}
+
+	var saved config.Values
+	if unmarshalErr := json.Unmarshal(data, &saved); unmarshalErr != nil {
+		t.Fatalf("Failed to unmarshal saved config: %v", unmarshalErr)
+	}
+
+	return saved
+}
+
+// assertSavedConfigValid reads the config file and verifies it is valid JSON,
+// pretty-printed, and has correct permissions.
+func assertSavedConfigValid(t *testing.T, configPath string) {
+	t.Helper()
+
+	data, readErr := os.ReadFile(configPath)
+	if readErr != nil {
+		t.Fatalf("Failed to read saved config: %v", readErr)
+	}
+
+	var saved config.Values
+	if unmarshalErr := json.Unmarshal(data, &saved); unmarshalErr != nil {
+		t.Fatalf("Saved config is not valid JSON: %v", unmarshalErr)
+	}
+
+	if !strings.Contains(string(data), "  ") {
+		t.Error("Config should be pretty-printed with indentation")
+	}
+
+	info, statErr := os.Stat(configPath)
+	if statErr != nil {
+		t.Fatalf("Failed to stat config file: %v", statErr)
+	}
+
+	if info.Mode().Perm() != 0o600 {
+		t.Errorf("Config file permissions = %v, want 0600", info.Mode().Perm())
+	}
+}
+
+// writeTestConfig marshals the given value to JSON and writes it to configPath,
+// creating parent directories as needed.
+func writeTestConfig(t *testing.T, configPath string, v any) {
+	t.Helper()
+
+	data, marshalErr := json.MarshalIndent(v, "", "  ")
+	if marshalErr != nil {
+		t.Fatalf("Failed to marshal test config: %v", marshalErr)
+	}
+
+	if mkdirErr := os.MkdirAll(filepath.Dir(configPath), 0o755); mkdirErr != nil {
+		t.Fatalf("Failed to create config directory: %v", mkdirErr)
+	}
+
+	if writeErr := os.WriteFile(configPath, data, 0o600); writeErr != nil {
+		t.Fatalf("Failed to write test config: %v", writeErr)
+	}
+}
+
+// newTestValues creates a fully populated Values for testing.
+func newTestValues(timeout, cooldown int) *config.Values {
+	return &config.Values{
+		Validate: config.ValidateValues{
+			Timeout:  timeout,
+			Cooldown: cooldown,
+		},
+		Notifications: config.NotificationsValues{
+			NtfyTopic: "",
+		},
+	}
+}
+
+func TestNewManager(t *testing.T) {
 	tests := []struct {
 		name        string
 		xdgHome     string
@@ -32,15 +110,16 @@ func TestNewManager(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv("XDG_CONFIG_HOME", tt.xdgHome)
-			m := NewManager()
+			t.Setenv("XDG_CONFIG_HOME", tt.xdgHome)
+			m := config.NewManager()
+			path := m.GetConfigPath()
 
-			if !filepath.IsAbs(m.configPath) {
-				t.Errorf("config path should be absolute, got %s", m.configPath)
+			if !filepath.IsAbs(path) {
+				t.Errorf("config path should be absolute, got %s", path)
 			}
 
-			if tt.xdgHome != "" && m.configPath != tt.wantPathEnd {
-				t.Errorf("unexpected config path = %s, want %s", m.configPath, tt.wantPathEnd)
+			if tt.xdgHome != "" && path != tt.wantPathEnd {
+				t.Errorf("unexpected config path = %s, want %s", path, tt.wantPathEnd)
 			}
 		})
 	}
@@ -49,89 +128,61 @@ func TestNewManager(t *testing.T) {
 func TestEnsureConfig(t *testing.T) {
 	ctx := context.Background()
 
-	tests := []struct {
-		name      string
-		setupFunc func(t *testing.T, configPath string)
-		wantErr   bool
-		checkFunc func(t *testing.T, m *Manager)
-	}{
-		{
-			name: "creates config file when missing",
-			setupFunc: func(t *testing.T, configPath string) {
-				// Ensure parent dir exists but config file doesn't
-				os.MkdirAll(filepath.Dir(configPath), 0o755)
-			},
-			wantErr: false,
-			checkFunc: func(t *testing.T, m *Manager) {
-				if _, err := os.Stat(m.configPath); os.IsNotExist(err) {
-					t.Error("config file should have been created")
-				}
+	t.Run("creates config file when missing", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "config.json")
+		os.MkdirAll(filepath.Dir(configPath), 0o755)
+		m := config.NewTestManager(configPath, nil)
 
-				// Check defaults are loaded
-				if m.config == nil {
-					t.Fatal("config should be loaded")
-				}
-				if m.config.Validate.Timeout != defaultValidateTimeout {
-					t.Errorf("timeout = %d, want %d", m.config.Validate.Timeout, defaultValidateTimeout)
-				}
-			},
-		},
-		{
-			name: "loads existing config file",
-			setupFunc: func(t *testing.T, configPath string) {
-				os.MkdirAll(filepath.Dir(configPath), 0o755)
-				config := &ConfigValues{
-					Validate: ValidateConfigValues{
-						Timeout:  120,
-						Cooldown: 10,
-					},
-				}
-				data, _ := json.MarshalIndent(config, "", "  ")
-				os.WriteFile(configPath, data, 0o600)
-			},
-			wantErr: false,
-			checkFunc: func(t *testing.T, m *Manager) {
-				if m.config == nil {
-					t.Fatal("config should be loaded")
-				}
-				if m.config.Validate.Timeout != 120 {
-					t.Errorf("timeout = %d, want 120", m.config.Validate.Timeout)
-				}
-			},
-		},
-		{
-			name: "handles corrupt config file",
-			setupFunc: func(t *testing.T, configPath string) {
-				os.MkdirAll(filepath.Dir(configPath), 0o755)
-				os.WriteFile(configPath, []byte("invalid json"), 0o600)
-			},
-			wantErr: true,
-		},
-	}
+		if err := m.EnsureConfig(ctx); err != nil {
+			t.Fatalf("EnsureConfig() error = %v", err)
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			configPath := filepath.Join(tmpDir, "config.json")
+		if _, err := os.Stat(m.GetConfigPath()); os.IsNotExist(err) {
+			t.Error("config file should have been created")
+		}
 
-			m := &Manager{
-				configPath: configPath,
-			}
+		cfg, err := m.GetConfig(ctx)
+		if err != nil {
+			t.Fatalf("failed to get config: %v", err)
+		}
 
-			if tt.setupFunc != nil {
-				tt.setupFunc(t, configPath)
-			}
+		if cfg.Validate.Timeout != config.ExportDefaultValidateTimeout() {
+			t.Errorf("timeout = %d, want %d", cfg.Validate.Timeout, config.ExportDefaultValidateTimeout())
+		}
+	})
 
-			err := m.EnsureConfig(ctx)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("EnsureConfig() error = %v, wantErr %v", err, tt.wantErr)
-			}
+	t.Run("loads existing config file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "config.json")
+		writeTestConfig(t, configPath, newTestValues(120, 10))
+		m := config.NewTestManager(configPath, nil)
 
-			if err == nil && tt.checkFunc != nil {
-				tt.checkFunc(t, m)
-			}
-		})
-	}
+		if err := m.EnsureConfig(ctx); err != nil {
+			t.Fatalf("EnsureConfig() error = %v", err)
+		}
+
+		cfg, err := m.GetConfig(ctx)
+		if err != nil {
+			t.Fatalf("failed to get config: %v", err)
+		}
+
+		if cfg.Validate.Timeout != 120 {
+			t.Errorf("timeout = %d, want 120", cfg.Validate.Timeout)
+		}
+	})
+
+	t.Run("handles corrupt config file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "config.json")
+		os.MkdirAll(filepath.Dir(configPath), 0o755)
+		os.WriteFile(configPath, []byte("invalid json"), 0o600)
+		m := config.NewTestManager(configPath, nil)
+
+		if err := m.EnsureConfig(ctx); err == nil {
+			t.Error("EnsureConfig() expected error for corrupt config")
+		}
+	})
 }
 
 func TestGetInt(t *testing.T) {
@@ -139,46 +190,42 @@ func TestGetInt(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		config    *ConfigValues
+		config    *config.Values
 		key       string
 		wantValue int
 		wantFound bool
 		wantErr   bool
 	}{
 		{
-			name: "get validate timeout",
-			config: &ConfigValues{
-				Validate: ValidateConfigValues{Timeout: 90},
-			},
-			key:       keyValidateTimeout,
+			name:      "get validate timeout",
+			config:    newTestValues(90, 0),
+			key:       config.ExportKeyValidateTimeout(),
 			wantValue: 90,
 			wantFound: true,
+			wantErr:   false,
 		},
 		{
-			name: "get validate cooldown",
-			config: &ConfigValues{
-				Validate: ValidateConfigValues{Cooldown: 15},
-			},
-			key:       keyValidateCooldown,
+			name:      "get validate cooldown",
+			config:    newTestValues(0, 15),
+			key:       config.ExportKeyValidateCooldown(),
 			wantValue: 15,
 			wantFound: true,
+			wantErr:   false,
 		},
 		{
 			name:      "unknown key returns not found",
-			config:    &ConfigValues{},
+			config:    newTestValues(0, 0),
 			key:       "unknown.key",
 			wantValue: 0,
 			wantFound: false,
+			wantErr:   false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
-			m := &Manager{
-				configPath: filepath.Join(tmpDir, "config.json"),
-				config:     tt.config,
-			}
+			m := config.NewTestManager(filepath.Join(tmpDir, "config.json"), tt.config)
 
 			value, found, err := m.GetInt(ctx, tt.key)
 			if (err != nil) != tt.wantErr {
@@ -199,14 +246,14 @@ func TestGetString(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		config    *ConfigValues
+		config    *config.Values
 		key       string
 		wantValue string
 		wantFound bool
 	}{
 		{
 			name:      "unknown key returns not found",
-			config:    &ConfigValues{},
+			config:    newTestValues(0, 0),
 			key:       "unknown.key",
 			wantValue: "",
 			wantFound: false,
@@ -216,10 +263,7 @@ func TestGetString(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
-			m := &Manager{
-				configPath: filepath.Join(tmpDir, "config.json"),
-				config:     tt.config,
-			}
+			m := config.NewTestManager(filepath.Join(tmpDir, "config.json"), tt.config)
 
 			value, found, err := m.GetString(ctx, tt.key)
 			if err != nil {
@@ -240,23 +284,21 @@ func TestGetValue(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		config    *ConfigValues
+		config    *config.Values
 		key       string
 		wantValue string
 		wantFound bool
 	}{
 		{
-			name: "get int value as string",
-			config: &ConfigValues{
-				Validate: ValidateConfigValues{Timeout: 45},
-			},
-			key:       keyValidateTimeout,
+			name:      "get int value as string",
+			config:    newTestValues(45, 0),
+			key:       config.ExportKeyValidateTimeout(),
 			wantValue: "45",
 			wantFound: true,
 		},
 		{
 			name:      "unknown key",
-			config:    &ConfigValues{},
+			config:    newTestValues(0, 0),
 			key:       "unknown",
 			wantValue: "",
 			wantFound: false,
@@ -266,10 +308,7 @@ func TestGetValue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
-			m := &Manager{
-				configPath: filepath.Join(tmpDir, "config.json"),
-				config:     tt.config,
-			}
+			m := config.NewTestManager(filepath.Join(tmpDir, "config.json"), tt.config)
 
 			value, found, err := m.GetValue(ctx, tt.key)
 			if err != nil {
@@ -288,85 +327,60 @@ func TestGetValue(t *testing.T) {
 func TestSet(t *testing.T) {
 	ctx := context.Background()
 
-	tests := []struct {
-		name      string
-		key       string
-		value     string
-		wantErr   bool
-		checkFunc func(t *testing.T, m *Manager)
-	}{
-		{
-			name:  "set validate timeout",
-			key:   keyValidateTimeout,
-			value: "180",
-			checkFunc: func(t *testing.T, m *Manager) {
-				if m.config.Validate.Timeout != 180 {
-					t.Errorf("timeout = %d, want 180", m.config.Validate.Timeout)
-				}
-			},
-		},
-		{
-			name:    "invalid int value",
-			key:     keyValidateTimeout,
-			value:   "not-a-number",
-			wantErr: true,
-		},
-		{
-			name:    "unknown key",
-			key:     "unknown.key",
-			value:   "value",
-			wantErr: true,
-		},
-	}
+	t.Run("set validate timeout", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		m := config.NewTestManager(
+			filepath.Join(tmpDir, "config.json"),
+			config.ExportGetDefaultConfig(),
+		)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			m := &Manager{
-				configPath: filepath.Join(tmpDir, "config.json"),
-				config:     getDefaultConfig(),
-			}
+		if err := m.Set(ctx, config.ExportKeyValidateTimeout(), "180"); err != nil {
+			t.Fatalf("Set() error = %v", err)
+		}
 
-			err := m.Set(ctx, tt.key, tt.value)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Set() error = %v, wantErr %v", err, tt.wantErr)
-			}
+		assertConfigSavedToFile(t, config.ManagerConfigPath(m))
 
-			if err == nil {
-				// Verify config was saved to file
-				data, readErr := os.ReadFile(m.configPath)
-				if readErr != nil {
-					t.Fatalf("Failed to read config file: %v", readErr)
-				}
+		cfg, err := m.GetConfig(ctx)
+		if err != nil {
+			t.Fatalf("GetConfig() error = %v", err)
+		}
 
-				var savedConfig ConfigValues
-				if unmarshalErr := json.Unmarshal(data, &savedConfig); unmarshalErr != nil {
-					t.Fatalf("Failed to unmarshal saved config: %v", unmarshalErr)
-				}
+		if cfg.Validate.Timeout != 180 {
+			t.Errorf("timeout = %d, want 180", cfg.Validate.Timeout)
+		}
+	})
 
-				if tt.checkFunc != nil {
-					tt.checkFunc(t, m)
-				}
-			}
-		})
-	}
+	t.Run("invalid int value", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		m := config.NewTestManager(
+			filepath.Join(tmpDir, "config.json"),
+			config.ExportGetDefaultConfig(),
+		)
+
+		if err := m.Set(ctx, config.ExportKeyValidateTimeout(), "not-a-number"); err == nil {
+			t.Error("Set() expected error for non-integer value")
+		}
+	})
+
+	t.Run("unknown key", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		m := config.NewTestManager(
+			filepath.Join(tmpDir, "config.json"),
+			config.ExportGetDefaultConfig(),
+		)
+
+		if err := m.Set(ctx, "unknown.key", "value"); err == nil {
+			t.Error("Set() expected error for unknown key")
+		}
+	})
 }
 
 func TestGetAll(t *testing.T) {
 	ctx := context.Background()
 
-	config := &ConfigValues{
-		Validate: ValidateConfigValues{
-			Timeout:  defaultValidateTimeout,
-			Cooldown: 10, // non-default
-		},
-	}
-
+	cfg := newTestValues(config.ExportDefaultValidateTimeout(), 10)
 	tmpDir := t.TempDir()
-	m := &Manager{
-		configPath: filepath.Join(tmpDir, "config.json"),
-		config:     config,
-	}
+	m := config.NewTestManager(filepath.Join(tmpDir, "config.json"), cfg)
 
 	all, err := m.GetAll(ctx)
 	if err != nil {
@@ -375,9 +389,9 @@ func TestGetAll(t *testing.T) {
 
 	// Check that all keys are present
 	expectedKeys := []string{
-		keyValidateTimeout,
-		keyValidateCooldown,
-		keyNotificationsNtfyTopic,
+		config.ExportKeyValidateTimeout(),
+		config.ExportKeyValidateCooldown(),
+		config.ExportKeyNotificationsNtfyTopic(),
 	}
 
 	for _, key := range expectedKeys {
@@ -387,10 +401,10 @@ func TestGetAll(t *testing.T) {
 	}
 
 	// Check IsDefault flags
-	if !all[keyValidateTimeout].IsDefault {
+	if !all[config.ExportKeyValidateTimeout()].IsDefault {
 		t.Error("validate.timeout should be marked as default")
 	}
-	if all[keyValidateCooldown].IsDefault {
+	if all[config.ExportKeyValidateCooldown()].IsDefault {
 		t.Error("validate.cooldown should not be marked as default")
 	}
 }
@@ -398,7 +412,7 @@ func TestGetAll(t *testing.T) {
 func TestGetAllKeys(t *testing.T) {
 	ctx := context.Background()
 
-	m := NewManager()
+	m := config.NewManager()
 	keys, err := m.GetAllKeys(ctx)
 	if err != nil {
 		t.Fatalf("GetAllKeys() error = %v", err)
@@ -424,332 +438,226 @@ func TestGetAllKeys(t *testing.T) {
 func TestReset(t *testing.T) {
 	ctx := context.Background()
 
-	tests := []struct {
-		name      string
-		key       string
-		initValue string
-		wantErr   bool
-		checkFunc func(t *testing.T, m *Manager)
-	}{
-		{
-			name:      "reset validate timeout",
-			key:       keyValidateTimeout,
-			initValue: "999",
-			checkFunc: func(t *testing.T, m *Manager) {
-				if m.config.Validate.Timeout != defaultValidateTimeout {
-					t.Errorf("timeout = %d, want %d", m.config.Validate.Timeout, defaultValidateTimeout)
-				}
-			},
-		},
-		{
-			name:    "unknown key",
-			key:     "unknown.key",
-			wantErr: true,
-		},
-	}
+	t.Run("reset validate timeout", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		m := config.NewTestManager(
+			filepath.Join(tmpDir, "config.json"),
+			config.ExportGetDefaultConfig(),
+		)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			m := &Manager{
-				configPath: filepath.Join(tmpDir, "config.json"),
-				config:     getDefaultConfig(),
-			}
+		if err := m.Set(ctx, config.ExportKeyValidateTimeout(), "999"); err != nil {
+			t.Fatalf("Set() setup error = %v", err)
+		}
 
-			// Set initial non-default value if provided
-			if tt.initValue != "" && !tt.wantErr {
-				m.Set(ctx, tt.key, tt.initValue)
-			}
+		if err := m.Reset(ctx, config.ExportKeyValidateTimeout()); err != nil {
+			t.Fatalf("Reset() error = %v", err)
+		}
 
-			err := m.Reset(ctx, tt.key)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Reset() error = %v, wantErr %v", err, tt.wantErr)
-			}
+		cfg, err := m.GetConfig(ctx)
+		if err != nil {
+			t.Fatalf("GetConfig() error = %v", err)
+		}
 
-			if err == nil && tt.checkFunc != nil {
-				tt.checkFunc(t, m)
+		if cfg.Validate.Timeout != config.ExportDefaultValidateTimeout() {
+			t.Errorf("timeout = %d, want %d", cfg.Validate.Timeout, config.ExportDefaultValidateTimeout())
+		}
 
-				// Verify config was saved
-				data, _ := os.ReadFile(m.configPath)
-				var savedConfig ConfigValues
-				json.Unmarshal(data, &savedConfig)
-			}
-		})
-	}
+		assertConfigSavedToFile(t, config.ManagerConfigPath(m))
+	})
+
+	t.Run("unknown key", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		m := config.NewTestManager(
+			filepath.Join(tmpDir, "config.json"),
+			config.ExportGetDefaultConfig(),
+		)
+
+		if err := m.Reset(ctx, "unknown.key"); err == nil {
+			t.Error("Reset() expected error for unknown key")
+		}
+	})
 }
 
 func TestResetAll(t *testing.T) {
 	ctx := context.Background()
 	tmpDir := t.TempDir()
 
-	m := &Manager{
-		configPath: filepath.Join(tmpDir, "config.json"),
-		config: &ConfigValues{
-			Validate: ValidateConfigValues{
-				Timeout:  999,
-				Cooldown: 999,
-			},
-		},
-	}
+	m := config.NewTestManager(filepath.Join(tmpDir, "config.json"), newTestValues(999, 999))
 
 	err := m.ResetAll(ctx)
 	if err != nil {
 		t.Fatalf("ResetAll() error = %v", err)
 	}
 
-	// Check all values are reset to defaults
-	defaults := getDefaultConfig()
-	if m.config.Validate.Timeout != defaults.Validate.Timeout {
+	defaults := config.ExportGetDefaultConfig()
+
+	cfg, getErr := m.GetConfig(ctx)
+	if getErr != nil {
+		t.Fatalf("GetConfig() error = %v", getErr)
+	}
+
+	if cfg.Validate.Timeout != defaults.Validate.Timeout {
 		t.Errorf("timeout not reset to default")
 	}
-	if m.config.Validate.Cooldown != defaults.Validate.Cooldown {
+	if cfg.Validate.Cooldown != defaults.Validate.Cooldown {
 		t.Errorf("cooldown not reset to default")
 	}
 
-	// Verify saved to file
-	data, _ := os.ReadFile(m.configPath)
-	var savedConfig ConfigValues
-	json.Unmarshal(data, &savedConfig)
-	if savedConfig.Validate.Timeout != defaults.Validate.Timeout {
+	saved := assertConfigSavedToFile(t, config.ManagerConfigPath(m))
+	if saved.Validate.Timeout != defaults.Validate.Timeout {
 		t.Error("saved config not reset to defaults")
 	}
 }
 
 func TestLoadConfig(t *testing.T) {
-	tests := []struct {
-		name      string
-		setupFunc func(t *testing.T, configPath string)
-		checkFunc func(t *testing.T, m *Manager)
-		wantErr   bool
-	}{
-		{
-			name: "loads structured config",
-			setupFunc: func(t *testing.T, configPath string) {
-				config := &ConfigValues{
-					Validate: ValidateConfigValues{
-						Timeout:  120,
-						Cooldown: 10,
-					},
-				}
-				data, _ := json.MarshalIndent(config, "", "  ")
-				os.MkdirAll(filepath.Dir(configPath), 0o755)
-				os.WriteFile(configPath, data, 0o600)
-			},
-			checkFunc: func(t *testing.T, m *Manager) {
-				if m.config.Validate.Timeout != 120 {
-					t.Errorf("timeout = %d, want 120", m.config.Validate.Timeout)
-				}
-			},
-		},
-		{
-			name: "loads map-based config for backward compatibility",
-			setupFunc: func(t *testing.T, configPath string) {
-				mapConfig := map[string]any{
-					"validate": map[string]any{
-						"timeout":  90.0,
-						"cooldown": 5.0,
-					},
-				}
-				data, _ := json.MarshalIndent(mapConfig, "", "  ")
-				os.MkdirAll(filepath.Dir(configPath), 0o755)
-				os.WriteFile(configPath, data, 0o600)
-			},
-			checkFunc: func(t *testing.T, m *Manager) {
-				if m.config.Validate.Timeout != 90 {
-					t.Errorf("timeout = %d, want 90", m.config.Validate.Timeout)
-				}
-			},
-		},
-		{
-			name: "uses defaults when file doesn't exist",
-			checkFunc: func(t *testing.T, m *Manager) {
-				defaults := getDefaultConfig()
-				if m.config.Validate.Timeout != defaults.Validate.Timeout {
-					t.Errorf("timeout = %d, want %d", m.config.Validate.Timeout, defaults.Validate.Timeout)
-				}
-			},
-		},
-		{
-			name: "fills in missing fields with defaults",
-			setupFunc: func(t *testing.T, configPath string) {
-				// Partial config with some fields missing
-				config := &ConfigValues{
-					Validate: ValidateConfigValues{
-						Timeout: 100,
-						// Cooldown missing - should use default
-					},
-				}
-				data, _ := json.MarshalIndent(config, "", "  ")
-				os.MkdirAll(filepath.Dir(configPath), 0o755)
-				os.WriteFile(configPath, data, 0o600)
-			},
-			checkFunc: func(t *testing.T, m *Manager) {
-				if m.config.Validate.Timeout != 100 {
-					t.Errorf("timeout = %d, want 100", m.config.Validate.Timeout)
-				}
-				if m.config.Validate.Cooldown != defaultValidateCooldown {
-					t.Errorf("cooldown = %d, want default %d", m.config.Validate.Cooldown, defaultValidateCooldown)
-				}
-			},
-		},
-		{
-			name: "handles corrupt JSON",
-			setupFunc: func(t *testing.T, configPath string) {
-				os.MkdirAll(filepath.Dir(configPath), 0o755)
-				os.WriteFile(configPath, []byte("{invalid json}"), 0o600)
-			},
-			wantErr: true,
-		},
-	}
+	t.Run("loads structured config", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "config.json")
+		writeTestConfig(t, configPath, newTestValues(120, 10))
+		m := config.NewTestManager(configPath, nil)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			configPath := filepath.Join(tmpDir, "config.json")
+		if err := config.ManagerLoadConfig(m); err != nil {
+			t.Fatalf("loadConfig() error = %v", err)
+		}
 
-			if tt.setupFunc != nil {
-				tt.setupFunc(t, configPath)
-			}
+		cfg := config.ManagerConfig(m)
+		if cfg.Validate.Timeout != 120 {
+			t.Errorf("timeout = %d, want 120", cfg.Validate.Timeout)
+		}
+	})
 
-			m := &Manager{
-				configPath: configPath,
-			}
-
-			err := m.loadConfig()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("loadConfig() error = %v, wantErr %v", err, tt.wantErr)
-			}
-
-			if err == nil && tt.checkFunc != nil {
-				tt.checkFunc(t, m)
-			}
+	t.Run("loads map-based config for backward compatibility", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "config.json")
+		writeTestConfig(t, configPath, map[string]any{
+			"validate": map[string]any{
+				"timeout":  90.0,
+				"cooldown": 5.0,
+			},
 		})
-	}
+		m := config.NewTestManager(configPath, nil)
+
+		if err := config.ManagerLoadConfig(m); err != nil {
+			t.Fatalf("loadConfig() error = %v", err)
+		}
+
+		cfg := config.ManagerConfig(m)
+		if cfg.Validate.Timeout != 90 {
+			t.Errorf("timeout = %d, want 90", cfg.Validate.Timeout)
+		}
+	})
+
+	t.Run("uses defaults when file doesn't exist", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "config.json")
+		m := config.NewTestManager(configPath, nil)
+
+		if err := config.ManagerLoadConfig(m); err != nil {
+			t.Fatalf("loadConfig() error = %v", err)
+		}
+
+		defaults := config.ExportGetDefaultConfig()
+		cfg := config.ManagerConfig(m)
+		if cfg.Validate.Timeout != defaults.Validate.Timeout {
+			t.Errorf("timeout = %d, want %d", cfg.Validate.Timeout, defaults.Validate.Timeout)
+		}
+	})
+
+	t.Run("fills in missing fields with defaults", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "config.json")
+		writeTestConfig(t, configPath, newTestValues(100, 0))
+		m := config.NewTestManager(configPath, nil)
+
+		if err := config.ManagerLoadConfig(m); err != nil {
+			t.Fatalf("loadConfig() error = %v", err)
+		}
+
+		cfg := config.ManagerConfig(m)
+		if cfg.Validate.Timeout != 100 {
+			t.Errorf("timeout = %d, want 100", cfg.Validate.Timeout)
+		}
+		if cfg.Validate.Cooldown != config.ExportDefaultValidateCooldown() {
+			t.Errorf("cooldown = %d, want default %d", cfg.Validate.Cooldown, config.ExportDefaultValidateCooldown())
+		}
+	})
+
+	t.Run("handles corrupt JSON", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "config.json")
+		os.MkdirAll(filepath.Dir(configPath), 0o755)
+		os.WriteFile(configPath, []byte("{invalid json}"), 0o600)
+		m := config.NewTestManager(configPath, nil)
+
+		if err := config.ManagerLoadConfig(m); err == nil {
+			t.Error("loadConfig() expected error for corrupt JSON")
+		}
+	})
 }
 
 func TestSaveConfig(t *testing.T) {
-	tests := []struct {
-		name      string
-		config    *ConfigValues
-		setupFunc func(t *testing.T, configPath string)
-		wantErr   bool
-	}{
-		{
-			name: "saves config successfully",
-			config: &ConfigValues{
-				Validate: ValidateConfigValues{
-					Timeout:  100,
-					Cooldown: 10,
-				},
-			},
-		},
-		{
-			name: "creates directory if missing",
-			config: &ConfigValues{
-				Validate: ValidateConfigValues{
-					Timeout:  60,
-					Cooldown: 5,
-				},
-			},
-		},
-		{
-			name:   "handles permission error",
-			config: &ConfigValues{},
-			setupFunc: func(t *testing.T, configPath string) {
-				// Create a read-only directory
-				dir := filepath.Dir(configPath)
-				os.MkdirAll(dir, 0o755)
-				os.Chmod(dir, 0o444)
-				// Cleanup function to restore permissions
-				t.Cleanup(func() {
-					os.Chmod(dir, 0o755)
-				})
-			},
-			wantErr: true,
-		},
-	}
+	t.Run("saves config successfully", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "subdir", "config.json")
+		m := config.NewTestManager(configPath, newTestValues(100, 10))
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			configPath := filepath.Join(tmpDir, "subdir", "config.json")
+		if err := config.ManagerSaveConfig(m); err != nil {
+			t.Fatalf("saveConfig() error = %v", err)
+		}
 
-			if tt.setupFunc != nil {
-				tt.setupFunc(t, configPath)
-			}
+		assertSavedConfigValid(t, configPath)
+	})
 
-			m := &Manager{
-				configPath: configPath,
-				config:     tt.config,
-			}
+	t.Run("creates directory if missing", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "subdir", "config.json")
+		m := config.NewTestManager(configPath, newTestValues(60, 5))
 
-			err := m.saveConfig()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("saveConfig() error = %v, wantErr %v", err, tt.wantErr)
-			}
+		if err := config.ManagerSaveConfig(m); err != nil {
+			t.Fatalf("saveConfig() error = %v", err)
+		}
 
-			if err == nil {
-				// Verify file was created and contains valid JSON
-				data, readErr := os.ReadFile(configPath)
-				if readErr != nil {
-					t.Fatalf("Failed to read saved config: %v", readErr)
-				}
+		assertSavedConfigValid(t, configPath)
+	})
 
-				var savedConfig ConfigValues
-				if unmarshalErr := json.Unmarshal(data, &savedConfig); unmarshalErr != nil {
-					t.Fatalf("Saved config is not valid JSON: %v", unmarshalErr)
-				}
-
-				// Check indentation (should be pretty-printed)
-				if !contains(string(data), "  ") {
-					t.Error("Config should be pretty-printed with indentation")
-				}
-
-				// Verify file permissions
-				info, _ := os.Stat(configPath)
-				mode := info.Mode()
-				if mode.Perm() != 0o600 {
-					t.Errorf("Config file permissions = %v, want 0600", mode.Perm())
-				}
-			}
+	t.Run("handles permission error", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "subdir", "config.json")
+		dir := filepath.Dir(configPath)
+		os.MkdirAll(dir, 0o755)
+		os.Chmod(dir, 0o444)
+		t.Cleanup(func() {
+			os.Chmod(dir, 0o755)
 		})
-	}
+
+		m := config.NewTestManager(configPath, newTestValues(0, 0))
+
+		if err := config.ManagerSaveConfig(m); err == nil {
+			t.Error("saveConfig() expected error for permission denied")
+		}
+	})
 }
 
 func TestGetConfig(t *testing.T) {
 	ctx := context.Background()
 
-	expectedConfig := &ConfigValues{
-		Validate: ValidateConfigValues{
-			Timeout:  90,
-			Cooldown: 10,
-		},
-	}
+	expectedConfig := newTestValues(90, 10)
 
 	tmpDir := t.TempDir()
-	m := &Manager{
-		configPath: filepath.Join(tmpDir, "config.json"),
-		config:     expectedConfig,
-	}
+	m := config.NewTestManager(filepath.Join(tmpDir, "config.json"), expectedConfig)
 
-	config, err := m.GetConfig(ctx)
+	cfg, err := m.GetConfig(ctx)
 	if err != nil {
 		t.Fatalf("GetConfig() error = %v", err)
 	}
 
-	if config != expectedConfig {
+	if cfg != expectedConfig {
 		t.Error("GetConfig() should return the same config instance")
 	}
 
 	// Test lazy loading
-	m2 := &Manager{
-		configPath: filepath.Join(tmpDir, "config2.json"),
-		config:     nil,
-	}
-
-	// Create config file
-	data, _ := json.MarshalIndent(expectedConfig, "", "  ")
-	os.WriteFile(m2.configPath, data, 0o600)
+	m2 := config.NewTestManager(filepath.Join(tmpDir, "config2.json"), nil)
+	writeTestConfig(t, config.ManagerConfigPath(m2), expectedConfig)
 
 	config2, err := m2.GetConfig(ctx)
 	if err != nil {
@@ -767,9 +675,7 @@ func TestGetConfig(t *testing.T) {
 
 func TestManagerGetConfigPath(t *testing.T) {
 	expectedPath := "/custom/path/config.json"
-	m := &Manager{
-		configPath: expectedPath,
-	}
+	m := config.NewTestManager(expectedPath, nil)
 
 	path := m.GetConfigPath()
 	if path != expectedPath {
@@ -778,141 +684,106 @@ func TestManagerGetConfigPath(t *testing.T) {
 }
 
 func TestEnsureDefaults(t *testing.T) {
-	tests := []struct {
-		name  string
-		input *ConfigValues
-		check func(t *testing.T, config *ConfigValues)
-	}{
-		{
-			name: "fills in zero values with defaults",
-			input: &ConfigValues{
-				Validate: ValidateConfigValues{},
-			},
-			check: func(t *testing.T, config *ConfigValues) {
-				if config.Validate.Timeout != defaultValidateTimeout {
-					t.Errorf("timeout = %d, want %d", config.Validate.Timeout, defaultValidateTimeout)
-				}
-				if config.Validate.Cooldown != defaultValidateCooldown {
-					t.Errorf("cooldown = %d, want %d", config.Validate.Cooldown, defaultValidateCooldown)
-				}
-			},
-		},
-		{
-			name: "preserves non-zero values",
-			input: &ConfigValues{
-				Validate: ValidateConfigValues{
-					Timeout:  100,
-					Cooldown: 10,
-				},
-			},
-			check: func(t *testing.T, config *ConfigValues) {
-				if config.Validate.Timeout != 100 {
-					t.Errorf("timeout = %d, want 100", config.Validate.Timeout)
-				}
-			},
-		},
-	}
+	t.Run("fills in zero values with defaults", func(t *testing.T) {
+		m := config.NewTestManager("", newTestValues(0, 0))
+		config.ManagerEnsureDefaults(m)
+		cfg := config.ManagerConfig(m)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := &Manager{
-				config: tt.input,
-			}
-			m.ensureDefaults()
-			tt.check(t, m.config)
-		})
-	}
+		if cfg.Validate.Timeout != config.ExportDefaultValidateTimeout() {
+			t.Errorf("timeout = %d, want %d", cfg.Validate.Timeout, config.ExportDefaultValidateTimeout())
+		}
+		if cfg.Validate.Cooldown != config.ExportDefaultValidateCooldown() {
+			t.Errorf("cooldown = %d, want %d", cfg.Validate.Cooldown, config.ExportDefaultValidateCooldown())
+		}
+	})
+
+	t.Run("preserves non-zero values", func(t *testing.T) {
+		m := config.NewTestManager("", newTestValues(100, 10))
+		config.ManagerEnsureDefaults(m)
+		cfg := config.ManagerConfig(m)
+
+		if cfg.Validate.Timeout != 100 {
+			t.Errorf("timeout = %d, want 100", cfg.Validate.Timeout)
+		}
+	})
 }
 
 func TestConvertFromMap(t *testing.T) {
-	tests := []struct {
-		name     string
-		mapInput map[string]any
-		check    func(t *testing.T, config *ConfigValues)
-	}{
-		{
-			name: "converts all fields",
-			mapInput: map[string]any{
-				"validate": map[string]any{
-					"timeout":  120.0,
-					"cooldown": 10.0,
-				},
+	t.Run("converts all fields", func(t *testing.T) {
+		m := config.NewTestManager("", nil)
+		config.ManagerConvertFromMap(m, map[string]any{
+			"validate": map[string]any{
+				"timeout":  120.0,
+				"cooldown": 10.0,
 			},
-			check: func(t *testing.T, config *ConfigValues) {
-				if config.Validate.Timeout != 120 {
-					t.Errorf("timeout = %d, want 120", config.Validate.Timeout)
-				}
-				if config.Validate.Cooldown != 10 {
-					t.Errorf("cooldown = %d, want 10", config.Validate.Cooldown)
-				}
-			},
-		},
-		{
-			name: "handles missing sections",
-			mapInput: map[string]any{
-				"validate": map[string]any{
-					"timeout": 90.0,
-				},
-			},
-			check: func(t *testing.T, config *ConfigValues) {
-				if config.Validate.Timeout != 90 {
-					t.Errorf("timeout = %d, want 90", config.Validate.Timeout)
-				}
-				// Should have defaults for missing values
-				if config.Validate.Cooldown != defaultValidateCooldown {
-					t.Errorf("cooldown = %d, want default %d", config.Validate.Cooldown, defaultValidateCooldown)
-				}
-			},
-		},
-		{
-			name:     "handles empty map",
-			mapInput: map[string]any{},
-			check: func(t *testing.T, config *ConfigValues) {
-				defaults := getDefaultConfig()
-				if config.Validate.Timeout != defaults.Validate.Timeout {
-					t.Errorf("should have default timeout")
-				}
-			},
-		},
-		{
-			name: "handles wrong types gracefully",
-			mapInput: map[string]any{
-				"validate": "not-a-map",
-			},
-			check: func(t *testing.T, config *ConfigValues) {
-				// Should use defaults when types are wrong
-				defaults := getDefaultConfig()
-				if config.Validate.Timeout != defaults.Validate.Timeout {
-					t.Errorf("should have default timeout when validate is wrong type")
-				}
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := &Manager{}
-			m.convertFromMap(tt.mapInput)
-			tt.check(t, m.config)
 		})
-	}
+		cfg := config.ManagerConfig(m)
+
+		if cfg.Validate.Timeout != 120 {
+			t.Errorf("timeout = %d, want 120", cfg.Validate.Timeout)
+		}
+		if cfg.Validate.Cooldown != 10 {
+			t.Errorf("cooldown = %d, want 10", cfg.Validate.Cooldown)
+		}
+	})
+
+	t.Run("handles missing sections", func(t *testing.T) {
+		m := config.NewTestManager("", nil)
+		config.ManagerConvertFromMap(m, map[string]any{
+			"validate": map[string]any{
+				"timeout": 90.0,
+			},
+		})
+		cfg := config.ManagerConfig(m)
+
+		if cfg.Validate.Timeout != 90 {
+			t.Errorf("timeout = %d, want 90", cfg.Validate.Timeout)
+		}
+		if cfg.Validate.Cooldown != config.ExportDefaultValidateCooldown() {
+			t.Errorf("cooldown = %d, want default %d", cfg.Validate.Cooldown, config.ExportDefaultValidateCooldown())
+		}
+	})
+
+	t.Run("handles empty map", func(t *testing.T) {
+		m := config.NewTestManager("", nil)
+		config.ManagerConvertFromMap(m, map[string]any{})
+		cfg := config.ManagerConfig(m)
+
+		defaults := config.ExportGetDefaultConfig()
+		if cfg.Validate.Timeout != defaults.Validate.Timeout {
+			t.Errorf("should have default timeout")
+		}
+	})
+
+	t.Run("handles wrong types gracefully", func(t *testing.T) {
+		m := config.NewTestManager("", nil)
+		config.ManagerConvertFromMap(m, map[string]any{
+			"validate": "not-a-map",
+		})
+		cfg := config.ManagerConfig(m)
+
+		defaults := config.ExportGetDefaultConfig()
+		if cfg.Validate.Timeout != defaults.Validate.Timeout {
+			t.Errorf("should have default timeout when validate is wrong type")
+		}
+	})
 }
 
 func TestGetDefaultValue(t *testing.T) {
-	defaults := getDefaultConfig()
+	defaults := config.ExportGetDefaultConfig()
 
 	tests := []struct {
 		key  string
 		want string
 	}{
-		{keyValidateTimeout, "60"},
-		{keyValidateCooldown, "5"},
+		{config.ExportKeyValidateTimeout(), "60"},
+		{config.ExportKeyValidateCooldown(), "5"},
 		{"unknown.key", ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.key, func(t *testing.T) {
-			got := getDefaultValue(defaults, tt.key)
+			got := config.ExportGetDefaultValue(defaults, tt.key)
 			if got != tt.want {
 				t.Errorf("getDefaultValue(%s) = %s, want %s", tt.key, got, tt.want)
 			}
@@ -921,14 +792,6 @@ func TestGetDefaultValue(t *testing.T) {
 }
 
 func TestConfigFilePath(t *testing.T) {
-	// Save original env
-	origHome := os.Getenv("XDG_CONFIG_HOME")
-	origUserHome := os.Getenv("HOME")
-	defer func() {
-		os.Setenv("XDG_CONFIG_HOME", origHome)
-		os.Setenv("HOME", origUserHome)
-	}()
-
 	tests := []struct {
 		name         string
 		xdgHome      string
@@ -938,6 +801,7 @@ func TestConfigFilePath(t *testing.T) {
 		{
 			name:         "uses XDG_CONFIG_HOME",
 			xdgHome:      "/custom/xdg",
+			homeDir:      "",
 			wantContains: "/custom/xdg/cc-tools/config.json",
 		},
 		{
@@ -950,31 +814,15 @@ func TestConfigFilePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv("XDG_CONFIG_HOME", tt.xdgHome)
+			t.Setenv("XDG_CONFIG_HOME", tt.xdgHome)
 			if tt.homeDir != "" {
-				os.Setenv("HOME", tt.homeDir)
+				t.Setenv("HOME", tt.homeDir)
 			}
 
-			path := getConfigFilePath()
-			if !contains(path, tt.wantContains) {
+			path := config.ExportGetConfigFilePath()
+			if !strings.Contains(path, tt.wantContains) {
 				t.Errorf("getConfigFilePath() = %s, want to contain %s", path, tt.wantContains)
 			}
 		})
 	}
-}
-
-// Helper function.
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && s[len(s)-len(substr):] == substr ||
-		(len(substr) > 0 && len(s) > 0 && s == substr) ||
-		(len(s) > len(substr) && findSubstring(s, substr))
-}
-
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

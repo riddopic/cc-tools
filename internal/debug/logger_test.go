@@ -1,456 +1,300 @@
-package debug
+package debug_test
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/riddopic/cc-tools/internal/debug"
 )
+
+// setupEnabledLogger creates a test logger with file output for writing tests.
+func setupEnabledLogger(t *testing.T) (*debug.Logger, string) {
+	t.Helper()
+
+	tmpFile := filepath.Join(t.TempDir(), "test.log")
+
+	file, err := os.OpenFile(tmpFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	logger := debug.NewTestLogger(file, tmpFile, true)
+
+	return logger, tmpFile
+}
+
+// readLogContent reads and returns the log file content as a string.
+func readLogContent(t *testing.T, path string) string {
+	t.Helper()
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("Failed to read log file: %v", err)
+	}
+
+	return string(content)
+}
+
+// assertLogContains is a test helper that checks log content for a substring.
+func assertLogContains(t *testing.T, content, substr string) {
+	t.Helper()
+
+	if !strings.Contains(content, substr) {
+		t.Errorf("Log should contain %q, got %q", substr, content)
+	}
+}
+
+// assertLogEmpty is a test helper that checks the log file is empty.
+func assertLogEmpty(t *testing.T, content string) {
+	t.Helper()
+
+	if content != "" {
+		t.Errorf("Log should be empty, got %q", content)
+	}
+}
+
+// setupNewLoggerTest sets up the debug config so NewLogger reads from a temp dir.
+func setupNewLoggerTest(t *testing.T, enabledDirs map[string]bool) {
+	t.Helper()
+
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+
+	configDir := filepath.Join(tmpHome, ".claude")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("Failed to create config dir: %v", err)
+	}
+
+	config := &debug.Config{EnabledDirs: enabledDirs}
+
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		t.Fatalf("Failed to marshal config: %v", err)
+	}
+
+	configPath := filepath.Join(configDir, "debug-config.json")
+	if writeErr := os.WriteFile(configPath, data, 0o600); writeErr != nil {
+		t.Fatalf("Failed to write config: %v", writeErr)
+	}
+}
 
 func TestNewLogger(t *testing.T) {
 	ctx := context.Background()
 
-	tests := []struct {
-		name        string
-		setupFunc   func(t *testing.T, workDir string) *Manager
-		workDir     string
-		wantEnabled bool
-		wantErr     bool
-	}{
-		{
-			name: "creates enabled logger when debug is on",
-			setupFunc: func(t *testing.T, workDir string) *Manager {
-				tmpDir := t.TempDir()
-				configPath := filepath.Join(tmpDir, "debug-config.json")
+	t.Run("creates enabled logger when debug is on", func(t *testing.T) {
+		workDir, _ := os.Getwd()
+		absDir, _ := filepath.Abs(workDir)
 
-				absDir, _ := filepath.Abs(workDir)
-				m := &Manager{
-					filepath: configPath,
-					config: &Config{
-						EnabledDirs: map[string]bool{
-							absDir: true,
-						},
-					},
-				}
-				m.Save(ctx)
+		setupNewLoggerTest(t, map[string]bool{absDir: true})
 
-				return m
-			},
-			workDir:     ".",
-			wantEnabled: true,
-		},
-		{
-			name: "creates disabled logger when debug is off",
-			setupFunc: func(t *testing.T, workDir string) *Manager {
-				tmpDir := t.TempDir()
-				configPath := filepath.Join(tmpDir, "debug-config.json")
+		logger, err := debug.NewLogger(ctx, workDir)
+		if err != nil {
+			t.Fatalf("NewLogger() error = %v", err)
+		}
+		defer logger.Close()
 
-				m := &Manager{
-					filepath: configPath,
-					config: &Config{
-						EnabledDirs: map[string]bool{},
-					},
-				}
-				m.Save(ctx)
+		if !logger.LoggerEnabled() {
+			t.Error("logger.enabled = false, want true")
+		}
 
-				// Note: We can't override getConfigDir, but the Manager
-				// will use the config from our temporary directory
+		if logger.LoggerFile() == nil {
+			t.Error("Enabled logger should have file handle")
+		}
 
-				return m
-			},
-			workDir:     ".",
-			wantEnabled: false,
-		},
-		{
-			name: "creates disabled logger when parent directory is enabled",
-			setupFunc: func(t *testing.T, workDir string) *Manager {
-				tmpDir := t.TempDir()
-				configPath := filepath.Join(tmpDir, "debug-config.json")
+		if logger.LoggerFilePath() == "" {
+			t.Error("Enabled logger should have file path")
+		}
+	})
 
-				parentDir, _ := filepath.Abs(filepath.Dir(workDir))
-				m := &Manager{
-					filepath: configPath,
-					config: &Config{
-						EnabledDirs: map[string]bool{
-							parentDir: true,
-						},
-					},
-				}
-				m.Save(ctx)
+	t.Run("creates disabled logger when debug is off", func(t *testing.T) {
+		setupNewLoggerTest(t, map[string]bool{})
 
-				// Note: We can't override getConfigDir, but the Manager
-				// will use the config from our temporary directory
+		logger, err := debug.NewLogger(ctx, ".")
+		if err != nil {
+			t.Fatalf("NewLogger() error = %v", err)
+		}
+		defer logger.Close()
 
-				return m
-			},
-			workDir:     "./subdir",
-			wantEnabled: true,
-		},
-	}
+		if logger.LoggerEnabled() {
+			t.Error("logger.enabled = true, want false")
+		}
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			workDir := tt.workDir
-			if tt.setupFunc != nil {
-				tt.setupFunc(t, workDir)
-			}
+	t.Run("creates enabled logger when parent directory is enabled", func(t *testing.T) {
+		parentDir, _ := filepath.Abs(".")
 
-			logger, err := NewLogger(ctx, workDir)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewLogger() error = %v, wantErr %v", err, tt.wantErr)
-			}
+		setupNewLoggerTest(t, map[string]bool{parentDir: true})
 
-			if logger == nil {
-				t.Fatal("NewLogger() returned nil")
-			}
+		logger, err := debug.NewLogger(ctx, "./subdir")
+		if err != nil {
+			t.Fatalf("NewLogger() error = %v", err)
+		}
+		defer logger.Close()
 
-			if logger.enabled != tt.wantEnabled {
-				t.Errorf("logger.enabled = %v, want %v", logger.enabled, tt.wantEnabled)
-			}
-
-			if tt.wantEnabled && logger.file == nil {
-				t.Error("Enabled logger should have file handle")
-			}
-
-			if tt.wantEnabled && logger.filePath == "" {
-				t.Error("Enabled logger should have file path")
-			}
-
-			// Cleanup
-			if logger.file != nil {
-				logger.Close()
-			}
-		})
-	}
+		if !logger.LoggerEnabled() {
+			t.Error("logger.enabled = false, want true")
+		}
+	})
 }
 
-func TestLoggerLog(t *testing.T) {
-	tests := []struct {
-		name      string
-		enabled   bool
-		format    string
-		args      []any
-		checkFunc func(t *testing.T, content string)
-	}{
-		{
-			name:    "logs message when enabled",
-			enabled: true,
-			format:  "Test message: %s",
-			args:    []any{"value"},
-			checkFunc: func(t *testing.T, content string) {
-				if !strings.Contains(content, "Test message: value") {
-					t.Error("Log content should contain the message")
-				}
+func TestLoggerLogf(t *testing.T) {
+	t.Run("logs message when enabled", func(t *testing.T) {
+		logger, tmpFile := setupEnabledLogger(t)
 
-				// Check timestamp format
-				if !strings.Contains(content, "[20") { // Year starts with 20
-					t.Error("Log should contain timestamp")
-				}
+		logger.Logf("Test message: %s", "value")
+		logger.Close()
 
-				if !strings.Contains(content, "]") {
-					t.Error("Log should have closing bracket for timestamp")
-				}
-			},
-		},
-		{
-			name:    "does not log when disabled",
-			enabled: false,
-			format:  "Should not appear",
-			args:    []any{},
-			checkFunc: func(t *testing.T, content string) {
-				if content != "" {
-					t.Error("Disabled logger should not write anything")
-				}
-			},
-		},
-		{
-			name:    "handles multiple arguments",
-			enabled: true,
-			format:  "Values: %d, %s, %v",
-			args:    []any{42, "test", true},
-			checkFunc: func(t *testing.T, content string) {
-				if !strings.Contains(content, "Values: 42, test, true") {
-					t.Error("Should format multiple arguments correctly")
-				}
-			},
-		},
-	}
+		content := readLogContent(t, tmpFile)
+		assertLogContains(t, content, "Test message: value")
+		assertLogContains(t, content, "[20")
+		assertLogContains(t, content, "]")
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpFile := filepath.Join(t.TempDir(), "test.log")
+	t.Run("does not log when disabled", func(t *testing.T) {
+		tmpFile := filepath.Join(t.TempDir(), "test.log")
+		logger := debug.NewTestLogger(nil, tmpFile, false)
 
-			var logger *Logger
-			if tt.enabled {
-				file, err := os.OpenFile(tmpFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-				if err != nil {
-					t.Fatalf("Failed to create test file: %v", err)
-				}
-				logger = &Logger{
-					file:     file,
-					filePath: tmpFile,
-					enabled:  true,
-				}
-			} else {
-				logger = &Logger{
-					enabled: false,
-				}
-			}
+		logger.Logf("Should not appear")
 
-			logger.Log(tt.format, tt.args...)
+		content, _ := os.ReadFile(tmpFile)
+		assertLogEmpty(t, string(content))
+	})
 
-			// Close to flush
-			if logger.file != nil {
-				logger.file.Close()
-			}
+	t.Run("handles multiple arguments", func(t *testing.T) {
+		logger, tmpFile := setupEnabledLogger(t)
 
-			// Read content
-			content, _ := os.ReadFile(tmpFile)
+		logger.Logf("Values: %d, %s, %v", 42, "test", true)
+		logger.Close()
 
-			if tt.checkFunc != nil {
-				tt.checkFunc(t, string(content))
-			}
-		})
-	}
+		content := readLogContent(t, tmpFile)
+		assertLogContains(t, content, "Values: 42, test, true")
+	})
 }
 
 func TestLoggerLogSection(t *testing.T) {
-	tmpFile := filepath.Join(t.TempDir(), "test.log")
-	file, _ := os.OpenFile(tmpFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-
-	logger := &Logger{
-		file:     file,
-		filePath: tmpFile,
-		enabled:  true,
-	}
+	logger, tmpFile := setupEnabledLogger(t)
 
 	logger.LogSection("TEST SECTION")
-	file.Close()
+	logger.Close()
 
-	content, _ := os.ReadFile(tmpFile)
-
-	if !strings.Contains(string(content), "========== TEST SECTION ==========") {
-		t.Error("Section header should be formatted with separators")
-	}
+	content := readLogContent(t, tmpFile)
+	assertLogContains(t, content, "========== TEST SECTION ==========")
 }
 
 func TestLoggerLogError(t *testing.T) {
-	tests := []struct {
-		name      string
-		err       error
-		context   string
-		wantInLog string
-	}{
-		{
-			name:      "logs error with context",
-			err:       os.ErrNotExist,
-			context:   "file operation",
-			wantInLog: "ERROR in file operation:",
-		},
-		{
-			name:      "handles nil error",
-			err:       nil,
-			context:   "operation",
-			wantInLog: "", // Should not log anything
-		},
-	}
+	t.Run("logs error with context", func(t *testing.T) {
+		logger, tmpFile := setupEnabledLogger(t)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpFile := filepath.Join(t.TempDir(), "test.log")
-			file, _ := os.OpenFile(tmpFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+		logger.LogError(os.ErrNotExist, "file operation")
+		logger.Close()
 
-			logger := &Logger{
-				file:     file,
-				filePath: tmpFile,
-				enabled:  true,
-			}
+		content := readLogContent(t, tmpFile)
+		assertLogContains(t, content, "ERROR in file operation:")
+	})
 
-			logger.LogError(tt.err, tt.context)
-			file.Close()
+	t.Run("handles nil error", func(t *testing.T) {
+		logger, tmpFile := setupEnabledLogger(t)
 
-			content, _ := os.ReadFile(tmpFile)
+		logger.LogError(nil, "operation")
+		logger.Close()
 
-			if tt.wantInLog != "" {
-				if !strings.Contains(string(content), tt.wantInLog) {
-					t.Errorf("Log should contain %q, got %s", tt.wantInLog, content)
-				}
-			} else {
-				if len(content) > 0 {
-					t.Error("Should not log anything for nil error")
-				}
-			}
-		})
-	}
+		content := readLogContent(t, tmpFile)
+		assertLogEmpty(t, content)
+	})
 }
 
 func TestLoggerLogCommand(t *testing.T) {
-	tmpFile := filepath.Join(t.TempDir(), "test.log")
-	file, _ := os.OpenFile(tmpFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-
-	logger := &Logger{
-		file:     file,
-		filePath: tmpFile,
-		enabled:  true,
-	}
+	logger, tmpFile := setupEnabledLogger(t)
 
 	logger.LogCommand("make", []string{"test", "-v"}, "/project/dir")
-	file.Close()
+	logger.Close()
 
-	content, _ := os.ReadFile(tmpFile)
-	contentStr := string(content)
-
-	if !strings.Contains(contentStr, "Executing command: make") {
-		t.Error("Should log command name")
-	}
-
-	if !strings.Contains(contentStr, "Args: [test -v]") {
-		t.Error("Should log command arguments")
-	}
-
-	if !strings.Contains(contentStr, "Working dir: /project/dir") {
-		t.Error("Should log working directory")
-	}
+	content := readLogContent(t, tmpFile)
+	assertLogContains(t, content, "Executing command: make")
+	assertLogContains(t, content, "Args: [test -v]")
+	assertLogContains(t, content, "Working dir: /project/dir")
 }
 
 func TestLoggerLogDiscovery(t *testing.T) {
-	tests := []struct {
-		name        string
-		commandType string
-		result      string
-		workDir     string
-		checkFunc   func(t *testing.T, content string)
-	}{
-		{
-			name:        "logs successful discovery",
-			commandType: "lint",
-			result:      "make lint",
-			workDir:     "/project",
-			checkFunc: func(t *testing.T, content string) {
-				if !strings.Contains(content, "Discovery for lint in /project") {
-					t.Error("Should log discovery context")
-				}
-				if !strings.Contains(content, "Found: make lint") {
-					t.Error("Should log found command")
-				}
-			},
-		},
-		{
-			name:        "logs failed discovery",
-			commandType: "test",
-			result:      "",
-			workDir:     "/project",
-			checkFunc: func(t *testing.T, content string) {
-				if !strings.Contains(content, "Discovery for test in /project") {
-					t.Error("Should log discovery context")
-				}
-				if !strings.Contains(content, "Not found") {
-					t.Error("Should log not found")
-				}
-			},
-		},
-	}
+	t.Run("logs successful discovery", func(t *testing.T) {
+		logger, tmpFile := setupEnabledLogger(t)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpFile := filepath.Join(t.TempDir(), "test.log")
-			file, _ := os.OpenFile(tmpFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+		logger.LogDiscovery("lint", "make lint", "/project")
+		logger.Close()
 
-			logger := &Logger{
-				file:     file,
-				filePath: tmpFile,
-				enabled:  true,
-			}
+		content := readLogContent(t, tmpFile)
+		assertLogContains(t, content, "Discovery for lint in /project")
+		assertLogContains(t, content, "Found: make lint")
+	})
 
-			logger.LogDiscovery(tt.commandType, tt.result, tt.workDir)
-			file.Close()
+	t.Run("logs failed discovery", func(t *testing.T) {
+		logger, tmpFile := setupEnabledLogger(t)
 
-			content, _ := os.ReadFile(tmpFile)
+		logger.LogDiscovery("test", "", "/project")
+		logger.Close()
 
-			if tt.checkFunc != nil {
-				tt.checkFunc(t, string(content))
-			}
-		})
-	}
+		content := readLogContent(t, tmpFile)
+		assertLogContains(t, content, "Discovery for test in /project")
+		assertLogContains(t, content, "Not found")
+	})
 }
 
 func TestLoggerClose(t *testing.T) {
-	tests := []struct {
-		name      string
-		setupFunc func() *Logger
-		wantErr   bool
-	}{
-		{
-			name: "closes file successfully",
-			setupFunc: func() *Logger {
-				tmpFile := filepath.Join(t.TempDir(), "test.log")
-				file, _ := os.OpenFile(tmpFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-				return &Logger{
-					file:     file,
-					filePath: tmpFile,
-					enabled:  true,
-				}
-			},
-		},
-		{
-			name: "handles nil file",
-			setupFunc: func() *Logger {
-				return &Logger{
-					enabled: false,
-				}
-			},
-		},
-	}
+	t.Run("closes file successfully", func(t *testing.T) {
+		logger, _ := setupEnabledLogger(t)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			logger := tt.setupFunc()
+		err := logger.Close()
+		if err != nil {
+			t.Errorf("Close() error = %v", err)
+		}
 
-			err := logger.Close()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Close() error = %v, wantErr %v", err, tt.wantErr)
-			}
+		if logger.LoggerFile() != nil {
+			t.Error("File handle should be nil after close")
+		}
 
-			if logger.file != nil {
-				t.Error("File handle should be nil after close")
-			}
+		err2 := logger.Close()
+		if err2 != nil {
+			t.Error("Second close should not return error")
+		}
+	})
 
-			// Try to close again - should not panic
-			err2 := logger.Close()
-			if err2 != nil {
-				t.Error("Second close should not return error")
-			}
-		})
-	}
+	t.Run("handles nil file", func(t *testing.T) {
+		logger := debug.NewTestLogger(nil, "", false)
+
+		err := logger.Close()
+		if err != nil {
+			t.Errorf("Close() error = %v", err)
+		}
+	})
 }
 
 func TestLoggerIsEnabled(t *testing.T) {
 	tests := []struct {
-		name   string
-		logger *Logger
-		want   bool
+		name    string
+		enabled bool
+		want    bool
 	}{
 		{
-			name: "returns true when enabled",
-			logger: &Logger{
-				enabled: true,
-			},
-			want: true,
+			name:    "returns true when enabled",
+			enabled: true,
+			want:    true,
 		},
 		{
-			name: "returns false when disabled",
-			logger: &Logger{
-				enabled: false,
-			},
-			want: false,
+			name:    "returns false when disabled",
+			enabled: false,
+			want:    false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.logger.IsEnabled(); got != tt.want {
+			logger := debug.NewTestLogger(nil, "", tt.enabled)
+			if got := logger.IsEnabled(); got != tt.want {
 				t.Errorf("IsEnabled() = %v, want %v", got, tt.want)
 			}
 		})
@@ -458,99 +302,72 @@ func TestLoggerIsEnabled(t *testing.T) {
 }
 
 func TestLoggerConcurrency(t *testing.T) {
-	tmpFile := filepath.Join(t.TempDir(), "test.log")
-	file, _ := os.OpenFile(tmpFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-
-	logger := &Logger{
-		file:     file,
-		filePath: tmpFile,
-		enabled:  true,
-	}
+	logger, tmpFile := setupEnabledLogger(t)
 	defer logger.Close()
 
-	// Run concurrent log operations
 	done := make(chan bool, 4)
 
 	go func() {
-		for i := 0; i < 100; i++ {
-			logger.Log("Message %d", i)
+		for i := range 100 {
+			logger.Logf("Message %d", i)
 		}
 		done <- true
 	}()
 
 	go func() {
-		for i := 0; i < 50; i++ {
+		for range 50 {
 			logger.LogSection("Section")
 		}
 		done <- true
 	}()
 
 	go func() {
-		for i := 0; i < 50; i++ {
+		for range 50 {
 			logger.LogError(os.ErrExist, "test")
 		}
 		done <- true
 	}()
 
 	go func() {
-		for i := 0; i < 50; i++ {
+		for range 50 {
 			logger.LogCommand("cmd", []string{"arg"}, "/dir")
 		}
 		done <- true
 	}()
 
-	// Wait for all goroutines
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		<-done
 	}
 
-	// Should not panic or corrupt the file
-	content, err := os.ReadFile(tmpFile)
-	if err != nil {
-		t.Fatalf("Failed to read log file: %v", err)
-	}
-
-	// Check that we have content
+	content := readLogContent(t, tmpFile)
 	if len(content) == 0 {
 		t.Error("Log file should have content after concurrent writes")
 	}
 }
 
 func TestLoggerTimestampFormat(t *testing.T) {
-	tmpFile := filepath.Join(t.TempDir(), "test.log")
-	file, _ := os.OpenFile(tmpFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	logger, tmpFile := setupEnabledLogger(t)
 
-	logger := &Logger{
-		file:     file,
-		filePath: tmpFile,
-		enabled:  true,
-	}
-
-	// Log a message
 	beforeLog := time.Now()
-	logger.Log("Test message")
-	file.Close()
+	logger.Logf("Test message")
+	logger.Close()
 
-	content, _ := os.ReadFile(tmpFile)
-	contentStr := string(content)
+	content := readLogContent(t, tmpFile)
 
-	// Extract timestamp from log
-	start := strings.Index(contentStr, "[")
-	end := strings.Index(contentStr, "]")
+	start := strings.Index(content, "[")
+	end := strings.Index(content, "]")
 
 	if start == -1 || end == -1 || start >= end {
 		t.Fatal("Could not find timestamp in log")
 	}
 
-	timestamp := contentStr[start+1 : end]
+	timestamp := content[start+1 : end]
 
-	// Parse the timestamp
-	parsed, err := time.Parse("2006-01-02 15:04:05.000", timestamp)
+	parsed, err := time.ParseInLocation("2006-01-02 15:04:05.000", timestamp, time.Local)
 	if err != nil {
 		t.Errorf("Failed to parse timestamp %q: %v", timestamp, err)
 	}
 
-	// Check that timestamp is reasonable (within 1 second of when we logged)
 	diff := parsed.Sub(beforeLog).Abs()
 	if diff > time.Second {
 		t.Errorf("Timestamp seems incorrect, diff = %v", diff)
@@ -558,60 +375,38 @@ func TestLoggerTimestampFormat(t *testing.T) {
 }
 
 func TestLoggerFilePermissions(t *testing.T) {
-	// tmpFile is not used in this test
-	// tmpFile := filepath.Join(t.TempDir(), "test.log")
-
-	// Create logger which should create file
 	ctx := context.Background()
-	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "debug-config.json")
 
 	workDir, _ := os.Getwd()
 	absDir, _ := filepath.Abs(workDir)
 
-	m := &Manager{
-		filepath: configPath,
-		config: &Config{
-			EnabledDirs: map[string]bool{
-				absDir: true,
-			},
-		},
-	}
-	m.Save(ctx)
+	setupNewLoggerTest(t, map[string]bool{absDir: true})
 
-	// Note: We can't override getConfigDir, but we're testing
-	// the logger behavior with the given Manager
-
-	logger, err := NewLogger(ctx, workDir)
+	logger, err := debug.NewLogger(ctx, workDir)
 	if err != nil {
 		t.Skipf("Could not create logger: %v", err)
 	}
 	defer logger.Close()
 
-	if !logger.enabled {
+	if !logger.LoggerEnabled() {
 		t.Skip("Logger not enabled")
 	}
 
-	// Check file permissions
-	info, err := os.Stat(logger.filePath)
-	if err != nil {
-		t.Fatalf("Failed to stat log file: %v", err)
+	info, statErr := os.Stat(logger.LoggerFilePath())
+	if statErr != nil {
+		t.Fatalf("Failed to stat log file: %v", statErr)
 	}
 
 	mode := info.Mode()
-	if mode.Perm() != 0600 {
+	if mode.Perm() != 0o600 {
 		t.Errorf("Log file permissions = %v, want 0600", mode.Perm())
 	}
 }
 
 func TestLoggerDisabledOperations(t *testing.T) {
-	// Test that all operations are safe on a disabled logger
-	logger := &Logger{
-		enabled: false,
-	}
+	logger := debug.NewTestLogger(nil, "", false)
 
-	// None of these should panic
-	logger.Log("test")
+	logger.Logf("test")
 	logger.LogSection("section")
 	logger.LogError(os.ErrNotExist, "context")
 	logger.LogCommand("cmd", []string{"arg"}, "/dir")

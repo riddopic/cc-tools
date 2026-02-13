@@ -4,6 +4,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,8 +14,8 @@ import (
 	"github.com/riddopic/cc-tools/internal/output"
 )
 
-// MCPServer represents an MCP server configuration.
-type MCPServer struct {
+// Server represents an MCP server configuration.
+type Server struct {
 	Type    string         `json:"type"`
 	Command string         `json:"command"`
 	Args    []string       `json:"args"`
@@ -23,7 +24,7 @@ type MCPServer struct {
 
 // Settings represents the structure of ~/.claude/settings.json.
 type Settings struct {
-	MCPServers map[string]MCPServer `json:"mcpServers"`
+	MCPServers map[string]Server `json:"mcpServers"`
 }
 
 // CommandExecutor executes external commands.
@@ -34,7 +35,7 @@ type CommandExecutor interface {
 // RealCommandExecutor uses os/exec to run commands.
 type RealCommandExecutor struct{}
 
-// CommandContext creates a new command using exec.CommandContext.
+// CommandContext creates a new command using [exec.CommandContext].
 func (r *RealCommandExecutor) CommandContext(ctx context.Context, name string, arg ...string) *exec.Cmd {
 	return exec.CommandContext(ctx, name, arg...)
 }
@@ -82,7 +83,7 @@ func (m *Manager) loadSettings() (*Settings, error) {
 }
 
 // findMCPByName finds an MCP server by name with flexible matching.
-func (m *Manager) findMCPByName(settings *Settings, name string) (string, *MCPServer, error) {
+func (m *Manager) findMCPByName(settings *Settings, name string) (string, *Server, error) {
 	name = strings.ToLower(name)
 
 	// Try exact match first
@@ -138,7 +139,10 @@ func (m *Manager) Enable(ctx context.Context, name string) error {
 	}
 
 	// Build the claude mcp add command
-	args := []string{"mcp", "add"}
+	// baseEnableArgs accounts for: "mcp", "add", actualName, command
+	const baseEnableArgs = 4
+	args := make([]string, 0, baseEnableArgs+len(server.Args))
+	args = append(args, "mcp", "add")
 
 	// Add the name
 	args = append(args, actualName)
@@ -226,7 +230,7 @@ func (m *Manager) EnableAll(ctx context.Context) error {
 	}
 
 	if hasError {
-		return fmt.Errorf("some MCP servers failed to enable")
+		return errors.New("some MCP servers failed to enable")
 	}
 
 	_ = m.output.Success("✓ All MCP servers enabled")
@@ -275,7 +279,7 @@ func (m *Manager) DisableAll(ctx context.Context) error {
 	}
 
 	if hasError {
-		return fmt.Errorf("some MCP servers failed to disable")
+		return errors.New("some MCP servers failed to disable")
 	}
 
 	_ = m.output.Success("✓ All MCP servers disabled")

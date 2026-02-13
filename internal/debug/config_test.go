@@ -1,4 +1,4 @@
-package debug
+package debug_test
 
 import (
 	"context"
@@ -7,25 +7,42 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/riddopic/cc-tools/internal/debug"
 )
 
 func TestNewManager(t *testing.T) {
-	m := NewManager()
+	m := debug.NewManager()
 
-	if m.filepath == "" {
-		t.Error("filepath should not be empty")
+	if m == nil {
+		t.Fatal("NewManager() should not return nil")
 	}
 
-	if !strings.Contains(m.filepath, "debug-config.json") {
-		t.Errorf("filepath should contain debug-config.json, got %s", m.filepath)
+	cfg := m.ManagerConfig()
+	if cfg == nil {
+		t.Fatal("config should be initialized")
 	}
 
-	if m.config == nil {
-		t.Error("config should be initialized")
-	}
-
-	if m.config.EnabledDirs == nil {
+	if cfg.EnabledDirs == nil {
 		t.Error("EnabledDirs map should be initialized")
+	}
+}
+
+// assertConfigDirCount is a test helper that checks the number of enabled dirs.
+func assertConfigDirCount(t *testing.T, cfg *debug.Config, want int) {
+	t.Helper()
+
+	if len(cfg.EnabledDirs) != want {
+		t.Errorf("expected %d enabled dirs, got %d", want, len(cfg.EnabledDirs))
+	}
+}
+
+// assertDirEnabled is a test helper that checks if a directory is enabled.
+func assertDirEnabled(t *testing.T, cfg *debug.Config, dir string) {
+	t.Helper()
+
+	if !cfg.EnabledDirs[dir] {
+		t.Errorf("%s should be enabled", dir)
 	}
 }
 
@@ -34,78 +51,80 @@ func TestManagerLoad(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		setupFunc func(t *testing.T, filepath string)
-		checkFunc func(t *testing.T, m *Manager)
+		setupFunc func(_ *testing.T, filepath string)
+		checkFunc func(t *testing.T, m *debug.Manager)
 		wantErr   bool
 	}{
 		{
 			name: "loads valid config",
-			setupFunc: func(t *testing.T, configPath string) {
-				config := &Config{
+			setupFunc: func(_ *testing.T, configPath string) {
+				config := &debug.Config{
 					EnabledDirs: map[string]bool{
 						"/path/one": true,
 						"/path/two": true,
 					},
 				}
 				data, _ := json.MarshalIndent(config, "", "  ")
-				os.MkdirAll(filepath.Dir(configPath), 0755)
-				os.WriteFile(configPath, data, 0600)
+				os.MkdirAll(filepath.Dir(configPath), 0o755)
+				os.WriteFile(configPath, data, 0o600)
 			},
-			checkFunc: func(t *testing.T, m *Manager) {
-				if len(m.config.EnabledDirs) != 2 {
-					t.Errorf("expected 2 enabled dirs, got %d", len(m.config.EnabledDirs))
-				}
-				if !m.config.EnabledDirs["/path/one"] {
-					t.Error("/path/one should be enabled")
-				}
-				if !m.config.EnabledDirs["/path/two"] {
-					t.Error("/path/two should be enabled")
-				}
+			checkFunc: func(t *testing.T, m *debug.Manager) {
+				t.Helper()
+				cfg := m.ManagerConfig()
+				assertConfigDirCount(t, cfg, 2)
+				assertDirEnabled(t, cfg, "/path/one")
+				assertDirEnabled(t, cfg, "/path/two")
 			},
+			wantErr: false,
 		},
 		{
-			name: "handles missing file",
-			checkFunc: func(t *testing.T, m *Manager) {
-				if m.config == nil {
+			name:      "handles missing file",
+			setupFunc: nil,
+			checkFunc: func(t *testing.T, m *debug.Manager) {
+				t.Helper()
+				cfg := m.ManagerConfig()
+				if cfg == nil {
 					t.Error("config should be initialized even when file missing")
 				}
-				if len(m.config.EnabledDirs) != 0 {
-					t.Error("EnabledDirs should be empty for missing file")
-				}
+				assertConfigDirCount(t, cfg, 0)
 			},
+			wantErr: false,
 		},
 		{
 			name: "handles empty file",
-			setupFunc: func(t *testing.T, configPath string) {
-				os.MkdirAll(filepath.Dir(configPath), 0755)
-				os.WriteFile(configPath, []byte(""), 0600)
+			setupFunc: func(_ *testing.T, configPath string) {
+				os.MkdirAll(filepath.Dir(configPath), 0o755)
+				os.WriteFile(configPath, []byte(""), 0o600)
 			},
-			checkFunc: func(t *testing.T, m *Manager) {
-				if len(m.config.EnabledDirs) != 0 {
-					t.Error("EnabledDirs should be empty for empty file")
-				}
+			checkFunc: func(t *testing.T, m *debug.Manager) {
+				t.Helper()
+				assertConfigDirCount(t, m.ManagerConfig(), 0)
 			},
+			wantErr: false,
 		},
 		{
 			name: "handles nil EnabledDirs in JSON",
-			setupFunc: func(t *testing.T, configPath string) {
+			setupFunc: func(_ *testing.T, configPath string) {
 				data := []byte(`{"enabled_dirs": null}`)
-				os.MkdirAll(filepath.Dir(configPath), 0755)
-				os.WriteFile(configPath, data, 0600)
+				os.MkdirAll(filepath.Dir(configPath), 0o755)
+				os.WriteFile(configPath, data, 0o600)
 			},
-			checkFunc: func(t *testing.T, m *Manager) {
-				if m.config.EnabledDirs == nil {
+			checkFunc: func(t *testing.T, m *debug.Manager) {
+				t.Helper()
+				if m.ManagerConfig().EnabledDirs == nil {
 					t.Error("EnabledDirs should be initialized even when null in JSON")
 				}
 			},
+			wantErr: false,
 		},
 		{
 			name: "handles corrupt JSON",
-			setupFunc: func(t *testing.T, configPath string) {
-				os.MkdirAll(filepath.Dir(configPath), 0755)
-				os.WriteFile(configPath, []byte("{invalid json}"), 0600)
+			setupFunc: func(_ *testing.T, configPath string) {
+				os.MkdirAll(filepath.Dir(configPath), 0o755)
+				os.WriteFile(configPath, []byte("{invalid json}"), 0o600)
 			},
-			wantErr: true,
+			checkFunc: nil,
+			wantErr:   true,
 		},
 	}
 
@@ -114,10 +133,7 @@ func TestManagerLoad(t *testing.T) {
 			tmpDir := t.TempDir()
 			configPath := filepath.Join(tmpDir, "debug-config.json")
 
-			m := &Manager{
-				filepath: configPath,
-				config:   &Config{EnabledDirs: make(map[string]bool)},
-			}
+			m := debug.NewTestManager(configPath)
 
 			if tt.setupFunc != nil {
 				tt.setupFunc(t, configPath)
@@ -135,89 +151,103 @@ func TestManagerLoad(t *testing.T) {
 	}
 }
 
+// assertFileExists is a test helper that checks if a file exists.
+func assertFileExists(t *testing.T, path string) {
+	t.Helper()
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		t.Errorf("file should exist: %s", path)
+	}
+}
+
+// assertFilePermissions is a test helper that checks file permissions.
+func assertFilePermissions(t *testing.T, path string, want os.FileMode) {
+	t.Helper()
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("Failed to stat %s: %v", path, err)
+	}
+
+	if info.Mode().Perm() != want {
+		t.Errorf("permissions = %v, want %v", info.Mode().Perm(), want)
+	}
+}
+
+// assertSavedConfigValid reads and validates a saved config file.
+func assertSavedConfigValid(t *testing.T, configFile string) {
+	t.Helper()
+
+	data, readErr := os.ReadFile(configFile)
+	if readErr != nil {
+		t.Fatalf("Failed to read saved file: %v", readErr)
+	}
+
+	var saved debug.Config
+	if unmarshalErr := json.Unmarshal(data, &saved); unmarshalErr != nil {
+		t.Fatalf("Failed to unmarshal saved config: %v", unmarshalErr)
+	}
+
+	assertDirEnabled(t, &saved, "/test/path")
+	assertFilePermissions(t, configFile, 0o600)
+
+	if !strings.Contains(string(data), "  ") {
+		t.Error("Config should be pretty-printed with indentation")
+	}
+
+	if data[len(data)-1] != '\n' {
+		t.Error("Config file should end with newline")
+	}
+}
+
 func TestManagerSave(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
 		name      string
-		config    *Config
-		setupFunc func(t *testing.T, filepath string)
+		config    *debug.Config
+		setupFunc func(_ *testing.T, filepath string)
 		wantErr   bool
 		checkFunc func(t *testing.T, configFile string)
 	}{
 		{
 			name: "saves config successfully",
-			config: &Config{
+			config: &debug.Config{
 				EnabledDirs: map[string]bool{
 					"/test/path": true,
 					"/another":   true,
 				},
 			},
-			checkFunc: func(t *testing.T, configFile string) {
-				data, err := os.ReadFile(configFile)
-				if err != nil {
-					t.Fatalf("Failed to read saved file: %v", err)
-				}
-
-				var saved Config
-				if err := json.Unmarshal(data, &saved); err != nil {
-					t.Fatalf("Failed to unmarshal saved config: %v", err)
-				}
-
-				if !saved.EnabledDirs["/test/path"] {
-					t.Error("/test/path should be enabled in saved config")
-				}
-
-				// Check file permissions
-				info, _ := os.Stat(configFile)
-				mode := info.Mode()
-				if mode.Perm() != 0600 {
-					t.Errorf("File permissions = %v, want 0600", mode.Perm())
-				}
-
-				// Check formatting (should be indented)
-				if !strings.Contains(string(data), "  ") {
-					t.Error("Config should be pretty-printed with indentation")
-				}
-
-				// Check trailing newline
-				if data[len(data)-1] != '\n' {
-					t.Error("Config file should end with newline")
-				}
-			},
+			setupFunc: nil,
+			wantErr:   false,
+			checkFunc: assertSavedConfigValid,
 		},
 		{
 			name: "creates directory if missing",
-			config: &Config{
+			config: &debug.Config{
 				EnabledDirs: map[string]bool{"/path": true},
 			},
-			setupFunc: func(t *testing.T, configPath string) {
-				// Ensure parent directory doesn't exist
+			setupFunc: func(_ *testing.T, configPath string) {
 				os.RemoveAll(filepath.Dir(configPath))
 			},
+			wantErr: false,
 			checkFunc: func(t *testing.T, configFile string) {
-				if _, err := os.Stat(configFile); os.IsNotExist(err) {
-					t.Error("Config file should have been created")
-				}
-
-				// Check directory permissions
-				configDir := filepath.Dir(configFile)
-				info, _ := os.Stat(configDir)
-				mode := info.Mode()
-				if mode.Perm() != 0750 {
-					t.Errorf("Directory permissions = %v, want 0750", mode.Perm())
-				}
+				t.Helper()
+				assertFileExists(t, configFile)
+				assertFilePermissions(t, filepath.Dir(configFile), 0o750)
 			},
 		},
 		{
 			name: "uses atomic write with temp file",
-			config: &Config{
+			config: &debug.Config{
 				EnabledDirs: map[string]bool{"/atomic": true},
 			},
+			setupFunc: nil,
+			wantErr:   false,
 			checkFunc: func(t *testing.T, configFile string) {
-				// Check that temp file doesn't exist
+				t.Helper()
 				tempFile := configFile + ".tmp"
-				if _, err := os.Stat(tempFile); !os.IsNotExist(err) {
+				if _, statErr := os.Stat(tempFile); !os.IsNotExist(statErr) {
 					t.Error("Temp file should be cleaned up after successful write")
 				}
 			},
@@ -233,10 +263,7 @@ func TestManagerSave(t *testing.T) {
 				tt.setupFunc(t, configPath)
 			}
 
-			m := &Manager{
-				filepath: configPath,
-				config:   tt.config,
-			}
+			m := debug.NewTestManagerWithConfig(configPath, tt.config)
 
 			err := m.Save(ctx)
 			if (err != nil) != tt.wantErr {
@@ -263,12 +290,14 @@ func TestManagerEnable(t *testing.T) {
 		{
 			name:         "enables relative directory",
 			inputDir:     ".",
+			initialDirs:  nil,
 			wantLogPath:  true,
 			checkEnabled: []string{"."},
 		},
 		{
 			name:         "enables absolute directory",
 			inputDir:     "/test/absolute/path",
+			initialDirs:  nil,
 			wantLogPath:  true,
 			checkEnabled: []string{"/test/absolute/path"},
 		},
@@ -288,16 +317,14 @@ func TestManagerEnable(t *testing.T) {
 			tmpDir := t.TempDir()
 			configPath := filepath.Join(tmpDir, "debug-config.json")
 
-			m := &Manager{
-				filepath: configPath,
-				config: &Config{
-					EnabledDirs: make(map[string]bool),
-				},
+			config := &debug.Config{
+				EnabledDirs: make(map[string]bool),
+			}
+			if tt.initialDirs != nil {
+				config.EnabledDirs = tt.initialDirs
 			}
 
-			if tt.initialDirs != nil {
-				m.config.EnabledDirs = tt.initialDirs
-			}
+			m := debug.NewTestManagerWithConfig(configPath, config)
 
 			logPath, err := m.Enable(ctx, tt.inputDir)
 			if err != nil {
@@ -308,29 +335,30 @@ func TestManagerEnable(t *testing.T) {
 				t.Error("Expected log path but got empty string")
 			}
 
-			// Check that directory is enabled
 			absDir, _ := filepath.Abs(tt.inputDir)
-			if !m.config.EnabledDirs[absDir] {
-				t.Errorf("Directory %s should be enabled", absDir)
-			}
+			assertDirEnabled(t, m.ManagerConfig(), absDir)
 
-			// Verify it was saved to disk
-			var saved Config
-			data, _ := os.ReadFile(configPath)
-			json.Unmarshal(data, &saved)
+			assertDirPersistedToDisk(t, configPath, absDir)
 
-			if !saved.EnabledDirs[absDir] {
-				t.Error("Enabled directory should be persisted to disk")
-			}
-
-			// Check all expected directories are enabled
 			for _, dir := range tt.checkEnabled {
 				absCheckDir, _ := filepath.Abs(dir)
-				if !m.config.EnabledDirs[absCheckDir] {
-					t.Errorf("Directory %s should be enabled", absCheckDir)
-				}
+				assertDirEnabled(t, m.ManagerConfig(), absCheckDir)
 			}
 		})
+	}
+}
+
+// assertDirPersistedToDisk verifies a directory is saved in the config file on disk.
+func assertDirPersistedToDisk(t *testing.T, configPath, absDir string) {
+	t.Helper()
+
+	var saved debug.Config
+
+	data, _ := os.ReadFile(configPath)
+	json.Unmarshal(data, &saved)
+
+	if !saved.EnabledDirs[absDir] {
+		t.Error("Enabled directory should be persisted to disk")
 	}
 }
 
@@ -341,7 +369,7 @@ func TestManagerDisable(t *testing.T) {
 		name        string
 		inputDir    string
 		initialDirs map[string]bool
-		checkFunc   func(t *testing.T, m *Manager)
+		checkFunc   func(t *testing.T, m *debug.Manager)
 	}{
 		{
 			name:     "disables existing directory",
@@ -350,36 +378,33 @@ func TestManagerDisable(t *testing.T) {
 				"/test/path":  true,
 				"/other/path": true,
 			},
-			checkFunc: func(t *testing.T, m *Manager) {
+			checkFunc: func(t *testing.T, m *debug.Manager) {
+				t.Helper()
 				absDir, _ := filepath.Abs("/test/path")
-				if m.config.EnabledDirs[absDir] {
+				if m.ManagerConfig().EnabledDirs[absDir] {
 					t.Error("/test/path should be disabled")
 				}
 
 				otherDir, _ := filepath.Abs("/other/path")
-				if !m.config.EnabledDirs[otherDir] {
-					t.Error("/other/path should still be enabled")
-				}
+				assertDirEnabled(t, m.ManagerConfig(), otherDir)
 			},
 		},
 		{
 			name:        "handles disabling non-existent directory",
 			inputDir:    "/not/enabled",
 			initialDirs: map[string]bool{"/other": true},
-			checkFunc: func(t *testing.T, m *Manager) {
-				if len(m.config.EnabledDirs) != 1 {
-					t.Error("Should not affect other directories")
-				}
+			checkFunc: func(t *testing.T, m *debug.Manager) {
+				t.Helper()
+				assertConfigDirCount(t, m.ManagerConfig(), 1)
 			},
 		},
 		{
 			name:        "handles relative paths",
 			inputDir:    "./relative",
 			initialDirs: map[string]bool{},
-			checkFunc: func(t *testing.T, m *Manager) {
-				if len(m.config.EnabledDirs) != 0 {
-					t.Error("Should remain empty")
-				}
+			checkFunc: func(t *testing.T, m *debug.Manager) {
+				t.Helper()
+				assertConfigDirCount(t, m.ManagerConfig(), 0)
 			},
 		},
 	}
@@ -389,19 +414,15 @@ func TestManagerDisable(t *testing.T) {
 			tmpDir := t.TempDir()
 			configPath := filepath.Join(tmpDir, "debug-config.json")
 
-			// Convert initial dirs to absolute paths
 			absDirs := make(map[string]bool)
 			for dir, enabled := range tt.initialDirs {
 				absDir, _ := filepath.Abs(dir)
 				absDirs[absDir] = enabled
 			}
 
-			m := &Manager{
-				filepath: configPath,
-				config: &Config{
-					EnabledDirs: absDirs,
-				},
-			}
+			m := debug.NewTestManagerWithConfig(configPath, &debug.Config{
+				EnabledDirs: absDirs,
+			})
 
 			err := m.Disable(ctx, tt.inputDir)
 			if err != nil {
@@ -412,18 +433,27 @@ func TestManagerDisable(t *testing.T) {
 				tt.checkFunc(t, m)
 			}
 
-			// Verify persistence
-			var saved Config
-			data, _ := os.ReadFile(configPath)
-			if len(data) > 0 {
-				json.Unmarshal(data, &saved)
-
-				absInput, _ := filepath.Abs(tt.inputDir)
-				if saved.EnabledDirs[absInput] {
-					t.Error("Disabled directory should not be in saved config")
-				}
-			}
+			assertDisabledDirNotPersisted(t, configPath, tt.inputDir)
 		})
+	}
+}
+
+// assertDisabledDirNotPersisted verifies a disabled directory is not in the saved config.
+func assertDisabledDirNotPersisted(t *testing.T, configPath, inputDir string) {
+	t.Helper()
+
+	var saved debug.Config
+
+	data, _ := os.ReadFile(configPath)
+	if len(data) == 0 {
+		return
+	}
+
+	json.Unmarshal(data, &saved)
+
+	absInput, _ := filepath.Abs(inputDir)
+	if saved.EnabledDirs[absInput] {
+		t.Error("Disabled directory should not be in saved config")
 	}
 }
 
@@ -437,28 +467,22 @@ func TestManagerIsEnabled(t *testing.T) {
 		want        bool
 	}{
 		{
-			name:     "exact match enabled",
-			checkDir: "/test/path",
-			enabledDirs: map[string]bool{
-				"/test/path": true,
-			},
-			want: true,
+			name:        "exact match enabled",
+			checkDir:    "/test/path",
+			enabledDirs: map[string]bool{"/test/path": true},
+			want:        true,
 		},
 		{
-			name:     "child directory enabled",
-			checkDir: "/test/path/subdir/deep",
-			enabledDirs: map[string]bool{
-				"/test/path": true,
-			},
-			want: true,
+			name:        "child directory enabled",
+			checkDir:    "/test/path/subdir/deep",
+			enabledDirs: map[string]bool{"/test/path": true},
+			want:        true,
 		},
 		{
-			name:     "parent directory not enabled",
-			checkDir: "/test",
-			enabledDirs: map[string]bool{
-				"/test/path": true,
-			},
-			want: false,
+			name:        "parent directory not enabled",
+			checkDir:    "/test",
+			enabledDirs: map[string]bool{"/test/path": true},
+			want:        false,
 		},
 		{
 			name:        "no directories enabled",
@@ -483,25 +507,19 @@ func TestManagerIsEnabled(t *testing.T) {
 			tmpDir := t.TempDir()
 			configPath := filepath.Join(tmpDir, "debug-config.json")
 
-			// Convert to absolute paths
 			absDirs := make(map[string]bool)
 			for dir, enabled := range tt.enabledDirs {
 				absDir, _ := filepath.Abs(dir)
 				absDirs[absDir] = enabled
 			}
 
-			m := &Manager{
-				filepath: configPath,
-				config: &Config{
-					EnabledDirs: absDirs,
-				},
-			}
+			m := debug.NewTestManagerWithConfig(configPath, &debug.Config{
+				EnabledDirs: absDirs,
+			})
 
-			// Save to disk to test loading
 			m.Save(ctx)
 
-			// Reset config to test loading
-			m.config = &Config{EnabledDirs: make(map[string]bool)}
+			m = debug.NewTestManager(configPath)
 
 			enabled, err := m.IsEnabled(ctx, tt.checkDir)
 			if err != nil {
@@ -544,7 +562,6 @@ func TestManagerGetEnabledDirs(t *testing.T) {
 			tmpDir := t.TempDir()
 			configPath := filepath.Join(tmpDir, "debug-config.json")
 
-			// Convert to absolute paths
 			absDirs := make(map[string]bool)
 			expectedDirs := make(map[string]bool)
 			for dir, enabled := range tt.enabledDirs {
@@ -553,16 +570,12 @@ func TestManagerGetEnabledDirs(t *testing.T) {
 				expectedDirs[absDir] = true
 			}
 
-			m := &Manager{
-				filepath: configPath,
-				config: &Config{
-					EnabledDirs: absDirs,
-				},
-			}
+			m := debug.NewTestManagerWithConfig(configPath, &debug.Config{
+				EnabledDirs: absDirs,
+			})
 
-			// Save and reset to test loading
 			m.Save(ctx)
-			m.config = &Config{EnabledDirs: make(map[string]bool)}
+			m = debug.NewTestManager(configPath)
 
 			dirs, err := m.GetEnabledDirs(ctx)
 			if err != nil {
@@ -573,7 +586,6 @@ func TestManagerGetEnabledDirs(t *testing.T) {
 				t.Errorf("GetEnabledDirs() returned %d dirs, want %d", len(dirs), tt.wantCount)
 			}
 
-			// Check all returned dirs are expected
 			for _, dir := range dirs {
 				if !expectedDirs[dir] {
 					t.Errorf("Unexpected directory in result: %s", dir)
@@ -599,7 +611,7 @@ func TestGetLogFilePath(t *testing.T) {
 		{
 			name:         "handles root directory",
 			inputDir:     "/",
-			wantPrefix:   "/tmp/cc-tools-validate-root-",
+			wantPrefix:   "/tmp/cc-tools-validate-_-",
 			wantContains: ".log",
 		},
 		{
@@ -618,40 +630,57 @@ func TestGetLogFilePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logPath := GetLogFilePath(tt.inputDir)
+			logPath := debug.GetLogFilePath(tt.inputDir)
 
-			if !strings.HasPrefix(logPath, tt.wantPrefix) {
-				t.Errorf("GetLogFilePath() = %s, want prefix %s", logPath, tt.wantPrefix)
-			}
-
-			if !strings.Contains(logPath, tt.wantContains) {
-				t.Errorf("GetLogFilePath() = %s, should contain %s", logPath, tt.wantContains)
-			}
-
-			// Check hash is included (8 hex chars = 16 chars)
-			parts := strings.Split(logPath, "-")
-			lastPart := parts[len(parts)-1]
-			hashPart := strings.TrimSuffix(lastPart, ".log")
-			if len(hashPart) != 16 {
-				t.Errorf("Hash part should be 16 chars (8 bytes hex), got %d", len(hashPart))
-			}
+			assertHasPrefix(t, logPath, tt.wantPrefix)
+			assertContains(t, logPath, tt.wantContains)
+			assertHashLength(t, logPath)
 		})
 	}
 }
 
+// assertHasPrefix is a test helper that checks string prefix.
+func assertHasPrefix(t *testing.T, s, prefix string) {
+	t.Helper()
+
+	if !strings.HasPrefix(s, prefix) {
+		t.Errorf("got %s, want prefix %s", s, prefix)
+	}
+}
+
+// assertContains is a test helper that checks string containment.
+func assertContains(t *testing.T, s, substr string) {
+	t.Helper()
+
+	if !strings.Contains(s, substr) {
+		t.Errorf("got %s, should contain %s", s, substr)
+	}
+}
+
+// assertHashLength validates the hash portion of a log file path is 16 chars.
+func assertHashLength(t *testing.T, logPath string) {
+	t.Helper()
+
+	parts := strings.Split(logPath, "-")
+	lastPart := parts[len(parts)-1]
+	hashPart := strings.TrimSuffix(lastPart, ".log")
+
+	if len(hashPart) != 16 {
+		t.Errorf("Hash part should be 16 chars (8 bytes hex), got %d", len(hashPart))
+	}
+}
+
 func TestGetLogFilePathConsistency(t *testing.T) {
-	// Test that the same directory always produces the same log path
 	dir := "/test/directory"
 
-	path1 := GetLogFilePath(dir)
-	path2 := GetLogFilePath(dir)
+	path1 := debug.GetLogFilePath(dir)
+	path2 := debug.GetLogFilePath(dir)
 
 	if path1 != path2 {
 		t.Errorf("GetLogFilePath() should be consistent, got %s and %s", path1, path2)
 	}
 
-	// Test that different directories produce different paths
-	path3 := GetLogFilePath("/different/directory")
+	path3 := debug.GetLogFilePath("/different/directory")
 	if path1 == path3 {
 		t.Error("Different directories should produce different log paths")
 	}
@@ -662,89 +691,69 @@ func TestManagerConcurrency(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "debug-config.json")
 
-	m := &Manager{
-		filepath: configPath,
-		config: &Config{
-			EnabledDirs: make(map[string]bool),
-		},
-	}
+	m := debug.NewTestManager(configPath)
 
-	// Run concurrent operations
 	done := make(chan bool, 3)
 
-	// Concurrent enables
 	go func() {
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			dir := filepath.Join("/test", string(rune('a'+i)))
 			m.Enable(ctx, dir)
 		}
 		done <- true
 	}()
 
-	// Concurrent disables
 	go func() {
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			dir := filepath.Join("/test", string(rune('a'+i)))
 			m.Disable(ctx, dir)
 		}
 		done <- true
 	}()
 
-	// Concurrent reads
 	go func() {
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			m.IsEnabled(ctx, "/test/a")
 			m.GetEnabledDirs(ctx)
 		}
 		done <- true
 	}()
 
-	// Wait for all goroutines
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		<-done
 	}
-
-	// Should not panic or deadlock
 }
 
 func TestGetConfigDir(t *testing.T) {
-	// Save original HOME
-	origHome := os.Getenv("HOME")
-	defer os.Setenv("HOME", origHome)
-
 	tests := []struct {
-		name     string
-		homeDir  string
-		wantPath string
+		name    string
+		homeDir string
 	}{
 		{
-			name:     "uses home directory",
-			homeDir:  "/home/testuser",
-			wantPath: "/home/testuser/.claude",
+			name:    "uses home directory",
+			homeDir: "/home/testuser",
 		},
 		{
-			name:     "falls back to /tmp when home not available",
-			homeDir:  "",
-			wantPath: "/tmp/.claude",
+			name:    "falls back to /tmp when home not available",
+			homeDir: "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.homeDir != "" {
-				os.Setenv("HOME", tt.homeDir)
+				t.Setenv("HOME", tt.homeDir)
 			} else {
+				t.Setenv("HOME", "")
 				os.Unsetenv("HOME")
 			}
 
-			configDir := getConfigDir()
+			configDir := debug.ExportGetConfigDir()
 
-			// On systems where UserHomeDir works differently, just check it's not empty
 			if configDir == "" {
 				t.Error("getConfigDir() should not return empty string")
 			}
 
-			// Check it ends with .claude
 			if !strings.HasSuffix(configDir, ".claude") {
 				t.Errorf("getConfigDir() = %s, should end with .claude", configDir)
 			}

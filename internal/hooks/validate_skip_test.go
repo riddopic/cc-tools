@@ -1,12 +1,14 @@
-package hooks
+package hooks_test
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/riddopic/cc-tools/internal/hooks"
 	"github.com/riddopic/cc-tools/internal/skipregistry"
 )
 
@@ -34,173 +36,124 @@ func (m *mockSkipStorage) Save(_ context.Context, data skipregistry.RegistryData
 	return nil
 }
 
-func TestExecuteValidationsWithSkip(t *testing.T) { //nolint:cyclop // Table-driven test
+// --- Skip validation helpers ---
+
+// setupSkipTestProjectFS configures the mock filesystem for .git, go.mod, and Makefile detection.
+func setupSkipTestProjectFS(deps *hooks.TestDependencies, paths ...string) {
+	pathSet := make(map[string]bool, len(paths))
+	for _, p := range paths {
+		pathSet[p] = true
+	}
+	deps.MockFS.StatFunc = func(name string) (os.FileInfo, error) {
+		for p := range pathSet {
+			if name == p {
+				return hooks.NewMockFileInfo(
+					filepath.Base(name),
+					0,
+					0,
+					time.Time{},
+					filepath.Base(name) == ".git",
+				), nil
+			}
+		}
+		return nil, errors.New("not found")
+	}
+}
+
+// setupSkipTestRunner configures the mock runner with discovery and execution for skip tests.
+func setupSkipTestRunner(deps *hooks.TestDependencies, lintResult, testResult func() (*hooks.CommandOutput, error)) {
+	deps.MockRunner.RunContextFunc = makeDiscoveryAndExecRunner(lintResult, testResult)
+	deps.MockRunner.LookPathFunc = func(file string) (string, error) {
+		if file == "make" {
+			return "/usr/bin/make", nil
+		}
+		return "", errors.New("not found")
+	}
+}
+
+// assertSkipResults checks BothPassed and that skipped commands were not executed.
+func assertSkipResults(t *testing.T, result *hooks.ValidateResult, wantBoth bool, skipConfig *hooks.SkipConfig) {
+	t.Helper()
+	if result.BothPassed != wantBoth {
+		t.Errorf("ExecuteValidations() BothPassed = %v, want %v", result.BothPassed, wantBoth)
+	}
+	if skipConfig == nil {
+		return
+	}
+	if skipConfig.SkipLint && result.LintResult != nil {
+		t.Errorf("Lint was supposed to be skipped but got result: %+v", result.LintResult)
+	}
+	if skipConfig.SkipTest && result.TestResult != nil {
+		t.Errorf("Test was supposed to be skipped but got result: %+v", result.TestResult)
+	}
+}
+
+func TestExecuteValidationsWithSkip(t *testing.T) {
+	projectPaths := []string{"/project/.git", "/project/go.mod", "/project/Makefile"}
+	projectPathsNoMakefile := []string{"/project/.git", "/project/go.mod"}
+
 	tests := []struct {
 		name       string
-		skipConfig *SkipConfig
-		setupMocks func(*TestDependencies)
+		skipConfig *hooks.SkipConfig
+		setupMocks func(*hooks.TestDependencies)
 		wantBoth   bool
 	}{
 		{
 			name:       "no skip config runs both",
 			skipConfig: nil,
-			setupMocks: func(td *TestDependencies) {
-				// Setup file system for project root detection
-				td.MockFS.statFunc = func(name string) (os.FileInfo, error) {
-					if name == "/project/.git" || name == "/project/go.mod" || name == "/project/Makefile" {
-						return &mockFileInfo{isDir: true}, nil
-					}
-					return nil, fmt.Errorf("not found")
-				}
-
-				// Setup runner for command discovery and execution
-				td.MockRunner.runContextFunc = func(_ context.Context, _, name string, args ...string) (*CommandOutput, error) {
-					// Handle make dry run for discovery
-					if name == "make" && len(args) >= 3 && args[len(args)-2] == "-n" {
-						if args[len(args)-1] == "lint" {
-							return &CommandOutput{Stdout: []byte("golangci-lint run")}, nil
-						}
-						if args[len(args)-1] == "test" {
-							return &CommandOutput{Stdout: []byte("go test")}, nil
-						}
-					}
-					// Handle actual execution
-					if name == "make" && len(args) == 1 {
-						return &CommandOutput{Stdout: []byte("Success")}, nil
-					}
-					return nil, fmt.Errorf("unexpected command")
-				}
-				td.MockRunner.lookPathFunc = func(file string) (string, error) {
-					if file == "make" {
-						return "/usr/bin/make", nil
-					}
-					return "", fmt.Errorf("not found")
-				}
+			setupMocks: func(td *hooks.TestDependencies) {
+				setupSkipTestProjectFS(td, projectPaths...)
+				setupSkipTestRunner(td, successOutput("Success"), successOutput("Success"))
 			},
 			wantBoth: true,
 		},
 		{
 			name: "skip lint only runs test",
-			skipConfig: &SkipConfig{
+			skipConfig: &hooks.SkipConfig{
 				SkipLint: true,
 				SkipTest: false,
 			},
-			setupMocks: func(td *TestDependencies) {
-				td.MockFS.statFunc = func(name string) (os.FileInfo, error) {
-					if name == "/project/.git" || name == "/project/go.mod" || name == "/project/Makefile" {
-						return &mockFileInfo{isDir: true}, nil
-					}
-					return nil, fmt.Errorf("not found")
-				}
-
-				// Only test command should be discovered and run (lint is skipped)
-				td.MockRunner.runContextFunc = func(_ context.Context, _, name string, args ...string) (*CommandOutput, error) {
-					if name == "make" && len(args) >= 3 && args[len(args)-2] == "-n" {
-						if args[len(args)-1] == "test" {
-							return &CommandOutput{Stdout: []byte("go test")}, nil
-						}
-					}
-					if name == "make" && len(args) == 1 && args[0] == "test" {
-						return &CommandOutput{Stdout: []byte("Test Success")}, nil
-					}
-					return nil, fmt.Errorf("unexpected command")
-				}
-				td.MockRunner.lookPathFunc = func(file string) (string, error) {
-					if file == "make" {
-						return "/usr/bin/make", nil
-					}
-					return "", fmt.Errorf("not found")
-				}
+			setupMocks: func(td *hooks.TestDependencies) {
+				setupSkipTestProjectFS(td, projectPaths...)
+				setupSkipTestRunner(td, nil, successOutput("Test Success"))
 			},
 			wantBoth: true,
 		},
 		{
 			name: "skip test only runs lint",
-			skipConfig: &SkipConfig{
+			skipConfig: &hooks.SkipConfig{
 				SkipLint: false,
 				SkipTest: true,
 			},
-			setupMocks: func(td *TestDependencies) {
-				td.MockFS.statFunc = func(name string) (os.FileInfo, error) {
-					if name == "/project/.git" || name == "/project/go.mod" || name == "/project/Makefile" {
-						return &mockFileInfo{isDir: true}, nil
-					}
-					return nil, fmt.Errorf("not found")
-				}
-
-				// Only lint command should be discovered and run (test is skipped)
-				td.MockRunner.runContextFunc = func(_ context.Context, _, name string, args ...string) (*CommandOutput, error) {
-					if name == "make" && len(args) >= 3 && args[len(args)-2] == "-n" {
-						if args[len(args)-1] == "lint" {
-							return &CommandOutput{Stdout: []byte("golangci-lint run")}, nil
-						}
-					}
-					if name == "make" && len(args) == 1 && args[0] == "lint" {
-						return &CommandOutput{Stdout: []byte("Lint Success")}, nil
-					}
-					return nil, fmt.Errorf("unexpected command")
-				}
-				td.MockRunner.lookPathFunc = func(file string) (string, error) {
-					if file == "make" {
-						return "/usr/bin/make", nil
-					}
-					return "", fmt.Errorf("not found")
-				}
+			setupMocks: func(td *hooks.TestDependencies) {
+				setupSkipTestProjectFS(td, projectPaths...)
+				setupSkipTestRunner(td, successOutput("Lint Success"), nil)
 			},
 			wantBoth: true,
 		},
 		{
 			name: "skip both returns success without running",
-			skipConfig: &SkipConfig{
+			skipConfig: &hooks.SkipConfig{
 				SkipLint: true,
 				SkipTest: true,
 			},
-			setupMocks: func(td *TestDependencies) {
-				td.MockFS.statFunc = func(name string) (os.FileInfo, error) {
-					if name == "/project/.git" || name == "/project/go.mod" {
-						return &mockFileInfo{isDir: true}, nil
-					}
-					return nil, fmt.Errorf("not found")
-				}
-				// No commands should be executed when both are skipped
-				td.MockRunner.runContextFunc = func(_ context.Context, _, _ string, _ ...string) (*CommandOutput, error) {
-					return nil, fmt.Errorf("no commands should be run when both are skipped")
+			setupMocks: func(td *hooks.TestDependencies) {
+				setupSkipTestProjectFS(td, projectPathsNoMakefile...)
+				td.MockRunner.RunContextFunc = func(_ context.Context, _, _ string, _ ...string) (*hooks.CommandOutput, error) {
+					return nil, errors.New("no commands should be run when both are skipped")
 				}
 			},
 			wantBoth: true,
 		},
 		{
 			name: "lint fails when not skipped",
-			skipConfig: &SkipConfig{
+			skipConfig: &hooks.SkipConfig{
 				SkipLint: false,
 				SkipTest: true,
 			},
-			setupMocks: func(td *TestDependencies) {
-				td.MockFS.statFunc = func(name string) (os.FileInfo, error) {
-					if name == "/project/.git" || name == "/project/go.mod" || name == "/project/Makefile" {
-						return &mockFileInfo{isDir: true}, nil
-					}
-					return nil, fmt.Errorf("not found")
-				}
-
-				td.MockRunner.runContextFunc = func(_ context.Context, _, name string, args ...string) (*CommandOutput, error) {
-					if name == "make" && len(args) >= 3 && args[len(args)-2] == "-n" {
-						if args[len(args)-1] == "lint" {
-							return &CommandOutput{Stdout: []byte("golangci-lint run")}, nil
-						}
-					}
-					if name == "make" && len(args) == 1 && args[0] == "lint" {
-						// Lint fails
-						return &CommandOutput{Stderr: []byte("lint errors")}, fmt.Errorf("exit status 1")
-					}
-					return nil, fmt.Errorf("unexpected command")
-				}
-				td.MockRunner.lookPathFunc = func(file string) (string, error) {
-					if file == "make" {
-						return "/usr/bin/make", nil
-					}
-					return "", fmt.Errorf("not found")
-				}
+			setupMocks: func(td *hooks.TestDependencies) {
+				setupSkipTestProjectFS(td, projectPaths...)
+				setupSkipTestRunner(td, failOutput("lint errors"), nil)
 			},
 			wantBoth: false,
 		},
@@ -208,46 +161,26 @@ func TestExecuteValidationsWithSkip(t *testing.T) { //nolint:cyclop // Table-dri
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testDeps := createTestDependencies()
+			testDeps := hooks.CreateTestDependencies()
 			tt.setupMocks(testDeps)
 
-			executor := NewParallelValidateExecutor(
-				"/project",
-				10,
-				false,
-				tt.skipConfig,
-				testDeps.Dependencies,
+			executor := hooks.NewParallelValidateExecutor(
+				"/project", 10, false, tt.skipConfig, testDeps.Dependencies,
 			)
 
 			result, err := executor.ExecuteValidations(
-				context.Background(),
-				"/project",
-				"/project/src",
+				context.Background(), "/project", "/project/src",
 			)
-
 			if err != nil {
 				t.Fatalf("ExecuteValidations() error = %v", err)
 			}
 
-			if result.BothPassed != tt.wantBoth {
-				t.Errorf("ExecuteValidations() BothPassed = %v, want %v", result.BothPassed, tt.wantBoth)
-			}
-
-			// Check that skipped commands weren't executed
-			if tt.skipConfig != nil {
-				if tt.skipConfig.SkipLint && result.LintResult != nil {
-					t.Errorf("Lint was supposed to be skipped but got result: %+v", result.LintResult)
-				}
-				if tt.skipConfig.SkipTest && result.TestResult != nil {
-					t.Errorf("Test was supposed to be skipped but got result: %+v", result.TestResult)
-				}
-			}
+			assertSkipResults(t, result, tt.wantBoth, tt.skipConfig)
 		})
 	}
 }
 
 func TestValidateCommandWithSkipRegistry(t *testing.T) {
-	// This test simulates the full validate command flow with skip registry
 	tests := []struct {
 		name         string
 		registryData skipregistry.RegistryData
@@ -302,33 +235,43 @@ func TestValidateCommandWithSkipRegistry(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a mock storage with the test data
 			mockStorage := &mockSkipStorage{
 				data: tt.registryData,
+				err:  nil,
 			}
-
-			// Create a registry with the mock storage
 			registry := skipregistry.NewRegistry(mockStorage)
 
-			// Test IsSkipped for lint
 			ctx := context.Background()
 			dir := filepath.Dir(tt.filePath)
-			skipLint, err := registry.IsSkipped(ctx, skipregistry.DirectoryPath(dir), skipregistry.SkipTypeLint)
-			if err != nil {
-				t.Fatalf("IsSkipped(lint) error = %v", err)
-			}
-			if skipLint != tt.wantSkipLint {
-				t.Errorf("IsSkipped(lint) = %v, want %v", skipLint, tt.wantSkipLint)
-			}
 
-			// Test IsSkipped for test
-			skipTest, err := registry.IsSkipped(ctx, skipregistry.DirectoryPath(dir), skipregistry.SkipTypeTest)
-			if err != nil {
-				t.Fatalf("IsSkipped(test) error = %v", err)
-			}
-			if skipTest != tt.wantSkipTest {
-				t.Errorf("IsSkipped(test) = %v, want %v", skipTest, tt.wantSkipTest)
-			}
+			assertSkipRegistryResult(ctx, t, registry, dir, tt.wantSkipLint, tt.wantSkipTest)
 		})
+	}
+}
+
+// assertSkipRegistryResult checks IsSkipped results for both lint and test.
+func assertSkipRegistryResult(
+	ctx context.Context,
+	t *testing.T,
+	registry *skipregistry.JSONRegistry,
+	dir string,
+	wantSkipLint, wantSkipTest bool,
+) {
+	t.Helper()
+
+	skipLint, err := registry.IsSkipped(ctx, skipregistry.DirectoryPath(dir), skipregistry.SkipTypeLint)
+	if err != nil {
+		t.Fatalf("IsSkipped(lint) error = %v", err)
+	}
+	if skipLint != wantSkipLint {
+		t.Errorf("IsSkipped(lint) = %v, want %v", skipLint, wantSkipLint)
+	}
+
+	skipTest, err := registry.IsSkipped(ctx, skipregistry.DirectoryPath(dir), skipregistry.SkipTypeTest)
+	if err != nil {
+		t.Fatalf("IsSkipped(test) error = %v", err)
+	}
+	if skipTest != wantSkipTest {
+		t.Errorf("IsSkipped(test) = %v, want %v", skipTest, wantSkipTest)
 	}
 }

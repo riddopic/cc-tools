@@ -22,6 +22,7 @@ type JSONRegistry struct {
 // NewRegistry creates a new registry with the given storage backend.
 func NewRegistry(storage Storage) *JSONRegistry {
 	return &JSONRegistry{
+		mu:      sync.RWMutex{},
 		storage: storage,
 		cache:   make(RegistryData),
 		loaded:  false,

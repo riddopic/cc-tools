@@ -17,19 +17,19 @@ const (
 	keyNotificationsNtfyTopic = "notifications.ntfy_topic"
 )
 
-// ConfigValues represents the concrete configuration structure.
-type ConfigValues struct {
-	Validate      ValidateConfigValues      `json:"validate"`
-	Notifications NotificationsConfigValues `json:"notifications"`
+// Values represents the concrete configuration structure.
+type Values struct {
+	Validate      ValidateValues      `json:"validate"`
+	Notifications NotificationsValues `json:"notifications"`
 }
 
-// NotificationsConfigValues represents notification-related settings.
-type NotificationsConfigValues struct {
+// NotificationsValues represents notification-related settings.
+type NotificationsValues struct {
 	NtfyTopic string `json:"ntfy_topic"`
 }
 
-// ValidateConfigValues represents validate-related settings.
-type ValidateConfigValues struct {
+// ValidateValues represents validate-related settings.
+type ValidateValues struct {
 	Timeout  int `json:"timeout"`
 	Cooldown int `json:"cooldown"`
 }
@@ -37,11 +37,11 @@ type ValidateConfigValues struct {
 // Manager handles configuration read/write operations.
 type Manager struct {
 	configPath string
-	config     *ConfigValues
+	config     *Values
 }
 
-// ConfigInfo contains information about a configuration value.
-type ConfigInfo struct {
+// Info contains information about a configuration value.
+type Info struct {
 	Value     string
 	IsDefault bool
 }
@@ -175,7 +175,7 @@ func (m *Manager) Set(_ context.Context, key string, value string) error {
 }
 
 // GetAll retrieves all configuration values with their metadata.
-func (m *Manager) GetAll(ctx context.Context) (map[string]ConfigInfo, error) {
+func (m *Manager) GetAll(ctx context.Context) (map[string]Info, error) {
 	if m.config == nil {
 		if err := m.loadConfig(); err != nil {
 			return nil, fmt.Errorf("load config: %w", err)
@@ -183,7 +183,7 @@ func (m *Manager) GetAll(ctx context.Context) (map[string]ConfigInfo, error) {
 	}
 
 	defaults := getDefaultConfig()
-	result := make(map[string]ConfigInfo)
+	result := make(map[string]Info)
 
 	// Process all configuration keys
 	keys := []string{
@@ -196,7 +196,7 @@ func (m *Manager) GetAll(ctx context.Context) (map[string]ConfigInfo, error) {
 		value, _, _ := m.GetValue(ctx, key)
 		defaultValue := getDefaultValue(defaults, key)
 
-		result[key] = ConfigInfo{
+		result[key] = Info{
 			Value:     value,
 			IsDefault: value == defaultValue,
 		}
@@ -261,7 +261,7 @@ func (m *Manager) ResetAll(_ context.Context) error {
 
 // GetConfig returns the current configuration structure.
 // This is used by the Load function to get typed configuration.
-func (m *Manager) GetConfig(_ context.Context) (*ConfigValues, error) {
+func (m *Manager) GetConfig(_ context.Context) (*Values, error) {
 	if m.config == nil {
 		if err := m.loadConfig(); err != nil {
 			return nil, fmt.Errorf("load config: %w", err)
@@ -291,7 +291,7 @@ func (m *Manager) loadConfig() error {
 	}
 
 	// Try to parse as structured config first
-	var structuredConfig ConfigValues
+	var structuredConfig Values
 	if unmarshalErr := json.Unmarshal(data, &structuredConfig); unmarshalErr == nil {
 		// Successfully parsed as structured config
 		m.config = &structuredConfig
@@ -342,11 +342,14 @@ func (m *Manager) createDefaultConfig() error {
 }
 
 // getDefaultConfig returns a new config with default values.
-func getDefaultConfig() *ConfigValues {
-	return &ConfigValues{
-		Validate: ValidateConfigValues{
+func getDefaultConfig() *Values {
+	return &Values{
+		Validate: ValidateValues{
 			Timeout:  defaultValidateTimeout,
 			Cooldown: defaultValidateCooldown,
+		},
+		Notifications: NotificationsValues{
+			NtfyTopic: "",
 		},
 	}
 }
@@ -387,7 +390,7 @@ func (m *Manager) convertFromMap(mapConfig map[string]any) {
 }
 
 // getDefaultValue returns the default value for a key as a string.
-func getDefaultValue(defaults *ConfigValues, key string) string {
+func getDefaultValue(defaults *Values, key string) string {
 	switch key {
 	case keyValidateTimeout:
 		return strconv.Itoa(defaults.Validate.Timeout)

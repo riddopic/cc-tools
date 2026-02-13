@@ -22,10 +22,7 @@ type TableRenderer struct {
 func NewTable(headers []string, widths []int) *TableRenderer {
 	// Ensure columns and widths match - caller should ensure this
 	// but we'll handle gracefully by using minimum length
-	minLen := len(headers)
-	if len(widths) < minLen {
-		minLen = len(widths)
-	}
+	minLen := min(len(widths), len(headers))
 
 	// Trim to minimum length
 	if len(headers) > minLen {
@@ -65,13 +62,13 @@ func (tr *TableRenderer) Render() string {
 	}
 
 	// Create the lipgloss table
-	t := table.New(). //nolint:forbidigo // External library function
-				Border(lipgloss.NormalBorder()).
-				BorderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("240"))).
-				Headers(tr.headers...).
-				Rows(tr.rows...).
-				Width(totalWidth).
-				StyleFunc(func(row, _ int) lipgloss.Style {
+	t := table.New().
+		Border(lipgloss.NormalBorder()).
+		BorderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("240"))).
+		Headers(tr.headers...).
+		Rows(tr.rows...).
+		Width(totalWidth).
+		StyleFunc(func(row, _ int) lipgloss.Style {
 			if row == 0 {
 				return headerStyle
 			}
