@@ -43,7 +43,7 @@ Hand-rolled CLI (no Cobra/Viper) — `cmd/cc-tools/main.go` dispatches via `swit
 |---------|---------|
 | `internal/hooks` | Core validation: discovers lint/test commands, runs them in parallel with `sync.WaitGroup`, manages cooldown locks |
 | `internal/shared` | Filesystem interfaces (`HooksFS`, `RegistryFS`, `FS`), project detection, dependency injection container, debug path utilities |
-| `internal/config` | YAML/JSON config persistence at `~/.config/cc-tools/config.yaml` |
+| `internal/config` | JSON config persistence at `~/.config/cc-tools/config.json` |
 | `internal/skipregistry` | Persistent skip settings (lint/test/all) per directory with JSON storage |
 | `internal/output` | Thread-safe terminal writer using `charmbracelet/lipgloss` for styled output |
 | `internal/mcp` | MCP server enable/disable management |

@@ -142,5 +142,4 @@ When adding new examples:
 ## Related Documentation
 
 - [docs/CODING_GUIDELINES.md](../docs/CODING_GUIDELINES.md) - Main coding guidelines
-- [docs/research/](../docs/research/) - In-depth research documents
-- [Project README](../README.md) - Project overview
+- [Project README](../../README.md) - Project overview
