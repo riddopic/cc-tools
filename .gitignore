@@ -59,6 +59,7 @@ vendor/
 .claude/plans/
 .claude/scratchpad/
 .claude/sessions/
+.claude/homunculus/
 
 # Backup and temporary files
 *.backup
