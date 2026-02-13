@@ -110,7 +110,7 @@ Every optimization MUST start with a Go benchmark or performance test that demon
 
 2. **Measure Current State**: Establish baseline with failing benchmark
 
-   - Run `make bench` to see current metrics
+   - Run `task bench` to see current metrics
    - Document the gap between current and target performance
    - Use explicit error handling for metric collection
 

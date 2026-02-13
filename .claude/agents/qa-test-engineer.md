@@ -129,7 +129,7 @@ You write tests following MANDATORY Go project patterns:
 ### Mock Generation and Usage
 
 - **Always use generated mocks** from `*/mocks/` directories
-- **Never create manual mocks** - use `make mocks` after interface changes
+- **Never create manual mocks** - use `task mocks` after interface changes
 - **Use mocks.NewMock* constructors** for automatic cleanup registration
 - **Set expectations with EXPECT() pattern** for type-safe mock configuration
 - **Follow TDD with mock generation** - generate mocks before writing tests
@@ -172,7 +172,7 @@ func (m *manualMock) Execute(ctx context.Context, config foundry.ForgeConfig) (*
 ### TDD Workflow with Mockery
 
 1. **Write interface first** (if it doesn't exist)
-2. **Generate mocks**: `make mocks`
+2. **Generate mocks**: `task mocks`
 3. **Write failing test** using generated mocks with EXPECT() patterns
 4. **See test FAIL** (Red phase)
 5. **Write minimal implementation** to pass test (Green phase)
@@ -219,7 +219,7 @@ executor.EXPECT().Execute(mock.Anything, mock.Anything).RunAndReturn(
 3. **Use `mocks.NewMock*` constructors** with testing.T for automatic cleanup registration
 4. **Set expectations using EXPECT() pattern** for type-safe mock configuration with proper argument matching
 5. **Follow TDD: write interface → generate mock → write test → implement** - design interfaces first, then generate mocks before writing tests
-6. **Run `make mocks` after interface changes** - always regenerate mocks when interfaces are modified or added
+6. **Run `task mocks` after interface changes** - always regenerate mocks when interfaces are modified or added
 
 #### Mandatory Mock Import Pattern
 
@@ -279,7 +279,7 @@ func (m *manualMockExecutor) Execute(...) (..., error) {
 - [ ] Mock expectations match actual interface method signatures exactly
 - [ ] Test failures provide clear mock expectation errors with descriptive matchers
 - [ ] No manual mock implementations in test code anywhere
-- [ ] `make mocks` run after any interface changes or additions
+- [ ] `task mocks` run after any interface changes or additions
 - [ ] Mock imports use full package paths to generated mocks directories
 - [ ] Generated mocks are in version control and kept up-to-date
 

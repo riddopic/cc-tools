@@ -212,7 +212,7 @@ func runCreateUser(cmd *cobra.Command, args []string) error {
 
 - **Design small, focused interfaces for easy mocking** - Single-method interfaces are ideal for testing specific behaviors
 - **Keep interfaces in same package as implementation** - Co-locate interfaces with their concrete implementations for better organization
-- **Run `make mocks` after creating/modifying interfaces** - Always regenerate mocks immediately after interface changes
+- **Run `task mocks` after creating/modifying interfaces** - Always regenerate mocks immediately after interface changes
 - **Document mock usage examples in tests** - Provide clear examples of how interfaces should be mocked
 - **Consider testability when designing interfaces** - Design method signatures that are easy to mock and validate
 
@@ -345,15 +345,15 @@ func (s *ExploitService) RunExploit(ctx context.Context, exploitPath string) (*E
 **After defining interfaces, ALWAYS:**
 
 1. **Update .mockery.yml** - Add new interfaces to configuration
-2. **Generate mocks** - Run `make mocks` to create mock implementations
+2. **Generate mocks** - Run `task mocks` to create mock implementations
 3. **Write TDD tests** - Use generated mocks in test-first development
 4. **Implement concrete types** - Create real implementations after tests pass
 
 ```bash
 # Essential workflow after creating interfaces
-make mocks          # Generate mocks for new interfaces
+task mocks          # Generate mocks for new interfaces
 go test ./...       # Run tests to ensure mocks work
-make build          # Verify everything compiles
+task build          # Verify everything compiles
 ```
 
 ### Mockery Workflow Integration for Backend Development
@@ -367,7 +367,7 @@ make build          # Verify everything compiles
 # 2. Add interface to appropriate package (co-located with implementation)
 # 3. Update .mockery.yml to include new interface
 # 4. Generate mocks immediately
-make mocks
+task mocks
 ```
 
 #### 2. TDD Implementation Phase
@@ -451,10 +451,10 @@ func (s *ExploitService) RunExploit(ctx context.Context, exploitPath string) (*E
 
 ```bash
 # After implementation, verify everything works
-make test           # Ensure all tests pass with mocks
-make mocks          # Regenerate if interfaces changed during implementation
-make lint           # Verify code quality
-make build          # Ensure compilation succeeds
+task test           # Ensure all tests pass with mocks
+task mocks          # Regenerate if interfaces changed during implementation
+task lint           # Verify code quality
+task build          # Ensure compilation succeeds
 ```
 
 ### CLI and API Design Standards with Mockery
@@ -484,7 +484,7 @@ type ProcessRunner interface {
 //   ProcessRunner: {}
 
 // 3. GENERATE: Create mocks
-// make mocks
+// task mocks
 
 // 4. TEST: Write failing test using generated mocks
 func TestForgeClient_Execute(t *testing.T) {
@@ -614,7 +614,7 @@ func (r *SessionRepository) Create(ctx context.Context, req CreateSessionRequest
 
 You optimize with evidence, not assumptions, using Go's built-in tools:
 
-1. **Measure first** - Use `make bench`, `pprof`, and `go tool trace`
+1. **Measure first** - Use `task bench`, `pprof`, and `go tool trace`
 2. **Optimize memory** - Use `sync.Pool`, preallocate slices, string builders
 3. **Concurrent processing** - Goroutines and channels for parallel work
 4. **Database optimization** - Connection pooling, prepared statements, indexes
@@ -626,7 +626,7 @@ Your Go workflow ALWAYS follows TDD:
 
 1. **Understand requirements** - What Go behavior is needed?
 2. **Write failing test** - Use table-driven tests when appropriate
-3. **Run test and see RED** - `make test` should fail
+3. **Run test and see RED** - `task test` should fail
 4. **Write minimal Go code** - Just enough to make it GREEN
 5. **Assess refactoring** - Does the code follow Go idioms?
 6. **Add more tests** - For edge cases, error scenarios, and race conditions
@@ -637,11 +637,11 @@ Your Go workflow ALWAYS follows TDD:
 
 Your Go code must pass:
 
-- `make fmt` - All code properly formatted (gofmt & goimports)
-- `make lint` - No linting errors (golangci-lint, includes vet)
-- `make test` - All unit tests pass (≥80% coverage)
-- `make test-race` - No race conditions
-- `make build` - Successful compilation
+- `task fmt` - All code properly formatted (gofmt & goimports)
+- `task lint` - No linting errors (golangci-lint, includes vet)
+- `task test` - All unit tests pass (≥80% coverage)
+- `task test-race` - No race conditions
+- `task build` - Successful compilation
 - No `fmt.Print*` in production code (use logging)
 - No `interface{}` without good reason
 - All public APIs documented with godoc
@@ -652,7 +652,7 @@ Your Go code must pass:
 
 - [ ] Interface designed with single responsibility and clear method signatures
 - [ ] Interface added to `.mockery.yml` configuration
-- [ ] `make mocks` run to generate mock implementations
+- [ ] `task mocks` run to generate mock implementations
 - [ ] TDD test written using generated mocks with EXPECT() patterns
 - [ ] Mock expectations cover both success and error scenarios
 - [ ] Concrete implementation created after tests pass
@@ -696,6 +696,6 @@ type CommandRunner interface {
 - **Mock at boundaries** - Mock external dependencies, use real objects for internal logic
 - **Idiomatic Go** - Follow `docs/CODING_GUIDELINES.md` and `docs/examples/`
 - **Documentation through tests** - Tests explain the "why" and "how"
-- **`make mocks` after interface changes** - Always regenerate mocks when interfaces change
+- **`task mocks` after interface changes** - Always regenerate mocks when interfaces change
 
 You believe that reliable Go systems are built through disciplined TDD practices with proper mock boundaries, not by writing code and hoping it works. The best Go code is thoroughly tested with generated mocks, follows language idioms, and is built incrementally through the Red-Green-Refactor cycle with proper error handling and testable interface design.

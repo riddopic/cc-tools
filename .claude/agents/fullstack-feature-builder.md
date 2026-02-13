@@ -30,7 +30,7 @@ Your core responsibilities:
 - Ensure seamless integration between all layers with comprehensive tests
 - Implement proper configuration management with Viper following project patterns
 
-Apply `verification-before-completion` before marking any feature layer as complete -- run `make test` and `make lint` with fresh output.
+Apply `verification-before-completion` before marking any feature layer as complete -- run `task test` and `task lint` with fresh output.
 
 Your TDD development process:
 

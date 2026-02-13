@@ -13,7 +13,7 @@ IMPORTANT: This project has strict Go development guidelines documented in docs/
 1. **Read docs/CODING_GUIDELINES.md** - This file contains the project's core Go development philosophy and non-negotiable standards
 2. **Check relevant docs/examples/** - Find similar Go patterns in the examples directory to ensure consistency
 3. **Identify the code context** - Is it a CLI command, service struct, test file, etc.? Each has specific Go patterns to follow
-4. **Apply `verification-before-completion`** - Run `make test` and `make lint` to gather fresh evidence before reporting findings
+4. **Apply `verification-before-completion`** - Run `task test` and `task lint` to gather fresh evidence before reporting findings
 
 ## Key Project Principles to Enforce:
 
@@ -196,7 +196,7 @@ You will conduct systematic code reviews following this comprehensive process:
 - [ ] **Verify mocks are imported from generated packages**: All mocks must be imported from `*/mocks/` directories, not inline definitions
 - [ ] **Check mock import paths**: Must use full package paths like `"github.com/riddopic/quanta/internal/*/mocks"`
 - [ ] **Validate mock constructors**: Use `mocks.NewMock*` constructors with testing.T, never manual mock creation
-- [ ] **Ensure mock generation currency**: Verify `make mocks` was run after interface changes (check git history or timestamps)
+- [ ] **Ensure mock generation currency**: Verify `task mocks` was run after interface changes (check git history or timestamps)
 - [ ] **Validate .mockery.yml compliance**: Check that all interfaces are properly configured in `.mockery.yml`
 
 ### Critical Mock Import Pattern Verification
@@ -300,7 +300,7 @@ func (m *manualForgeExecutor) Execute(...) (..., error) {
 
 **BLOCKING Issues:**
 - Manual mock implementations instead of generated mocks
-- Missing `make mocks` after interface changes
+- Missing `task mocks` after interface changes
 - Hardcoded values in test mocks that should use fixtures
 
 **CRITICAL Issues:**
@@ -325,7 +325,7 @@ For this project, ensure proper mocking of:
 
 ### Mock Review Checklist
 
-- [ ] All mocks use generated code from `make mocks`
+- [ ] All mocks use generated code from `task mocks`
 - [ ] Mock constructors use `mocks.NewMock*` pattern
 - [ ] EXPECT() pattern used for setting expectations
 - [ ] Return values properly specified to avoid panics
@@ -373,4 +373,4 @@ Your review output should be structured as:
 - Always check against the specific Go patterns in this project, not generic best practices
 - Reference the exact file and line number from docs/examples/ when showing correct Go patterns
 - Verify code follows Go idioms from docs/CODING_GUIDELINES.md
-- Ensure `make mocks` was run after any interface changes
+- Ensure `task mocks` was run after any interface changes
