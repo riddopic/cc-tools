@@ -1,0 +1,27 @@
+all: false
+dir: "{{.InterfaceDir}}/mocks"
+filename: "{{.InterfaceName}}.go"
+force-file-write: true
+formatter: goimports
+log-level: info
+structname: "Mock{{.InterfaceName}}"
+pkgname: "mocks"
+recursive: false
+require-template-schema-exists: true
+template: testify
+template-schema: "{{.Template}}.schema.json"
+
+packages:
+  github.com/riddopic/cc-tools/internal/hooks:
+    interfaces:
+      CommandRunner:
+      ProcessManager:
+      Clock:
+      InputReader:
+      OutputWriter:
+
+  github.com/riddopic/cc-tools/internal/shared:
+    interfaces:
+      HooksFS:
+      RegistryFS:
+      SharedFS:
