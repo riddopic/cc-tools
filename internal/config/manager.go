@@ -12,13 +12,20 @@ import (
 
 // Configuration keys.
 const (
-	keyValidateTimeout  = "validate.timeout"
-	keyValidateCooldown = "validate.cooldown"
+	keyValidateTimeout        = "validate.timeout"
+	keyValidateCooldown       = "validate.cooldown"
+	keyNotificationsNtfyTopic = "notifications.ntfy_topic"
 )
 
 // ConfigValues represents the concrete configuration structure.
 type ConfigValues struct {
-	Validate ValidateConfigValues `json:"validate"`
+	Validate      ValidateConfigValues      `json:"validate"`
+	Notifications NotificationsConfigValues `json:"notifications"`
+}
+
+// NotificationsConfigValues represents notification-related settings.
+type NotificationsConfigValues struct {
+	NtfyTopic string `json:"ntfy_topic"`
 }
 
 // ValidateConfigValues represents validate-related settings.
@@ -58,7 +65,7 @@ func (m *Manager) EnsureConfig(_ context.Context) error {
 	if _, err := os.Stat(m.configPath); os.IsNotExist(err) {
 		// Create config directory if it doesn't exist
 		configDir := filepath.Dir(m.configPath)
-		if mkErr := os.MkdirAll(configDir, 0750); mkErr != nil {
+		if mkErr := os.MkdirAll(configDir, 0o750); mkErr != nil {
 			return fmt.Errorf("create config directory: %w", mkErr)
 		}
 
@@ -102,7 +109,12 @@ func (m *Manager) GetString(_ context.Context, key string) (string, bool, error)
 		}
 	}
 
-	return "", false, nil
+	switch key {
+	case keyNotificationsNtfyTopic:
+		return m.config.Notifications.NtfyTopic, true, nil
+	default:
+		return "", false, nil
+	}
 }
 
 // GetValue retrieves a configuration value as a string.
@@ -119,6 +131,8 @@ func (m *Manager) GetValue(_ context.Context, key string) (string, bool, error) 
 		return strconv.Itoa(m.config.Validate.Timeout), true, nil
 	case keyValidateCooldown:
 		return strconv.Itoa(m.config.Validate.Cooldown), true, nil
+	case keyNotificationsNtfyTopic:
+		return m.config.Notifications.NtfyTopic, true, nil
 	default:
 		return "", false, nil
 	}
@@ -146,6 +160,8 @@ func (m *Manager) Set(_ context.Context, key string, value string) error {
 			return fmt.Errorf("value must be an integer: %w", err)
 		}
 		m.config.Validate.Cooldown = intVal
+	case keyNotificationsNtfyTopic:
+		m.config.Notifications.NtfyTopic = value
 	default:
 		return fmt.Errorf("unknown configuration key: %s", key)
 	}
@@ -173,6 +189,7 @@ func (m *Manager) GetAll(ctx context.Context) (map[string]ConfigInfo, error) {
 	keys := []string{
 		keyValidateTimeout,
 		keyValidateCooldown,
+		keyNotificationsNtfyTopic,
 	}
 
 	for _, key := range keys {
@@ -193,6 +210,7 @@ func (m *Manager) GetAllKeys(_ context.Context) ([]string, error) {
 	keys := []string{
 		keyValidateTimeout,
 		keyValidateCooldown,
+		keyNotificationsNtfyTopic,
 	}
 	sort.Strings(keys)
 	return keys, nil
@@ -214,6 +232,8 @@ func (m *Manager) Reset(_ context.Context, key string) error {
 		m.config.Validate.Timeout = defaults.Validate.Timeout
 	case keyValidateCooldown:
 		m.config.Validate.Cooldown = defaults.Validate.Cooldown
+	case keyNotificationsNtfyTopic:
+		m.config.Notifications.NtfyTopic = defaults.Notifications.NtfyTopic
 	default:
 		return fmt.Errorf("unknown configuration key: %s", key)
 	}
@@ -297,7 +317,7 @@ func (m *Manager) loadConfig() error {
 func (m *Manager) saveConfig() error {
 	// Ensure directory exists
 	configDir := filepath.Dir(m.configPath)
-	if mkErr := os.MkdirAll(configDir, 0750); mkErr != nil {
+	if mkErr := os.MkdirAll(configDir, 0o750); mkErr != nil {
 		return fmt.Errorf("create config directory: %w", mkErr)
 	}
 
@@ -308,7 +328,7 @@ func (m *Manager) saveConfig() error {
 	}
 
 	// Write to file
-	if writeErr := os.WriteFile(m.configPath, data, 0600); writeErr != nil {
+	if writeErr := os.WriteFile(m.configPath, data, 0o600); writeErr != nil {
 		return fmt.Errorf("write config file: %w", writeErr)
 	}
 
@@ -358,6 +378,12 @@ func (m *Manager) convertFromMap(mapConfig map[string]any) {
 		}
 	}
 
+	// Convert notification settings
+	if notifMap, notifOk := mapConfig["notifications"].(map[string]any); notifOk {
+		if topic, topicOk := notifMap["ntfy_topic"].(string); topicOk {
+			m.config.Notifications.NtfyTopic = topic
+		}
+	}
 }
 
 // getDefaultValue returns the default value for a key as a string.
@@ -367,6 +393,8 @@ func getDefaultValue(defaults *ConfigValues, key string) string {
 		return strconv.Itoa(defaults.Validate.Timeout)
 	case keyValidateCooldown:
 		return strconv.Itoa(defaults.Validate.Cooldown)
+	case keyNotificationsNtfyTopic:
+		return defaults.Notifications.NtfyTopic
 	default:
 		return ""
 	}

@@ -59,7 +59,7 @@ func TestEnsureConfig(t *testing.T) {
 			name: "creates config file when missing",
 			setupFunc: func(t *testing.T, configPath string) {
 				// Ensure parent dir exists but config file doesn't
-				os.MkdirAll(filepath.Dir(configPath), 0755)
+				os.MkdirAll(filepath.Dir(configPath), 0o755)
 			},
 			wantErr: false,
 			checkFunc: func(t *testing.T, m *Manager) {
@@ -79,7 +79,7 @@ func TestEnsureConfig(t *testing.T) {
 		{
 			name: "loads existing config file",
 			setupFunc: func(t *testing.T, configPath string) {
-				os.MkdirAll(filepath.Dir(configPath), 0755)
+				os.MkdirAll(filepath.Dir(configPath), 0o755)
 				config := &ConfigValues{
 					Validate: ValidateConfigValues{
 						Timeout:  120,
@@ -87,7 +87,7 @@ func TestEnsureConfig(t *testing.T) {
 					},
 				}
 				data, _ := json.MarshalIndent(config, "", "  ")
-				os.WriteFile(configPath, data, 0600)
+				os.WriteFile(configPath, data, 0o600)
 			},
 			wantErr: false,
 			checkFunc: func(t *testing.T, m *Manager) {
@@ -102,8 +102,8 @@ func TestEnsureConfig(t *testing.T) {
 		{
 			name: "handles corrupt config file",
 			setupFunc: func(t *testing.T, configPath string) {
-				os.MkdirAll(filepath.Dir(configPath), 0755)
-				os.WriteFile(configPath, []byte("invalid json"), 0600)
+				os.MkdirAll(filepath.Dir(configPath), 0o755)
+				os.WriteFile(configPath, []byte("invalid json"), 0o600)
 			},
 			wantErr: true,
 		},
@@ -377,6 +377,7 @@ func TestGetAll(t *testing.T) {
 	expectedKeys := []string{
 		keyValidateTimeout,
 		keyValidateCooldown,
+		keyNotificationsNtfyTopic,
 	}
 
 	for _, key := range expectedKeys {
@@ -404,6 +405,7 @@ func TestGetAllKeys(t *testing.T) {
 	}
 
 	expectedKeys := []string{
+		"notifications.ntfy_topic",
 		"validate.cooldown",
 		"validate.timeout",
 	}
@@ -413,7 +415,7 @@ func TestGetAllKeys(t *testing.T) {
 	}
 
 	for i, key := range keys {
-		if key != expectedKeys[i] {
+		if i < len(expectedKeys) && key != expectedKeys[i] {
 			t.Errorf("GetAllKeys()[%d] = %s, want %s", i, key, expectedKeys[i])
 		}
 	}
@@ -530,8 +532,8 @@ func TestLoadConfig(t *testing.T) {
 					},
 				}
 				data, _ := json.MarshalIndent(config, "", "  ")
-				os.MkdirAll(filepath.Dir(configPath), 0755)
-				os.WriteFile(configPath, data, 0600)
+				os.MkdirAll(filepath.Dir(configPath), 0o755)
+				os.WriteFile(configPath, data, 0o600)
 			},
 			checkFunc: func(t *testing.T, m *Manager) {
 				if m.config.Validate.Timeout != 120 {
@@ -549,8 +551,8 @@ func TestLoadConfig(t *testing.T) {
 					},
 				}
 				data, _ := json.MarshalIndent(mapConfig, "", "  ")
-				os.MkdirAll(filepath.Dir(configPath), 0755)
-				os.WriteFile(configPath, data, 0600)
+				os.MkdirAll(filepath.Dir(configPath), 0o755)
+				os.WriteFile(configPath, data, 0o600)
 			},
 			checkFunc: func(t *testing.T, m *Manager) {
 				if m.config.Validate.Timeout != 90 {
@@ -578,8 +580,8 @@ func TestLoadConfig(t *testing.T) {
 					},
 				}
 				data, _ := json.MarshalIndent(config, "", "  ")
-				os.MkdirAll(filepath.Dir(configPath), 0755)
-				os.WriteFile(configPath, data, 0600)
+				os.MkdirAll(filepath.Dir(configPath), 0o755)
+				os.WriteFile(configPath, data, 0o600)
 			},
 			checkFunc: func(t *testing.T, m *Manager) {
 				if m.config.Validate.Timeout != 100 {
@@ -593,8 +595,8 @@ func TestLoadConfig(t *testing.T) {
 		{
 			name: "handles corrupt JSON",
 			setupFunc: func(t *testing.T, configPath string) {
-				os.MkdirAll(filepath.Dir(configPath), 0755)
-				os.WriteFile(configPath, []byte("{invalid json}"), 0600)
+				os.MkdirAll(filepath.Dir(configPath), 0o755)
+				os.WriteFile(configPath, []byte("{invalid json}"), 0o600)
 			},
 			wantErr: true,
 		},
@@ -656,11 +658,11 @@ func TestSaveConfig(t *testing.T) {
 			setupFunc: func(t *testing.T, configPath string) {
 				// Create a read-only directory
 				dir := filepath.Dir(configPath)
-				os.MkdirAll(dir, 0755)
-				os.Chmod(dir, 0444)
+				os.MkdirAll(dir, 0o755)
+				os.Chmod(dir, 0o444)
 				// Cleanup function to restore permissions
 				t.Cleanup(func() {
-					os.Chmod(dir, 0755)
+					os.Chmod(dir, 0o755)
 				})
 			},
 			wantErr: true,
@@ -706,7 +708,7 @@ func TestSaveConfig(t *testing.T) {
 				// Verify file permissions
 				info, _ := os.Stat(configPath)
 				mode := info.Mode()
-				if mode.Perm() != 0600 {
+				if mode.Perm() != 0o600 {
 					t.Errorf("Config file permissions = %v, want 0600", mode.Perm())
 				}
 			}
@@ -747,7 +749,7 @@ func TestGetConfig(t *testing.T) {
 
 	// Create config file
 	data, _ := json.MarshalIndent(expectedConfig, "", "  ")
-	os.WriteFile(m2.configPath, data, 0600)
+	os.WriteFile(m2.configPath, data, 0o600)
 
 	config2, err := m2.GetConfig(ctx)
 	if err != nil {
@@ -961,7 +963,7 @@ func TestConfigFilePath(t *testing.T) {
 	}
 }
 
-// Helper function
+// Helper function.
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && s[len(s)-len(substr):] == substr ||
 		(len(substr) > 0 && len(s) > 0 && s == substr) ||

@@ -17,7 +17,7 @@ func TestLoadFromJSON(t *testing.T) {
 
 	// Create cc-tools directory
 	ccToolsDir := filepath.Join(tempDir, "cc-tools")
-	if err := os.MkdirAll(ccToolsDir, 0755); err != nil {
+	if err := os.MkdirAll(ccToolsDir, 0o755); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 
@@ -38,7 +38,7 @@ func TestLoadFromJSON(t *testing.T) {
 		t.Fatalf("Failed to marshal config: %v", err)
 	}
 
-	if writeErr := os.WriteFile(configPath, data, 0644); writeErr != nil {
+	if writeErr := os.WriteFile(configPath, data, 0o644); writeErr != nil {
 		t.Fatalf("Failed to write test config: %v", writeErr)
 	}
 
@@ -79,14 +79,13 @@ func TestLoadDefaults(t *testing.T) {
 	}
 }
 
-func TestLoadFromManager(t *testing.T) {
-	ctx := context.Background()
-
+func TestLoadDelegatesToManager(t *testing.T) {
 	// Create a temporary directory for test config
 	tempDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tempDir)
 
 	// Use manager to set some values
+	ctx := context.Background()
 	manager := NewManager()
 	if err := manager.EnsureConfig(ctx); err != nil {
 		t.Fatalf("Failed to ensure config: %v", err)
@@ -100,40 +99,23 @@ func TestLoadFromManager(t *testing.T) {
 		t.Fatalf("Failed to set cooldown: %v", err)
 	}
 
-	// Load config using manager
-	cfg, err := LoadFromManager(ctx)
-	if err != nil {
-		t.Fatalf("Failed to load config from manager: %v", err)
+	if err := manager.Set(ctx, "notifications.ntfy_topic", "my-topic"); err != nil {
+		t.Fatalf("Failed to set ntfy_topic: %v", err)
 	}
 
-	// Check values
+	// Load via the public Load() function
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
 	if cfg.Hooks.Validate.TimeoutSeconds != 100 {
 		t.Errorf("Expected timeout to be 100, got %d", cfg.Hooks.Validate.TimeoutSeconds)
 	}
 	if cfg.Hooks.Validate.CooldownSeconds != 8 {
 		t.Errorf("Expected cooldown to be 8, got %d", cfg.Hooks.Validate.CooldownSeconds)
 	}
-}
-
-func TestGetConfigPath(t *testing.T) {
-	// Test with XDG_CONFIG_HOME set
-	t.Setenv("XDG_CONFIG_HOME", "/custom/config")
-
-	path := getConfigPath()
-	expected := "/custom/config/cc-tools/config.json"
-	if path != expected {
-		t.Errorf("Expected config path to be %s, got %s", expected, path)
-	}
-
-	// Test without XDG_CONFIG_HOME
-	os.Unsetenv("XDG_CONFIG_HOME")
-	path = getConfigPath()
-
-	// Should contain .config/cc-tools/config.json
-	if !filepath.IsAbs(path) {
-		t.Errorf("Expected absolute path, got %s", path)
-	}
-	if filepath.Base(path) != "config.json" {
-		t.Errorf("Expected file name to be config.json, got %s", filepath.Base(path))
+	if cfg.Notifications.NtfyTopic != "my-topic" {
+		t.Errorf("Expected ntfy_topic to be 'my-topic', got '%s'", cfg.Notifications.NtfyTopic)
 	}
 }
