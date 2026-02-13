@@ -7,16 +7,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/riddopic/cc-tools/internal/shared"
 )
 
 // JSONStorage implements Storage using JSON files.
 type JSONStorage struct {
-	fs       FileSystem
+	fs       shared.RegistryFS
 	filePath string
 }
 
 // NewJSONStorage creates a new JSON storage backend.
-func NewJSONStorage(fs FileSystem, filePath string) *JSONStorage {
+func NewJSONStorage(fs shared.RegistryFS, filePath string) *JSONStorage {
 	return &JSONStorage{
 		fs:       fs,
 		filePath: filePath,
@@ -58,7 +60,7 @@ func (s *JSONStorage) Save(_ context.Context, data RegistryData) error {
 	// Ensure directory exists
 	dir := filepath.Dir(s.filePath)
 	const dirPerm = 0755
-	if err := s.fs.MkdirAll(dir, FileMode(dirPerm)); err != nil {
+	if err := s.fs.MkdirAll(dir, os.FileMode(dirPerm)); err != nil {
 		return fmt.Errorf("create registry directory: %w", err)
 	}
 
@@ -74,7 +76,7 @@ func (s *JSONStorage) Save(_ context.Context, data RegistryData) error {
 	// Write atomically by writing to temp file and moving
 	tempFile := s.filePath + ".tmp"
 	const filePerm = 0644
-	if writeErr := s.fs.WriteFile(tempFile, jsonData, FileMode(filePerm)); writeErr != nil {
+	if writeErr := s.fs.WriteFile(tempFile, jsonData, os.FileMode(filePerm)); writeErr != nil {
 		return fmt.Errorf("write temp registry file: %w", writeErr)
 	}
 
@@ -88,49 +90,7 @@ func (s *JSONStorage) Save(_ context.Context, data RegistryData) error {
 	return nil
 }
 
-// realFileSystem implements FileSystem using os package.
-type realFileSystem struct{}
-
-// newRealFileSystem creates a new real file system implementation.
-func newRealFileSystem() *realFileSystem {
-	return &realFileSystem{}
-}
-
-// ReadFile reads the entire contents of a file.
-func (fs *realFileSystem) ReadFile(name string) ([]byte, error) {
-	data, err := os.ReadFile(name) // #nosec G304 - file path is from trusted source
-	if err != nil {
-		return nil, fmt.Errorf("read file: %w", err)
-	}
-	return data, nil
-}
-
-// WriteFile writes data to a file atomically.
-func (fs *realFileSystem) WriteFile(name string, data []byte, perm FileMode) error {
-	if err := os.WriteFile(name, data, os.FileMode(perm)); err != nil {
-		return fmt.Errorf("write file: %w", err)
-	}
-	return nil
-}
-
-// MkdirAll creates a directory and all necessary parents.
-func (fs *realFileSystem) MkdirAll(path string, perm FileMode) error {
-	if err := os.MkdirAll(path, os.FileMode(perm)); err != nil {
-		return fmt.Errorf("mkdir all: %w", err)
-	}
-	return nil
-}
-
-// UserHomeDir returns the user's home directory.
-func (fs *realFileSystem) UserHomeDir() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("get user home dir: %w", err)
-	}
-	return homeDir, nil
-}
-
 // DefaultStorage creates a storage instance with the default file path.
 func DefaultStorage() *JSONStorage {
-	return NewJSONStorage(newRealFileSystem(), getRegistryPath())
+	return NewJSONStorage(&shared.RealFS{}, getRegistryPath())
 }

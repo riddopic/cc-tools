@@ -8,17 +8,9 @@ import (
 	"os/exec"
 	"syscall"
 	"time"
-)
 
-// FileSystem provides filesystem operations.
-type FileSystem interface {
-	Stat(name string) (os.FileInfo, error)
-	ReadFile(name string) ([]byte, error)
-	WriteFile(name string, data []byte, perm os.FileMode) error
-	TempDir() string
-	CreateExclusive(name string, data []byte, perm os.FileMode) error
-	Remove(name string) error
-}
+	"github.com/riddopic/cc-tools/internal/shared"
+)
 
 // CommandOutput contains the output from a command execution.
 type CommandOutput struct {
@@ -57,7 +49,7 @@ type OutputWriter interface {
 
 // Dependencies holds all external dependencies.
 type Dependencies struct {
-	FS      FileSystem
+	FS      shared.HooksFS
 	Runner  CommandRunner
 	Process ProcessManager
 	Clock   Clock
@@ -67,59 +59,6 @@ type Dependencies struct {
 }
 
 // Production implementations
-
-type realFileSystem struct{}
-
-func (r *realFileSystem) Stat(name string) (os.FileInfo, error) {
-	info, err := os.Stat(name)
-	if err != nil {
-		return nil, fmt.Errorf("stat %s: %w", name, err)
-	}
-	return info, nil
-}
-
-func (r *realFileSystem) ReadFile(name string) ([]byte, error) {
-	data, err := os.ReadFile(name) // #nosec G304 - file path is from trusted source
-	if err != nil {
-		return nil, fmt.Errorf("read file %s: %w", name, err)
-	}
-	return data, nil
-}
-
-func (r *realFileSystem) WriteFile(name string, data []byte, perm os.FileMode) error {
-	if err := os.WriteFile(name, data, perm); err != nil {
-		return fmt.Errorf("write file %s: %w", name, err)
-	}
-	return nil
-}
-
-func (r *realFileSystem) TempDir() string {
-	return os.TempDir()
-}
-
-func (r *realFileSystem) CreateExclusive(name string, data []byte, perm os.FileMode) error {
-	// Use O_EXCL to atomically create the file only if it doesn't exist
-	// #nosec G304 - file path is from trusted source
-	file, err := os.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm)
-	if err != nil {
-		return fmt.Errorf("create exclusive %s: %w", name, err)
-	}
-	defer func() { _ = file.Close() }()
-
-	if _, writeErr := file.Write(data); writeErr != nil {
-		// Try to clean up on write failure
-		_ = os.Remove(name)
-		return fmt.Errorf("write exclusive %s: %w", name, writeErr)
-	}
-	return nil
-}
-
-func (r *realFileSystem) Remove(name string) error {
-	if err := os.Remove(name); err != nil {
-		return fmt.Errorf("remove %s: %w", name, err)
-	}
-	return nil
-}
 
 type realCommandRunner struct{}
 
@@ -223,7 +162,7 @@ func (s *stdinReader) IsTerminal() bool {
 // NewDefaultDependencies creates production dependencies.
 func NewDefaultDependencies() *Dependencies {
 	return &Dependencies{
-		FS:      &realFileSystem{},
+		FS:      &shared.RealFS{},
 		Runner:  &realCommandRunner{},
 		Process: &realProcessManager{},
 		Clock:   &realClock{},

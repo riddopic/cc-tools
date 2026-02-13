@@ -39,21 +39,6 @@ type Registry interface {
 	Writer
 }
 
-// FileSystem provides file system operations needed by the registry.
-type FileSystem interface {
-	// ReadFile reads the entire contents of a file.
-	ReadFile(name string) ([]byte, error)
-	// WriteFile writes data to a file atomically.
-	WriteFile(name string, data []byte, perm FileMode) error
-	// MkdirAll creates a directory and all necessary parents.
-	MkdirAll(path string, perm FileMode) error
-	// UserHomeDir returns the user's home directory.
-	UserHomeDir() (string, error)
-}
-
-// FileMode represents file permissions.
-type FileMode uint32
-
 // OutputWriter provides output operations.
 type OutputWriter interface {
 	io.Writer

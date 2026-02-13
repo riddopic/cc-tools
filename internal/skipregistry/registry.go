@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/riddopic/cc-tools/internal/shared"
 )
 
 // JSONRegistry is the concrete implementation with thread safety backed by JSON storage.
@@ -292,7 +294,7 @@ func getRegistryPath() string {
 
 // Helper function to get the ~/.claude directory.
 func getClaudeDir() string {
-	fs := newRealFileSystem()
+	fs := &shared.RealFS{}
 	homeDir, err := fs.UserHomeDir()
 	if err != nil {
 		// Fallback to /tmp if we can't get home directory
