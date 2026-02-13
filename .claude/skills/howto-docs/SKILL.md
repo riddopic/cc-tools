@@ -322,8 +322,8 @@ Before publishing, verify:
 ### Documentation Workflow
 
 1. Create how-to guide in `docs-site/content/en/docs/user-guide/`
-2. Preview locally: `make docs-serve`
-3. Build for production: `make docs-build`
+2. Preview locally: `task docs-serve`
+3. Build for production: `task docs-build`
 
 ### Hugo Front Matter
 
@@ -349,7 +349,7 @@ Analyze smart contracts for vulnerabilities using Quanta's detection engine.
 
 ## Prerequisites
 
-- Quanta CLI installed (`make install`)
+- Quanta CLI installed (`task install`)
 - Access to contract bytecode or address
 - API key configured (see [Configuration](/docs/user-guide/configuration/))
 

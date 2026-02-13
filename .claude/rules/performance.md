@@ -65,7 +65,7 @@ func BenchmarkWithAllocs(b *testing.B) {
 
 ```bash
 # Run benchmarks
-make bench
+task bench
 
 # Compare benchmark results
 go test -bench=. -count=5 > old.txt
@@ -160,7 +160,7 @@ Lower context sensitivity tasks:
 
 ```bash
 # Run benchmarks with memory stats
-make bench
+task bench
 
 # Profile a specific test
 go test -cpuprofile=cpu.prof -memprofile=mem.prof \
@@ -170,7 +170,7 @@ go test -cpuprofile=cpu.prof -memprofile=mem.prof \
 go tool pprof -http=:8080 cpu.prof
 
 # Check for race conditions
-make test-race
+task test-race
 ```
 
 ## Performance Checklist

@@ -336,15 +336,15 @@ Before considering a reference page complete:
 CLI command documentation is auto-generated from Cobra commands:
 
 ```bash
-make docs-cli  # Generates docs-site/content/en/docs/cli/*.md
+task docs-cli  # Generates docs-site/content/en/docs/cli/*.md
 ```
 
 **Don't manually edit files in `docs-site/content/en/docs/cli/`** - they're regenerated on each build.
 
 To improve CLI documentation:
 1. Update Cobra command descriptions in `cmd/` source files
-2. Run `make docs-cli` to regenerate
-3. Preview with `make docs-serve`
+2. Run `task docs-cli` to regenerate
+3. Preview with `task docs-serve`
 
 ### Godoc Reference Patterns
 

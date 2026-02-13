@@ -33,6 +33,7 @@
     "defaultMode": "plan"
   },
   "enableAllProjectMcpServers": true,
+  "alwaysThinkingEnabled": true,
   "enabledMcpjsonServers": [
     "sequential-thinking",
     "memory"
@@ -54,6 +55,15 @@
           {
             "type": "command",
             "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-commit-reminder.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/skills/continuous-learning-v2/hooks/observe.sh pre"
           }
         ]
       }
@@ -97,6 +107,15 @@
           {
             "type": "command",
             "command": "~/.claude/bin/cc-tools-validate"
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/skills/continuous-learning-v2/hooks/observe.sh post"
           }
         ]
       }

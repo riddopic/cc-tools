@@ -175,7 +175,7 @@ func (c *SafeCounter) Value() int {
 }
 
 // ✅ DO: Run tests with race detector
-// make test-race
+// task test-race
 ```
 
 ## Pre-Commit Security Checklist
@@ -188,7 +188,7 @@ Before ANY commit, verify:
 - [ ] No command injection vulnerabilities
 - [ ] Error messages don't leak sensitive data
 - [ ] Secrets loaded from environment variables
-- [ ] Race detector passes (`make test-race`)
+- [ ] Race detector passes (`task test-race`)
 - [ ] No sensitive data in logs
 
 ## Quick Commands
@@ -201,6 +201,6 @@ rg -i "(password|secret|api.?key|token)" --type go
 rg "exec\.Command.*\+|sh.*-c" --type go
 
 # Run security checks
-make security
-make vulncheck
+task security
+task vulncheck
 ```

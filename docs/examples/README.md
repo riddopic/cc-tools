@@ -60,7 +60,7 @@ Practical code patterns and implementation examples:
 
 - **[mocking.md](patterns/mocking.md)** - Comprehensive Mockery v3.5 testing guide
   - Core principles and directory structure
-  - Mock generation with `make mocks`
+  - Mock generation with `task mocks`
   - Complete TDD workflow with step-by-step examples
   - Basic usage with constructors and EXPECT()
   - Table-driven tests with mocks

@@ -9,16 +9,16 @@ description: Apply Quanta code review standards. Use when reviewing code, evalua
 
 Before committing, ensure:
 
-- [ ] Code passes formatting: `make fmt`
-- [ ] No linter warnings: `make lint`
-- [ ] All tests pass: `make test`
-- [ ] Race detector passes: `make test-race`
-- [ ] New code has test coverage: `make coverage`
+- [ ] Code passes formatting: `task fmt`
+- [ ] No linter warnings: `task lint`
+- [ ] All tests pass: `task test`
+- [ ] Race detector passes: `task test-race`
+- [ ] New code has test coverage: `task coverage`
 - [ ] Error messages are clear and actionable
 - [ ] No commented-out code
 - [ ] No TODO without issue references
 
-**Quick check**: `make pre-commit`
+**Quick check**: `task pre-commit`
 
 ## Code Quality Focus Areas
 
@@ -89,12 +89,12 @@ return err
 ## Validation Commands
 
 ```bash
-make fmt           # Format code
-make lint          # Lint check
-make test          # Run tests
-make test-race     # Race detection
-make coverage      # Coverage report
-make pre-commit    # All checks
+task fmt           # Format code
+task lint          # Lint check
+task test          # Run tests
+task test-race     # Race detection
+task coverage      # Coverage report
+task check         # All checks
 ```
 
 ## Project References

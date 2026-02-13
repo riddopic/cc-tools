@@ -89,11 +89,11 @@ Systematic remediation if score < 8:
 
 Standard validation commands:
 ```bash
-make fmt          # Format check
-make lint         # golangci-lint
-make test-race    # Tests with race detector
-make coverage     # Test coverage report
-make build        # Build validation
+task fmt          # Format check
+task lint         # golangci-lint
+task test-race    # Tests with race detector
+task coverage     # Test coverage report
+task build        # Build validation
 ```
 
 ## Go Standards Enforced

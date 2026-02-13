@@ -184,7 +184,7 @@ func TestCalculateScore(t *testing.T) {
 ## Step 3: Run Tests - Verify FAIL
 
 ```bash
-make test
+task test
 
 --- FAIL: TestCalculateScore (0.00s)
     --- FAIL: TestCalculateScore/high_liquidity_market_returns_high_score (0.00s)
@@ -223,7 +223,7 @@ func (c *calculator) CalculateScore(market MarketData) float64 {
 ## Step 5: Run Tests - Verify PASS
 
 ```bash
-make test
+task test
 
 === RUN   TestCalculateScore
 === RUN   TestCalculateScore/high_liquidity_market_returns_high_score
@@ -239,7 +239,7 @@ PASS
 ## Step 6: Check Coverage
 
 ```bash
-make coverage
+task coverage
 
 File                    | Coverage
 ------------------------|----------
@@ -254,17 +254,17 @@ Coverage: 100% ✅ (Target: 80%)
 
 | Command | Purpose |
 |---------|---------|
-| `make test` | Run unit tests |
-| `make test-race` | Run tests with race detector |
-| `make watch` | Auto-run tests on file changes |
-| `make coverage` | Generate HTML coverage report |
+| `task test` | Run unit tests |
+| `task test-race` | Run tests with race detector |
+| `task watch` | Auto-run tests on file changes |
+| `task coverage` | Generate HTML coverage report |
 
 ## TDD Best Practices
 
 **DO:**
 - ✅ Write the test FIRST, before any implementation
 - ✅ Run tests and verify they FAIL before implementing
-- ✅ Write minimal code to make tests pass
+- ✅ Write minimal code to pass the tests
 - ✅ Refactor only after tests are green
 - ✅ Add edge cases and error scenarios
 - ✅ Use table-driven tests for multiple scenarios
@@ -315,5 +315,5 @@ This command loads these skills:
 ## Related Commands
 
 For comprehensive testing beyond the TDD cycle:
-- `make integration` - Run integration tests (requires Docker, uses `-tags=integration`)
-- `make test-race-full` - Run all tests with race detector (no -short)
+- `task integration` - Run integration tests (requires Docker, uses `-tags=integration`)
+- `task test-race-full` - Run all tests with race detector (no -short)

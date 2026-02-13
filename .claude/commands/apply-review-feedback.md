@@ -58,7 +58,7 @@ Parse the input:
 | Skill | Role | When |
 | ------- | ------ | ------ |
 | `tdd-workflow` | MANDATORY - every code fix follows Red-Green-Refactor | Always |
-| `verification-before-completion` | MANDATORY - run `make lint`/`make test` before claiming done | Always |
+| `verification-before-completion` | MANDATORY - run `task lint`/`task test` before claiming done | Always |
 | `code-review` | Project review standards, validate fixes meet quality bar | Always |
 | `go-code-review` | Go-specific validation of fixes | Always |
 | `go-testing-code-review` | Validate test fixes follow patterns | When feedback involves tests |
@@ -277,19 +277,19 @@ Apply `verification-before-completion` after all fixes:
 
 ```bash
 # Format
-make fmt
+task fmt
 
 # Lint
-make lint
+task lint
 
 # Unit tests
-make test
+task test
 
 # Race detection
-make test-race
+task test-race
 
 # Build
-make build
+task build
 ```
 
 ALL checks must pass before claiming completion.
@@ -320,11 +320,11 @@ ALL checks must pass before claiming completion.
 
 | Check | Status |
 | ------- | -------- |
-| `make fmt` | PASS/FAIL |
-| `make lint` | PASS/FAIL |
-| `make test` | PASS/FAIL (N/M tests) |
-| `make test-race` | PASS/FAIL |
-| `make build` | PASS/FAIL |
+| `task fmt` | PASS/FAIL |
+| `task lint` | PASS/FAIL |
+| `task test` | PASS/FAIL (N/M tests) |
+| `task test-race` | PASS/FAIL |
+| `task build` | PASS/FAIL |
 
 ---
 
@@ -343,6 +343,6 @@ ALL checks must pass before claiming completion.
 2. **TDD discipline**: Every fix starts with a failing test
 3. **Minimal changes**: Fix what was asked, nothing more
 4. **Flag concerns**: If the reviewer is wrong, say so with evidence
-5. **Verify before claiming done**: All make targets must pass
+5. **Verify before claiming done**: All task targets must pass
 6. **Parallel when possible**: Use `dispatching-parallel-agents` for independent items
 7. **Evidence-based**: Reference file:line for all assessments and changes

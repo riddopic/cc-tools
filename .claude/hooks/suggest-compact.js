@@ -13,33 +13,49 @@
  * - Compact after completing a milestone, before starting next
  */
 
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
 const {
   getTempDir,
-  readFile,
   writeFile,
   log
 } = require('./lib/utils');
 
 async function main() {
   // Track tool call count (increment in a temp file)
-  // Use a session-specific counter file based on PID from parent process
-  // or session ID from environment
-  const sessionId = process.env.CLAUDE_SESSION_ID || process.ppid || 'default';
+  // Use a session-specific counter file based on session ID from environment
+  // or parent PID as fallback
+  const sessionId = process.env.CLAUDE_SESSION_ID || 'default';
   const counterFile = path.join(getTempDir(), `claude-tool-count-${sessionId}`);
-  const threshold = parseInt(process.env.COMPACT_THRESHOLD || '50', 10);
+  const rawThreshold = parseInt(process.env.COMPACT_THRESHOLD || '50', 10);
+  const threshold = Number.isFinite(rawThreshold) && rawThreshold > 0 && rawThreshold <= 10000
+    ? rawThreshold
+    : 50;
 
   let count = 1;
 
   // Read existing count or start at 1
-  const existing = readFile(counterFile);
-  if (existing) {
-    count = parseInt(existing.trim(), 10) + 1;
+  // Use fd-based read+write to reduce (but not eliminate) race window
+  // between concurrent hook invocations
+  try {
+    const fd = fs.openSync(counterFile, 'a+');
+    try {
+      const buf = Buffer.alloc(64);
+      const bytesRead = fs.readSync(fd, buf, 0, 64, 0);
+      if (bytesRead > 0) {
+        const parsed = parseInt(buf.toString('utf8', 0, bytesRead).trim(), 10);
+        count = Number.isFinite(parsed) ? parsed + 1 : 1;
+      }
+      // Truncate and write new value
+      fs.ftruncateSync(fd, 0);
+      fs.writeSync(fd, String(count), 0);
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch {
+    // Fallback: just use writeFile if fd operations fail
+    writeFile(counterFile, String(count));
   }
-
-  // Save updated count
-  writeFile(counterFile, String(count));
 
   // Suggest compact after threshold tool calls
   if (count === threshold) {

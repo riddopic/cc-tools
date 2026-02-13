@@ -35,7 +35,7 @@ Execute verification in this exact order. Stop on critical failures.
 ### 1. Build Check
 
 ```bash
-make build
+task build
 ```
 
 - If build fails, report errors and **STOP**
@@ -55,7 +55,7 @@ goimports -l .
 ### 3. Lint Check
 
 ```bash
-make lint
+task lint
 ```
 
 - Run golangci-lint with project configuration
@@ -65,7 +65,7 @@ make lint
 ### 4. Unit Tests
 
 ```bash
-make test
+task test
 ```
 
 - Run fast unit tests (-short flag, 30s timeout)
@@ -75,7 +75,7 @@ make test
 ### 5. Race Detection (full/pre-pr only)
 
 ```bash
-make test-race
+task test-race
 ```
 
 - Run tests with Go race detector enabled
@@ -85,7 +85,7 @@ make test-race
 ### 6. Test Coverage (pre-pr only)
 
 ```bash
-make coverage
+task coverage
 ```
 
 - Generate coverage report
@@ -95,7 +95,9 @@ make coverage
 ### 7. Security Scan (pre-pr only)
 
 ```bash
-make vulncheck
+# Note: vulncheck is no longer a separate task target.
+# Use `task lint` which includes security-related linting checks.
+task lint
 ```
 
 - Check for known vulnerabilities in dependencies
@@ -155,9 +157,9 @@ CRITICAL ISSUES:
    → Fix: Add mutex protection for shared state
 
 SUGGESTED COMMANDS:
-  make fmt      # Fix formatting
-  make lint     # Re-check after fixes
-  make test     # Verify tests pass
+  task fmt      # Fix formatting
+  task lint     # Re-check after fixes
+  task test     # Verify tests pass
 ```
 
 ## Quick Reference
@@ -173,7 +175,7 @@ SUGGESTED COMMANDS:
 
 This command integrates with the project's standard tooling:
 
-- Uses `make` targets defined in Makefile
+- Uses `task` targets defined in Taskfile.yml
 - Follows `docs/CODING_GUIDELINES.md` standards
 - Compatible with CI pipeline checks
 - Respects `.golangci.yml` lint configuration

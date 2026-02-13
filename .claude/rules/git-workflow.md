@@ -26,14 +26,14 @@ test: add table-driven tests for config loader
 Always run before committing. Apply `verification-before-completion` before every commit.
 
 ```bash
-make pre-commit
+task pre-commit
 ```
 
 This runs:
 
-- `make fmt` - Format code (gofmt + goimports)
-- `make lint` - Run golangci-lint
-- `make test` - Run tests
+- `task fmt` - Format code (gofmt + goimports)
+- `task lint` - Run golangci-lint
+- `task test` - Run tests
 
 ## Pull Request Workflow
 
@@ -49,8 +49,8 @@ When creating PRs:
 2. **Run all checks**
 
    ```bash
-   make pre-commit
-   make test-race
+   task check
+   task test-race
    ```
 
 3. **Create PR with comprehensive summary**
@@ -86,7 +86,7 @@ When creating PRs:
 3. **Code Review**
    - Use code-reviewer agent after writing code
    - Address CRITICAL and HIGH issues
-   - Run `make pre-commit`
+   - Run `task pre-commit`
 
 4. **Commit**
    - Detailed commit message

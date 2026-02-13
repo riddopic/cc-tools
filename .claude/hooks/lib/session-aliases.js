@@ -10,7 +10,6 @@ const {
   getClaudeDir,
   ensureDir,
   readFile,
-  writeFile,
   log
 } = require('./utils');
 
@@ -136,9 +135,13 @@ function saveAliases(aliases) {
       }
     }
 
-    // Clean up temp file
-    if (fs.existsSync(tempPath)) {
-      fs.unlinkSync(tempPath);
+    // Clean up temp file (best-effort)
+    try {
+      if (fs.existsSync(tempPath)) {
+        fs.unlinkSync(tempPath);
+      }
+    } catch {
+      // Non-critical: temp file will be overwritten on next save
     }
 
     return false;
@@ -151,6 +154,8 @@ function saveAliases(aliases) {
  * @returns {object|null} Alias data or null if not found
  */
 function resolveAlias(alias) {
+  if (!alias) return null;
+
   // Validate alias name (alphanumeric, dash, underscore)
   if (!/^[a-zA-Z0-9_-]+$/.test(alias)) {
     return null;
@@ -182,6 +187,15 @@ function setAlias(alias, sessionPath, title = null) {
   // Validate alias name
   if (!alias || alias.length === 0) {
     return { success: false, error: 'Alias name cannot be empty' };
+  }
+
+  // Validate session path
+  if (!sessionPath || typeof sessionPath !== 'string' || sessionPath.trim().length === 0) {
+    return { success: false, error: 'Session path cannot be empty' };
+  }
+
+  if (alias.length > 128) {
+    return { success: false, error: 'Alias name cannot exceed 128 characters' };
   }
 
   if (!/^[a-zA-Z0-9_-]+$/.test(alias)) {
@@ -238,7 +252,7 @@ function listAliases(options = {}) {
   }));
 
   // Sort by updated time (newest first)
-  aliases.sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+  aliases.sort((a, b) => (new Date(b.updatedAt || b.createdAt || 0).getTime() || 0) - (new Date(a.updatedAt || a.createdAt || 0).getTime() || 0));
 
   // Apply search filter
   if (search) {
@@ -320,9 +334,12 @@ function renameAlias(oldAlias, newAlias) {
     };
   }
 
-  // Restore old alias on failure
+  // Restore old alias and remove new alias on failure
   data.aliases[oldAlias] = aliasData;
-  return { success: false, error: 'Failed to rename alias' };
+  delete data.aliases[newAlias];
+  // Attempt to persist the rollback
+  saveAliases(data);
+  return { success: false, error: 'Failed to save renamed alias — rolled back to original' };
 }
 
 /**
@@ -344,17 +361,21 @@ function resolveSessionAlias(aliasOrId) {
 /**
  * Update alias title
  * @param {string} alias - Alias name
- * @param {string} title - New title
+ * @param {string|null} title - New title (string or null to clear)
  * @returns {object} Result with success status
  */
 function updateAliasTitle(alias, title) {
+  if (title !== null && typeof title !== 'string') {
+    return { success: false, error: 'Title must be a string or null' };
+  }
+
   const data = loadAliases();
 
   if (!data.aliases[alias]) {
     return { success: false, error: `Alias '${alias}' not found` };
   }
 
-  data.aliases[alias].title = title;
+  data.aliases[alias].title = title || null;
   data.aliases[alias].updatedAt = new Date().toISOString();
 
   if (saveAliases(data)) {
@@ -396,6 +417,10 @@ function getAliasesForSession(sessionPath) {
  * @returns {object} Cleanup result
  */
 function cleanupAliases(sessionExists) {
+  if (typeof sessionExists !== 'function') {
+    return { totalChecked: 0, removed: 0, removedAliases: [], error: 'sessionExists must be a function' };
+  }
+
   const data = loadAliases();
   const removed = [];
 
@@ -406,8 +431,8 @@ function cleanupAliases(sessionExists) {
     }
   }
 
-  if (removed.length > 0) {
-    saveAliases(data);
+  if (removed.length > 0 && !saveAliases(data)) {
+    log('[Aliases] Failed to save after cleanup');
   }
 
   return {

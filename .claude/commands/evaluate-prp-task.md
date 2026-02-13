@@ -274,21 +274,21 @@ Use the **product-manager-orchestrator** to coordinate specialized agents based 
    golangci-lint run --timeout=5m
 
    # Run tests with race detector
-   make test-race
+   task test-race
 
    # Run benchmarks
-   make bench
+   task bench
 
    # Test coverage
-   make coverage
+   task coverage
    # View coverage summary in terminal
    go tool cover -func=coverage/coverage.out | grep total
 
    # Build validation
-   make build
+   task build
 
    # Module tidiness
-   make tidy
+   task tidy
    git diff --exit-code go.mod go.sum
 
    # Security scan (if gosec is installed)
@@ -368,10 +368,10 @@ Use the **product-manager-orchestrator** to coordinate specialized agents based 
 
 ### Compilation & Tests
 
-- ✅ make build: Success
-- ✅ make test: 25/25 tests pass
-- ❌ make lint: 3 issues found
-- ✅ make test-race: No races found
+- task build: Success
+- task test: 25/25 tests pass
+- task lint: 3 issues found
+- task test-race: No races found
 ```
 
 ### Code Quality Assessment
@@ -500,10 +500,10 @@ goimports -w .
 golangci-lint run --fix
 
 # Verify tests still pass
-make test-race
+task test-race
 
 # Check coverage
-make coverage
+task coverage
 ```
 
 ## Follow-up PRP Generation
@@ -563,8 +563,8 @@ go doc -all ./internal/statusline
 **Validation**:
 
 ```bash
-make test-race
-make coverage
+task test-race
+task coverage
 # Verify >80% coverage in the output
 ```
 
@@ -579,7 +579,7 @@ make coverage
 **Validation**:
 
 ```bash
-make build
+task build
 # Verify no compilation errors
 ```
 

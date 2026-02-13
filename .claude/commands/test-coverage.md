@@ -39,7 +39,7 @@ Reference patterns in:
 
 ```bash
 # Generate coverage profile
-make coverage
+task coverage
 
 # Or manually:
 go test -coverprofile=coverage.out ./...
@@ -131,16 +131,16 @@ func TestFunctionName(t *testing.T) {
 
 ```bash
 # Run all tests
-make test
+task test
 
 # Run with race detector
-make test-race
+task test-race
 
 # Regenerate coverage
-make coverage
+task coverage
 
 # For comprehensive verification (if applicable):
-make integration        # Integration tests (requires Docker, uses -tags=integration)
+task integration        # Integration tests (requires Docker, uses -tags=integration)
 ```
 
 ### 7. Show Before/After Metrics
@@ -154,13 +154,13 @@ go tool cover -func=coverage.out | tail -1
 
 | Command | Purpose |
 |---------|---------|
-| `make test` | Run unit tests |
-| `make test-race` | Run tests with race detector |
-| `make coverage` | Generate HTML coverage report |
-| `make integration` | Run integration tests (requires Docker) |
-| `make test-race-full` | Run all tests with race detector |
+| `task test` | Run unit tests |
+| `task test-race` | Run tests with race detector |
+| `task coverage` | Generate HTML coverage report |
+| `task integration` | Run integration tests (requires Docker) |
+| `task test-race-full` | Run all tests with race detector |
 
-> **Note:** `make coverage` measures unit test coverage. Integration tests run separately via `make integration` and use the `-tags=integration` build tag.
+> **Note:** `task coverage` measures unit test coverage. Integration tests run separately via `task integration` and use the `-tags=integration` build tag.
 
 ## Coverage Targets
 

@@ -150,9 +150,9 @@ This is non-negotiable.
 
 | Claim | Verification Command |
 |-------|---------------------|
-| Tests pass | `make test` |
-| Linter clean | `make lint` |
-| Build succeeds | `make build` |
-| Race-free | `make test-race` |
-| PR ready | `make pre-commit` |
+| Tests pass | `task test` |
+| Linter clean | `task lint` |
+| Build succeeds | `task build` |
+| Race-free | `task test-race` |
+| PR ready | `task pre-commit` |
 | Full verify | `/verify full` |

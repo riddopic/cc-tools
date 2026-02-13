@@ -6,14 +6,14 @@
 # - Stop runs once at session end (lightweight)
 # - UserPromptSubmit runs every message (heavy, adds latency)
 #
-# Hook config (in ~/.claude/settings.json):
+# Hook config (in .claude/settings.json):
 # {
 #   "hooks": {
 #     "Stop": [{
 #       "matcher": "*",
 #       "hooks": [{
 #         "type": "command",
-#         "command": "~/.claude/skills/continuous-learning/evaluate-session.sh"
+#         "command": "${CLAUDE_PROJECT_DIR}/.claude/skills/continuous-learning/evaluate-session.sh"
 #       }]
 #     }]
 #   }
@@ -27,28 +27,29 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="$SCRIPT_DIR/config.json"
-LEARNED_SKILLS_PATH="$(pwd)/.claude/skills/learned"
+LEARNED_SKILLS_PATH="${pwd}/.claude/skills/learned"
 MIN_SESSION_LENGTH=10
 
 # Load config if exists
 if [ -f "$CONFIG_FILE" ]; then
-  MIN_SESSION_LENGTH=$(jq -r '.min_session_length // 10' "$CONFIG_FILE")
-  CUSTOM_PATH=$(jq -r '.learned_skills_path // ".claude/skills/learned/"' "$CONFIG_FILE")
-  # Handle ~ (home), absolute, and relative paths
-  if [[ "$CUSTOM_PATH" == ~* ]]; then
-    LEARNED_SKILLS_PATH="${CUSTOM_PATH/#\~/$HOME}"
-  elif [[ "$CUSTOM_PATH" == /* ]]; then
-    LEARNED_SKILLS_PATH="$CUSTOM_PATH"
+  if ! command -v jq &>/dev/null; then
+    echo "[ContinuousLearning] jq is required to parse config.json but not installed, using defaults" >&2
   else
-    LEARNED_SKILLS_PATH="$(pwd)/$CUSTOM_PATH"
+    MIN_SESSION_LENGTH=$(jq -r '.min_session_length // 10' "$CONFIG_FILE")
+    LEARNED_SKILLS_PATH=$(jq -r '.learned_skills_path // ".claude/skills/learned/"' "$CONFIG_FILE" | sed "s|~|$HOME|")
   fi
 fi
 
 # Ensure learned skills directory exists
 mkdir -p "$LEARNED_SKILLS_PATH"
 
-# Get transcript path from environment (set by Claude Code)
-transcript_path="${CLAUDE_TRANSCRIPT_PATH:-}"
+# Get transcript path from stdin JSON (Claude Code hook input)
+# Falls back to env var for backwards compatibility
+stdin_data=$(cat)
+transcript_path=$(echo "$stdin_data" | grep -o '"transcript_path":"[^"]*"' | head -1 | cut -d'"' -f4)
+if [ -z "$transcript_path" ]; then
+  transcript_path="${CLAUDE_TRANSCRIPT_PATH:-}"
+fi
 
 if [ -z "$transcript_path" ] || [ ! -f "$transcript_path" ]; then
   exit 0

@@ -32,8 +32,8 @@ internal/
 ### Key Commands
 
 ```bash
-make mocks          # Generate all mocks (regenerates from scratch)
-make tools-install  # Install mockery and other required tools
+task mocks          # Generate all mocks (regenerates from scratch)
+task tools-install  # Install mockery and other required tools
 ```
 
 ### Configuration
@@ -63,7 +63,7 @@ force: true
 The TDD cycle with Mockery follows the standard pattern:
 
 1. **RED**: Write failing test with interface
-2. **Generate mocks**: `make mocks`
+2. **Generate mocks**: `task mocks`
 3. **GREEN**: Write minimal implementation
 4. **REFACTOR**: Improve while keeping tests green
 
@@ -110,7 +110,7 @@ packages:
 Generate the mock:
 
 ```bash
-make mocks
+task mocks
 ```
 
 #### Step 3: Write the Failing Test (RED Phase)
@@ -1065,7 +1065,7 @@ func TestGoodExample(t *testing.T) {
 - ❌ Don't have mocks return other mocks (mock chains)
 - ❌ Don't verify implementation details
 - ❌ Don't use `.Return(mock.Anything)` - be explicit about return values
-- ❌ Don't forget to run `make mocks` after interface changes
+- ❌ Don't forget to run `task mocks` after interface changes
 
 ## Debugging Mock Issues
 
@@ -1127,7 +1127,7 @@ executor.EXPECT().Execute(mock.Anything, mock.Anything).Return(result, nil).Once
 rg "YourInterface" .mockery.yml
 
 # Regenerate mocks
-make mocks
+task mocks
 
 # Check mock was generated
 rg --files -g "*YourInterface.go" mocks/
@@ -1137,7 +1137,7 @@ rg --files -g "*YourInterface.go" mocks/
 
 ```bash
 # Regenerate all mocks
-make mocks
+task mocks
 
 # Run tests to find issues
 go test ./... -v
@@ -1149,7 +1149,7 @@ go test ./... -v
 
 ```bash
 # Regenerate all mocks
-make mocks
+task mocks
 
 # Verify mocks compile
 go build ./internal/foundry/mocks/...
@@ -1176,7 +1176,7 @@ go build ./internal/foundry/mocks/...
 3. **Generate Mock**
 
    ```bash
-   make mocks
+   task mocks
    ```
 
 4. **Write Test First**
@@ -1228,9 +1228,9 @@ Ensure mocks are always up to date in CI:
 # .github/workflows/test.yml
 - name: Verify mocks are up to date
   run: |
-    make mocks
+    task mocks
     if [ -n "$(git status --porcelain)" ]; then
-      echo "Mocks are out of date. Please run 'make mocks' and commit."
+      echo "Mocks are out of date. Please run 'task mocks' and commit."
       exit 1
     fi
 ```

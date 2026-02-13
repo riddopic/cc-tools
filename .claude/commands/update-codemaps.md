@@ -172,7 +172,7 @@ Changes by File:
 |---------|---------|
 | `go list ./...` | List all packages |
 | `go mod graph` | Show dependency graph |
-| `make build` | Verify build still works |
+| `task build` | Verify build still works |
 
 ## Analysis Tools
 

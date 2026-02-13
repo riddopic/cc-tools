@@ -553,7 +553,7 @@ func BenchmarkProcess(b *testing.B) {
     }
 }
 
-// Run: make bench
+// Run: task bench
 // Or directly: go test -bench=. -benchmem
 ```
 

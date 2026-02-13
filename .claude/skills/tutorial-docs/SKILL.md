@@ -349,8 +349,8 @@ Before publishing, verify:
 ### Documentation Workflow
 
 1. Create tutorial in `docs-site/content/en/docs/user-guide/`
-2. Preview locally: `make docs-serve`
-3. Build for production: `make docs-build`
+2. Preview locally: `task docs-serve`
+3. Build for production: `task docs-build`
 
 ### Hugo Front Matter
 
@@ -400,7 +400,7 @@ type ReentrancyDetector struct{}
 Run the tests to verify setup:
 
 ```bash
-make test
+task test
 ```
 
 You should see all tests passing.

@@ -198,7 +198,7 @@ You MUST complete each phase before proceeding to the next.
    - Test passes now?
    - No other tests broken?
    - Issue actually resolved?
-   - Run `make test` and `make test-race` to confirm
+   - Run `task test` and `task test-race` to confirm
 
 4. **If Fix Doesn't Work**
    - STOP
@@ -230,7 +230,7 @@ When investigating in the Quanta codebase, use these tools:
 | Tool | Purpose | Command |
 |------|---------|---------|
 | **delve** | Interactive debugger | `dlv test ./internal/pkg/ -- -test.run TestName` |
-| **race detector** | Find data races | `make test-race` or `go test -race ./...` |
+| **race detector** | Find data races | `task test-race` or `go test -race ./...` |
 | **pprof** | CPU/memory profiling | `go test -cpuprofile=cpu.prof -bench=.` |
 | **t.Log()** | Debug output in tests | `t.Logf("value: %+v", obj)` (shows with `-v`) |
 | **zap.L().Debug()** | Debug logging in production code | Structured logging with fields |
@@ -239,7 +239,7 @@ When investigating in the Quanta codebase, use these tools:
 
 **In tests:** Use `t.Log()` / `t.Logf()` - output only shows when test fails or `-v` flag is used.
 
-**For race conditions:** Always run `make test-race` before claiming a concurrency bug is fixed.
+**For race conditions:** Always run `task test-race` before claiming a concurrency bug is fixed.
 
 ## Red Flags - STOP and Follow Process
 
@@ -291,7 +291,7 @@ If you catch yourself thinking:
 | **1. Root Cause** | Read errors, reproduce, check changes, gather evidence | Understand WHAT and WHY |
 | **2. Pattern** | Find working examples, compare | Identify differences |
 | **3. Hypothesis** | Form theory, test minimally | Confirmed or new hypothesis |
-| **4. Implementation** | Create test, fix, verify (`make test`, `make test-race`) | Bug resolved, tests pass |
+| **4. Implementation** | Create test, fix, verify (`task test`, `task test-race`) | Bug resolved, tests pass |
 
 ## When Process Reveals "No Root Cause"
 

@@ -178,10 +178,10 @@ func TestUser(t *testing.T) {
 ## Running Tests
 
 ```bash
-make test          # Fast unit tests (-short, 30s timeout)
-make test-race     # Tests with race detector
-make watch         # Auto-run on file changes (TDD essential!)
-make coverage      # Generate HTML coverage report
+task test          # Fast unit tests (-short, 30s timeout)
+task test-race     # Tests with race detector
+task watch         # Auto-run on file changes (TDD essential!)
+task coverage      # Generate HTML coverage report
 
 # Run specific tests
 go test -v -run TestName ./internal/agent/

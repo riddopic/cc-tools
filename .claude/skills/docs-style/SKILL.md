@@ -335,15 +335,15 @@ Use these principles when:
 
 ## Go Documentation Workflow
 
-### Makefile Targets
+### Task Targets
 
 | Target | Purpose |
 |--------|---------|
-| `make docs-serve` | Start local Hugo server at http://localhost:1313 |
-| `make docs-build` | Build production documentation site |
-| `make docs-cli` | Generate CLI reference from Cobra commands |
-| `make docs-clean` | Clean generated documentation artifacts |
-| `make docs-link-check` | Verify no broken links |
+| `task docs-serve` | Start local Hugo server at http://localhost:1313 |
+| `task docs-build` | Build production documentation site |
+| `task docs-cli` | Generate CLI reference from Cobra commands |
+| `task docs-clean` | Clean generated documentation artifacts |
+| `task docs-link-check` | Verify no broken links |
 
 ### Documentation Site Structure
 

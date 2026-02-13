@@ -443,8 +443,8 @@ If users need to accomplish something while reading, it's not an explanation:
 ### Documentation Workflow
 
 1. Create explanation doc in `docs-site/content/en/docs/user-guide/` or `docs-site/content/en/docs/research/`
-2. Preview locally: `make docs-serve`
-3. Build for production: `make docs-build`
+2. Preview locally: `task docs-serve`
+3. Build for production: `task docs-build`
 
 ### Hugo Front Matter
 

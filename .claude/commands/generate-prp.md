@@ -101,7 +101,7 @@ The AI agent only gets the context you are appending to the PRP and training dat
    - Review project structure (`cmd/`, `internal/`, `pkg/`)
    - Study module structure (`go.mod`, `go.sum`)
    - Check `golangci-lint` configuration
-   - Review `Makefile` for available tasks
+   - Review `Taskfile.yml` for available tasks
    - Understand internal package privacy
 
 5. **Refinement Interview**
@@ -198,28 +198,28 @@ This enables the `execute-prp` command to create TaskCreate items with proper de
 
 ```bash
 # Format check and fix
-make fmt
+task fmt
 
 # Run comprehensive linting
-make lint
+task lint
 
 # Run tests with race detector
-make test-race
+task test-race
 
 # Generate test coverage report
-make coverage
+task coverage
 # Check for test coverage threshold (e.g., 80%)
 go tool cover -func=coverage/coverage.out | grep total | awk '{print $3}' | sed 's/%//' | awk '{if ($1 < 80) exit 1}'
 
 # Run benchmarks
-make bench
+task bench
 
 # Check for go.mod tidiness
-make tidy
+task tidy
 git diff --exit-code go.mod go.sum
 
 # Build validation
-make build
+task build
 
 # Check for TODO comments without issue references
 ! rg "TODO" --type go | grep -v "TODO([a-zA-Z0-9]*)"

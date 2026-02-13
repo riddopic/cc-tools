@@ -116,7 +116,7 @@ Content that MUST remain in CLAUDE.md:
 | Section | Purpose | Target Lines |
 | --------- | --------- | -------------- |
 | Project Overview | Domain context | 5-10 |
-| Critical Commands | Project-specific make targets | 30-40 |
+| Critical Commands | Project-specific task targets | 30-40 |
 | Skills Reference | Navigation table | 10-15 |
 | Documentation Reference | Navigation table | 5-10 |
 | Global Rules | Rules for EVERY task | 10-15 |

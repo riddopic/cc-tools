@@ -214,7 +214,7 @@ Use the **product-manager-orchestrator** to coordinate specialized agents based 
 
      ```bash
      # Full linting check
-     make lint
+     task lint
      # or
      golangci-lint run
 
@@ -225,21 +225,21 @@ Use the **product-manager-orchestrator** to coordinate specialized agents based 
      ! rg "interface\{\}" internal/ cmd/ --type go | grep -v "// OK:"
 
      # Run all unit tests
-     make test
+     task test
      # or
      go test ./...
 
      # Run tests with coverage
-     make coverage
+     task coverage
      ```
 
    - **After Minor Fixes**:
 
      ```bash
      # Quick validation
-     make fmt      # Format code
-     make lint     # Run golangci-lint (includes vet)
-     make qt       # Quick test
+     task fmt      # Format code
+     task lint     # Run golangci-lint (includes vet)
+     task test     # Quick test
 
      # Or run specific tests
      go test -v -run TestSpecificFunction ./internal/package
@@ -249,34 +249,34 @@ Use the **product-manager-orchestrator** to coordinate specialized agents based 
 
    ```bash
    # Level 1: Syntax & Style
-   make fmt           # Format with gofmt and goimports
-   make lint         # Linting (includes vet)
+   task fmt           # Format with gofmt and goimports
+   task lint         # Linting (includes vet)
    go build ./...    # Ensure compilation
 
    # Level 2: Pattern Compliance
-   make lint         # Run golangci-lint
+   task lint         # Run golangci-lint
    ! rg "fmt\.Println" internal/ cmd/ --type go
    ! rg "interface\{\}" internal/ cmd/ --type go | grep -v "// OK:"
    rg "fmt\.Errorf.*%w" internal/ --type go || echo "Check error wrapping"
 
    # Level 3: Test Coverage
-   make coverage     # Generate coverage report
+   task coverage     # Generate coverage report
    # Verify coverage meets requirements (≥80% unit tests)
 
    # Run integration tests if they exist
    go test -tags=integration ./...
 
    # Level 4: Build Validation
-   make build        # Build binary with version info
+   task build        # Build binary with version info
 
    # Level 5: Benchmarks (if applicable)
-   make bench        # Run benchmarks
+   task bench        # Run benchmarks
 
    # Level 6: Race Detection
-   make test-race    # Test with race detector
+   task test-race    # Test with race detector
 
    # Level 7: Pre-commit Check
-   make pre-commit   # Run all pre-commit checks
+   task check        # Run all pre-commit checks
    ```
 
 6. **Fix Verification & Reporting**
@@ -508,17 +508,16 @@ After successful execution:
 
 ```bash
 # Final validation
-make pre-commit    # Run all pre-commit checks
-make check        # Run all pre-commit checks
+task check         # Run all pre-commit checks
 ```
 
-Remember: The goal is not just to make errors go away, but to genuinely improve Go code quality while maintaining all functionality. Every fix should make the codebase better, not just different. Follow TDD principles - write the test first, then fix the code.
+Remember: The goal is not just to suppress errors, but to genuinely improve Go code quality while maintaining all functionality. Every fix should improve the codebase, not just change it. Follow TDD principles - write the test first, then fix the code.
 
 ## Post-Fix Re-Evaluation
 
 **CRITICAL**: After all fixes are applied, automatically execute the evaluate-prp command to confirm the score has improved. Follow `verification-before-completion` before claiming fixes are complete.
 
-1. Run `make pre-commit` - Ensure all quality checks pass
+1. Run `task pre-commit` - Ensure all quality checks pass
 2. Execute `/evaluate-prp $ARGUMENTS` - Re-evaluate to confirm score ≥ 8
 
 If the re-evaluation score is still below 8, continue fixing until quality gates are met.

@@ -1,5 +1,5 @@
 ---
-description: Sync documentation from source-of-truth files (go.mod, Makefile, config)
+description: Sync documentation from source-of-truth files (go.mod, Taskfile.yml, config)
 allowed-tools:
   - Read
   - Grep
@@ -23,7 +23,7 @@ Sync documentation from source-of-truth files.
 | File | Contains |
 |------|----------|
 | `go.mod` | Module name, Go version, dependencies |
-| `Makefile` | Available commands and targets |
+| `Taskfile.yml` | Available commands and targets |
 | `~/.quanta/` | User configuration directory |
 | `.quanta.yaml` | Project configuration |
 
@@ -35,11 +35,11 @@ Follow the coding guidelines in `docs/CODING_GUIDELINES.md`:
 
 ## Execution Steps
 
-### 1. Extract Commands from Makefile
+### 1. Extract Commands from Taskfile.yml
 
 ```bash
-# List all make targets with descriptions
-make help
+# List all task targets with descriptions
+task --list
 ```
 
 Generate a commands reference table:
@@ -47,8 +47,8 @@ Generate a commands reference table:
 ```markdown
 | Command | Description |
 |---------|-------------|
-| `make build` | Build binary with version info |
-| `make test` | Run unit tests |
+| `task build` | Build binary with version info |
+| `task test` | Run unit tests |
 | ... | ... |
 ```
 
@@ -133,8 +133,8 @@ Update `docs/USER-GUIDE/GETTING-STARTED.md` with current setup instructions:
 
 ### Building from Source
 \`\`\`bash
-make build
-make install
+task build
+task install
 \`\`\`
 
 ## Quick Start
@@ -149,7 +149,7 @@ make install
 Solution: Run `go mod tidy`
 
 ### Issue: Tests fail with race conditions
-Solution: Run `make test-race` to identify, fix concurrent access
+Solution: Run `task test-race` to identify, fix concurrent access
 
 ## Next Steps
 
@@ -178,10 +178,10 @@ After updating markdown files, build the Hugo documentation site:
 
 ```bash
 # Generate CLI documentation for Hugo
-make docs-cli
+task docs-cli
 
 # Build Hugo static site
-make docs-build
+task docs-build
 ```
 
 This ensures the Hugo site reflects all documentation changes.
@@ -190,11 +190,11 @@ This ensures the Hugo site reflects all documentation changes.
 
 | Command | Purpose |
 |---------|---------|
-| `make help` | List all available targets |
+| `task help` | List all available targets |
 | `go list -m all` | List all dependencies |
-| `make doctor` | Check development environment |
-| `make docs-cli` | Generate CLI documentation for Hugo |
-| `make docs-build` | Build Hugo static documentation site |
+| `task doctor` | Check development environment |
+| `task docs-cli` | Generate CLI documentation for Hugo |
+| `task docs-build` | Build Hugo static documentation site |
 
 ## Output Files
 
@@ -215,7 +215,7 @@ This ensures the Hugo site reflects all documentation changes.
 
 ## Integration with Other Commands
 
-- Run after adding new make targets
+- Run after adding new task targets
 - Run after updating dependencies
 - Run before releases
 - After updating USER-GUIDE docs, always run Hugo build

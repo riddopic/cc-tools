@@ -69,7 +69,7 @@ As Claude Code, your ONLY responsibilities are:
 
 1. **Reading** - Read PRP files and gather context (but delegate research to agents)
 2. **Orchestrating** - Delegate tasks to appropriate sub-agents with clear instructions
-3. **Monitoring** - Run make test, make lint, and other tools to check results
+3. **Monitoring** - Run task test, task lint, and other tools to check results
 4. **Coordinating** - Manage the workflow between different sub-agents
 5. **Reporting** - Provide status updates on progress and results
 
@@ -208,21 +208,21 @@ goimports -l . && test -z "$(goimports -l .)"
 golangci-lint run --timeout=5m
 
 # Run tests with race detection
-make test-race
+task test-race
 
 # Run benchmarks
-make bench
+task bench
 
 # Check test coverage
-make coverage
+task coverage
 # View coverage details
 go tool cover -func=coverage/coverage.out
 
 # Build validation
-make build
+task build
 
 # Module verification
-make tidy && git diff --exit-code go.mod go.sum
+task tidy && git diff --exit-code go.mod go.sum
 
 # Security scan (if gosec is installed)
 gosec -quiet ./...
@@ -336,7 +336,7 @@ Throughout execution, use the task subsystem for progress tracking:
 
 - **TaskUpdate** each task to `in_progress` before starting, `completed` after passing quality gates
 - **TaskList** after each completion to show remaining work and newly unblocked tasks
-- Monitor quality gate results (make test, make lint, etc.)
+- Monitor quality gate results (task test, task lint, etc.)
 - Report any blockers or issues
 - Update strategy based on findings
 

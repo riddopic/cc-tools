@@ -9,7 +9,7 @@ description: Stage changes and create atomic git commits with conventional commi
 
 1. **Inspect all changes** — run `git status`, `git diff`, and `git diff --cached` to see staged, unstaged, and untracked files. Also run `git log --oneline -5` to match the repo's commit message style.
 
-2. **Run pre-commit checks** — run `make pre-commit` (fmt + lint + test). If anything fails, fix it before committing. Do not skip this step.
+2. **Run pre-commit checks** — run `task pre-commit` (fmt + lint + test). If anything fails, fix it before committing. Do not skip this step.
 
 3. **Group into atomic commits** — each commit should represent one logical change that is independently reversible. Separate unrelated changes into distinct commits. When in doubt, fewer larger commits are better than many micro-commits.
 

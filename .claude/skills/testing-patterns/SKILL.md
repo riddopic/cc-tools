@@ -97,7 +97,7 @@ for _, tt := range tests {
 ## Mock Commands
 
 ```bash
-make mocks          # Generate all mocks (regenerates from scratch)
+task mocks          # Generate all mocks (regenerates from scratch)
 ```
 
 ## Test Organization
@@ -105,7 +105,7 @@ make mocks          # Generate all mocks (regenerates from scratch)
 - **Test behaviors, not implementation** - Focus on public APIs
 - **Use `t.Helper()`** for test utilities
 - **Coverage targets**: ≥80% unit tests, ≥70% integration tests
-- **Run with race detector**: `make test-race`
+- **Run with race detector**: `task test-race`
 
 ## Security in Tests
 

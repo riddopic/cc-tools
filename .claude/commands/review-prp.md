@@ -102,16 +102,16 @@ Run build and test commands to verify current state:
 
 ```bash
 # Build validation
-make build
+task build
 
 # Linting
-make lint
+task lint
 
 # Unit tests
-make test
+task test
 
 # Race detection
-make test-race
+task test-race
 ```
 
 Record pass/fail status for each check. Do NOT attempt to fix any failures.
@@ -188,10 +188,10 @@ Apply the `prp-workflow` scoring rubric (1-10 scale):
 
 | Check | Status | Notes |
 |-------|--------|-------|
-| `make build` | PASS/FAIL | ... |
-| `make lint` | PASS/FAIL | N warnings |
-| `make test` | PASS/FAIL | N/M tests pass |
-| `make test-race` | PASS/FAIL | ... |
+| `task build` | PASS/FAIL | ... |
+| `task lint` | PASS/FAIL | N warnings |
+| `task test` | PASS/FAIL | N/M tests pass |
+| `task test-race` | PASS/FAIL | ... |
 
 ---
 

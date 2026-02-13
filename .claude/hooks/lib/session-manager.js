@@ -17,9 +17,9 @@ const {
 } = require('./utils');
 
 // Session filename pattern: YYYY-MM-DD-[short-id]-session.tmp
-// The short-id is optional (old format) and can be 1+ alphanumeric characters
-// Matches: "2026-02-01-session.tmp" or "2026-02-01-quanta-session.tmp"
-const SESSION_FILENAME_REGEX = /^(\d{4}-\d{2}-\d{2})(?:-([a-z0-9]+))?-session\.tmp$/;
+// The short-id is optional (old format) and can be 8+ alphanumeric characters
+// Matches: "2026-02-01-session.tmp" or "2026-02-01-a1b2c3d4-session.tmp"
+const SESSION_FILENAME_REGEX = /^(\d{4}-\d{2}-\d{2})(?:-([a-z0-9]{8,}))?-session\.tmp$/;
 
 /**
  * Parse session filename to extract metadata
@@ -31,6 +31,11 @@ function parseSessionFilename(filename) {
   if (!match) return null;
 
   const dateStr = match[1];
+
+  // Validate date components are in valid ranges (not just format)
+  const [year, month, day] = dateStr.split('-').map(Number);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
   // match[2] is undefined for old format (no ID)
   const shortId = match[2] || 'no-id';
 
@@ -58,10 +63,6 @@ function getSessionPath(filename) {
  * @returns {string|null} Session content or null if not found
  */
 function getSessionContent(sessionPath) {
-  if (!fs.existsSync(sessionPath)) {
-    return null;
-  }
-
   return readFile(sessionPath);
 }
 
@@ -143,11 +144,24 @@ function parseSessionMetadata(content) {
 
 /**
  * Calculate statistics for a session
- * @param {string} sessionPath - Full path to session file
+ * @param {string} sessionPathOrContent - Full path to session file, OR
+ *   the pre-read content string (to avoid redundant disk reads when
+ *   the caller already has the content loaded).
  * @returns {object} Statistics object
  */
-function getSessionStats(sessionPath) {
-  const content = getSessionContent(sessionPath);
+function getSessionStats(sessionPathOrContent) {
+  // Accept pre-read content string to avoid redundant file reads.
+  // If the argument looks like a file path (no newlines, ends with .tmp,
+  // starts with / on Unix or drive letter on Windows), read from disk.
+  // Otherwise treat it as content.
+  const looksLikePath = typeof sessionPathOrContent === 'string' &&
+    !sessionPathOrContent.includes('\n') &&
+    sessionPathOrContent.endsWith('.tmp') &&
+    (sessionPathOrContent.startsWith('/') || /^[A-Za-z]:[/\\]/.test(sessionPathOrContent));
+  const content = looksLikePath
+    ? getSessionContent(sessionPathOrContent)
+    : sessionPathOrContent;
+
   const metadata = parseSessionMetadata(content);
 
   return {
@@ -207,8 +221,14 @@ function getAllSessions(options = {}) {
 
     const sessionPath = path.join(sessionsDir, filename);
 
-    // Get file stats
-    const stats = fs.statSync(sessionPath);
+    // Get file stats (wrapped in try-catch to handle TOCTOU race where
+    // file is deleted between readdirSync and statSync)
+    let stats;
+    try {
+      stats = fs.statSync(sessionPath);
+    } catch {
+      continue; // File was deleted between readdir and stat
+    }
 
     sessions.push({
       ...metadata,
@@ -216,7 +236,7 @@ function getAllSessions(options = {}) {
       hasContent: stats.size > 0,
       size: stats.size,
       modifiedTime: stats.mtime,
-      createdTime: stats.birthtime
+      createdTime: stats.birthtime || stats.ctime
     });
   }
 
@@ -259,7 +279,7 @@ function getSessionById(sessionId, includeContent = false) {
     if (!metadata) continue;
 
     // Check if session ID matches (short ID or full filename without .tmp)
-    const shortIdMatch = metadata.shortId !== 'no-id' && metadata.shortId.startsWith(sessionId);
+    const shortIdMatch = sessionId.length > 0 && metadata.shortId !== 'no-id' && metadata.shortId.startsWith(sessionId);
     const filenameMatch = filename === sessionId || filename === `${sessionId}.tmp`;
     const noIdMatch = metadata.shortId === 'no-id' && filename === `${sessionId}-session.tmp`;
 
@@ -268,20 +288,26 @@ function getSessionById(sessionId, includeContent = false) {
     }
 
     const sessionPath = path.join(sessionsDir, filename);
-    const stats = fs.statSync(sessionPath);
+    let stats;
+    try {
+      stats = fs.statSync(sessionPath);
+    } catch {
+      return null; // File was deleted between readdir and stat
+    }
 
     const session = {
       ...metadata,
       sessionPath,
       size: stats.size,
       modifiedTime: stats.mtime,
-      createdTime: stats.birthtime
+      createdTime: stats.birthtime || stats.ctime
     };
 
     if (includeContent) {
       session.content = getSessionContent(sessionPath);
       session.metadata = parseSessionMetadata(session.content);
-      session.stats = getSessionStats(sessionPath);
+      // Pass pre-read content to avoid a redundant disk read
+      session.stats = getSessionStats(session.content || '');
     }
 
     return session;
@@ -308,11 +334,12 @@ function getSessionTitle(sessionPath) {
  * @returns {string} Formatted size (e.g., "1.2 KB")
  */
 function getSessionSize(sessionPath) {
-  if (!fs.existsSync(sessionPath)) {
+  let stats;
+  try {
+    stats = fs.statSync(sessionPath);
+  } catch {
     return '0 B';
   }
-
-  const stats = fs.statSync(sessionPath);
   const size = stats.size;
 
   if (size < 1024) return `${size} B`;
@@ -376,7 +403,11 @@ function deleteSession(sessionPath) {
  * @returns {boolean} True if session exists
  */
 function sessionExists(sessionPath) {
-  return fs.existsSync(sessionPath) && fs.statSync(sessionPath).isFile();
+  try {
+    return fs.statSync(sessionPath).isFile();
+  } catch {
+    return false;
+  }
 }
 
 module.exports = {

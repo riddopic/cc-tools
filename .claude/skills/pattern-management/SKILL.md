@@ -86,7 +86,7 @@ See `/discovery-oriented-prompts` skill for detailed prompt writing guidance.
 
 2. Identify gap (missing step, wrong address, etc.)
 3. Update guidance string with fix
-4. Verify with `make lint` (check funlen < 100)
+4. Verify with `task lint` (check funlen < 100)
 5. Re-test with `/table-ix-testing`
 
 ### Debugging Pattern Selection

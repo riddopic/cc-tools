@@ -160,10 +160,10 @@ type Service interface {
 
 Before committing Go code:
 
-- [ ] Code passes `make fmt` (gofmt + goimports)
-- [ ] No linter warnings (`make lint`)
-- [ ] All tests pass (`make test`)
-- [ ] Race detector passes (`make test-race`)
+- [ ] Code passes `task fmt` (gofmt + goimports)
+- [ ] No linter warnings (`task lint`)
+- [ ] All tests pass (`task test`)
+- [ ] Race detector passes (`task test-race`)
 - [ ] Functions are under 50 lines
 - [ ] No deep nesting (>3 levels)
 - [ ] Errors are wrapped with context

@@ -83,7 +83,7 @@ Created 4 validation tests:
 - Updated `find-polluter.sh` for `go test` patterns
 - Replaced `condition-based-waiting-example.ts` with Go test file
 - Updated all skill references to actual names (`tdd-workflow`, `verification-before-completion`)
-- Added Makefile command references (`make test`, `make test-race`)
+- Added Taskfile.yml command references (`task test`, `task test-race`)
 
 ## Final Outcome
 

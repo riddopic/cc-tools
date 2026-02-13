@@ -101,11 +101,11 @@ quanta/
 
 ```bash
 # Install required tools
-make tools-install
+task tools-install
 
 # Format code
-make fmt          # Runs gofmt and goimports
-make polish       # Format, auto-fix lint issues, clean backup files
+task fmt          # Runs gofmt and goimports
+task polish       # Format, auto-fix lint issues, clean backup files
 ```
 
 ### Import Organization
@@ -684,17 +684,17 @@ resp, err := http.Get(url)
 
 ### Before Committing
 
-- [ ] Code passes formatting checks (`make fmt`)
-- [ ] No linter warnings (`make lint`)
-- [ ] All tests pass (`make test`)
-- [ ] Race detector passes (`make test-race`)
-- [ ] New code has appropriate test coverage (`make coverage`)
+- [ ] Code passes formatting checks (`task fmt`)
+- [ ] No linter warnings (`task lint`)
+- [ ] All tests pass (`task test`)
+- [ ] Race detector passes (`task test-race`)
+- [ ] New code has appropriate test coverage (`task coverage`)
 - [ ] Documentation is updated for public APIs
 - [ ] Error messages are clear and actionable
 - [ ] No commented-out code
 - [ ] No TODO comments without issue references
 
-**Quick check:** Run `make pre-commit` to verify all pre-commit checks pass
+**Quick check:** Run `task check` to verify all pre-commit checks pass
 
 ### Code Review Focus
 
@@ -713,29 +713,23 @@ resp, err := http.Get(url)
 
 ```bash
 # Development
-make fmt           # Format code (gofmt and goimports)
-make lint          # Run golangci-lint
-make test          # Run fast unit tests (-short)
-make watch         # Auto-run tests on file changes (TDD essential!)
-make test-race     # Run tests with race detector
-make coverage      # Generate test coverage report
-make build         # Build binary with version info
-
-# Quick shortcuts
-make q             # Quick build
-make qt            # Quick test
-make ql            # Quick lint
+task fmt           # Format code (gofmt and goimports)
+task lint          # Run golangci-lint
+task test          # Run fast unit tests (-short)
+task watch         # Auto-run tests on file changes (TDD essential!)
+task test-race     # Run tests with race detector
+task coverage      # Generate test coverage report
+task build         # Build binary with version info
 
 # Benchmarking
-make bench         # Run benchmarks with memory stats
+task bench         # Run benchmarks with memory stats
 
 # Environment & Tools
-make doctor        # Check development environment
-make tools-install # Install all required tools
+task doctor        # Check development environment
+task tools-install # Install all required tools
 
 # Before commit
-make check         # Run all checks (fmt + lint + test-race + vulncheck)
-make pre-commit    # Alias for check
+task check         # Run all checks (fmt + lint + test-race)
 
 # For profiling (still use go commands directly)
 go test -cpuprofile=cpu.prof ./...    # CPU profile

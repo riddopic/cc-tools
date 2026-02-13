@@ -46,32 +46,32 @@ These skills contain detailed checklists and patterns. Reference them instead of
 
 ```bash
 # Format verification
-make fmt
+task fmt
 
 # Comprehensive linting
-make lint
+task lint
 
 # Run tests with race detector
-make test-race
+task test-race
 
 # Run tests with coverage
-make coverage
+task coverage
 
 # Run benchmarks
-make bench
+task bench
 
 # Build validation
-make build
+task build
 
 # Module tidiness
-make tidy
+task tidy
 git diff --exit-code go.mod go.sum
 
 # Run all checks (fmt, vet, lint, test)
-make check
+task check
 
 # Run pre-commit checks
-make pre-commit
+task check
 
 # Security scan (if gosec is installed)
 gosec -quiet ./...
@@ -301,11 +301,11 @@ Create a comprehensive review report with:
 ### Build & Test Commands
 
 - [ ] ✅ `gofmt -l .` - ZERO formatting issues
-- [ ] ✅ `make fmt` - Code formatted (gofmt & goimports)
-- [ ] ✅ `make lint` - ZERO linting errors
-- [ ] ✅ `make test-race` - ALL tests pass, NO races
-- [ ] ✅ `make build` - Successful build
-- [ ] ✅ `make tidy` - Module is tidy
+- [ ] ✅ `task fmt` - Code formatted (gofmt & goimports)
+- [ ] ✅ `task lint` - ZERO linting errors
+- [ ] ✅ `task test-race` - ALL tests pass, NO races
+- [ ] ✅ `task build` - Successful build
+- [ ] ✅ `task tidy` - Module is tidy
 - [ ] ✅ `gosec ./...` - ZERO security issues (if installed)
 
 ## Issues Found

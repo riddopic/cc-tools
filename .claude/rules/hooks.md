@@ -100,9 +100,9 @@ For Quanta, ensure these run before commits:
 
 ```bash
 # These should pass before any commit
-make fmt      # Format code
-make lint     # Check for issues
-make test     # Run tests
+task fmt      # Format code
+task lint     # Check for issues
+task test     # Run tests
 ```
 
 Consider adding as PreToolUse hooks for `git commit` operations.

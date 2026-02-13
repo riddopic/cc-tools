@@ -24,7 +24,7 @@ escape_for_json() {
 }
 
 using_superpowers_escaped=$(escape_for_json "$using_superpowers_content")
-warning_escaped=$(escape_for_json "$warning_message")
+warning_escaped=$(escape_for_json "${warning_message:-}")
 
 # Output context injection as JSON
 cat <<EOF

@@ -734,16 +734,16 @@ Before writing any production code, ask yourself:
 
 ```bash
 # Run tests before every commit
-make test
+task test
 
 # Run tests with race detection
-make test-race
+task test-race
 
 # Run tests with coverage report
-make coverage
+task coverage
 
-# Run all pre-commit checks (fmt + lint + test-race + vulncheck)
-make check
+# Run all pre-commit checks (fmt + lint + test-race)
+task check
 
 # Run specific test patterns (still use go test directly)
 go test -run TestStatusRenderer ./...

@@ -353,7 +353,7 @@ go test ./cmd -v -run TestBlockchain
 
 # Check coverage
 
-make coverage
+task coverage
 \```
 
 ## Next Steps
@@ -381,16 +381,16 @@ After all fixes are applied:
 2. **Run Full Test Suite**:
 
    ```bash
-   make test         # All tests must pass
-   make test-race    # No race conditions
-   make coverage     # Coverage ≥80%
+   task test         # All tests must pass
+   task test-race    # No race conditions
+   task coverage     # Coverage ≥80%
    ```
 
 3. **Verify Production Readiness**:
    ```bash
-   make lint         # No linting errors
-   make build        # Successful build
-   make pre-commit   # All checks pass
+   task lint         # No linting errors
+   task build        # Successful build
+   task check        # All checks pass
    ```
 
 ## Common Fix Patterns

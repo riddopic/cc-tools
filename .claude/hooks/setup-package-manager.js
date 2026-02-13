@@ -33,7 +33,7 @@ Usage:
 
 Options:
   --detect        Detect and show current package manager
-  --global <pm>   Set global preference (saves to ~/.claude/package-manager.json)
+  --global <pm>   Set global preference (saves to .claude/package-manager.json)
   --project <pm>  Set project preference (saves to .claude/package-manager.json)
   --list          List available package managers
   --help          Show this help message
@@ -129,7 +129,7 @@ function setGlobal(pmName) {
   try {
     setPreferredPackageManager(pmName);
     console.log(`\n✓ Global preference set to: ${pmName}`);
-    console.log('  Saved to: ~/.claude/package-manager.json');
+    console.log('  Saved to: .claude/package-manager.json');
     console.log('');
   } catch (err) {
     console.error(`Error: ${err.message}`);

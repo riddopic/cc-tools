@@ -29,16 +29,16 @@ Safely identify and remove dead code from the Go codebase with comprehensive tes
 
 ```bash
 # Ensure tests pass before starting
-make test
+task test
 
 # Run tests with race detector
-make test-race
+task test-race
 
 # Verify linting passes
-make lint
+task lint
 
 # Check current coverage
-make coverage
+task coverage
 ```
 
 ## Dead Code Detection
@@ -81,7 +81,7 @@ done
 
 ```bash
 # Run comprehensive linting to find more dead code
-make lint
+task lint
 
 # Check for unused imports (auto-fixed by goimports)
 goimports -l .
@@ -174,7 +174,7 @@ For each identified dead code item:
 
 2. **Run Full Test Suite BEFORE Deletion**
    ```bash
-   make test-race
+   task test-race
    ```
 
 3. **Verify Tests Pass**
@@ -183,11 +183,11 @@ For each identified dead code item:
 
 4. **Apply the Change**
    - Delete the dead code
-   - Run `make fmt` to fix imports
+   - Run `task fmt` to fix imports
 
 5. **Re-Run Tests AFTER Deletion**
    ```bash
-   make test-race
+   task test-race
    ```
 
 6. **Verify and Commit or Rollback**
@@ -196,7 +196,7 @@ For each identified dead code item:
 
 7. **Run Linting**
    ```bash
-   make lint
+   task lint
    ```
 
 ## Final Verification
@@ -207,16 +207,16 @@ After all deletions are complete:
 
 ```bash
 # Full validation suite
-make pre-commit
+task check
 
 # Verify coverage hasn't dropped significantly
-make coverage
+task coverage
 
 # Run race detector
-make test-race
+task test-race
 
 # Final lint check
-make lint
+task lint
 ```
 
 ## Summary Report
@@ -244,17 +244,17 @@ Generate final summary:
 
 ## Verification
 
-- [ ] All tests pass (`make test`)
-- [ ] Race detector passes (`make test-race`)
-- [ ] Linting passes (`make lint`)
-- [ ] Pre-commit passes (`make pre-commit`)
+- [ ] All tests pass (`task test`)
+- [ ] Race detector passes (`task test-race`)
+- [ ] Linting passes (`task lint`)
+- [ ] Pre-commit passes (`task pre-commit`)
 ```
 
 ## Important Guidelines
 
 **🚨 CRITICAL — TEST BEHAVIOR, NOT IMPLEMENTATION!** Tests should remain valid even if the implementation changes completely. Only delete dead code, not code that tests depend on.
 
-**IMPORTANT**: Do NOT delete code without running `make test-race` before AND after each deletion.
+**IMPORTANT**: Do NOT delete code without running `task test-race` before AND after each deletion.
 
 **CRITICAL**: Always follow the patterns in `docs/CODING_GUIDELINES.md` and `docs/examples/` when evaluating what constitutes "dead code".
 

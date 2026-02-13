@@ -68,56 +68,15 @@ analyze.json
 .version
 __debug_*
 
-# Serena cache
-.serena/cache/
-
 # Code Reviews
 docs/code-reviews/
 
 # Generated reports
 .reports/
 
-# Temporary files
-NOTES.md
-PROMPT.md
-AGENTS.md
-discovered_contracts.csv
-
-# Export command artifacts (leaked from tests)
-exploit_*.sol
-test_*.sol
-export_summary.json
-
-# Security runtime data
-internal/security/blacklist.db
-
-# Quanta storage and cache (user-specific analysis data)
-.quanta/
-.quanta
-
 # Task (taskfile.dev) checksum cache
 .task/
-
-# Regression baseline output directories (keep ground-truth JSON, ignore per-test results)
-baselines/post-boost-*/
-baselines/post-r*/
-baselines/pre-boost-*/
-
-# Foundry artifacts
-/cache/
-/out/
-/lib/
-foundry.lock
-/src/
 
 # Python cache
 __pycache__/
 *.py[cod]
-
-# Hugo documentation site artifacts
-.hugo_build.lock
-docs-site/public/
-docs-site/resources/
-public/
-
-.obsidian/

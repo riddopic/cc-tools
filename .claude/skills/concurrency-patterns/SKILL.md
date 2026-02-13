@@ -176,7 +176,7 @@ for _, path := range paths {
 Always test concurrent code with race detector:
 
 ```bash
-make test-race
+task test-race
 # or
 go test -race ./...
 ```
