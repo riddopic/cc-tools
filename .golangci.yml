@@ -265,6 +265,8 @@ linters:
         - ^github.com/riddopic/cc-tools/internal/hookcmd\.HookInput$
         - ^github.com/riddopic/cc-tools/internal/handler\.Response$
         - ^github.com/riddopic/cc-tools/internal/handler\.HookOutput$
+        - ^github.com/riddopic/cc-tools/internal/config\.Values$
+        - ^github.com/riddopic/cc-tools/internal/config\.\w+Values$
       # Allows empty structures in return statements.
       # Default: false
       allow-empty-returns: true
