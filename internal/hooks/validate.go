@@ -103,8 +103,10 @@ func NewParallelValidateExecutor(
 	if deps == nil {
 		deps = NewDefaultDependencies()
 	}
+	discovery := NewCommandDiscovery(projectRoot, timeout, deps)
+	discovery.SetDebug(debug)
 	return &ParallelValidateExecutor{
-		discovery:  NewCommandDiscovery(projectRoot, timeout, deps),
+		discovery:  discovery,
 		executor:   NewCommandExecutor(timeout, debug, deps),
 		timeout:    timeout,
 		debug:      debug,

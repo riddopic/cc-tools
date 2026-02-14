@@ -31,6 +31,7 @@ type DiscoveredCommand struct {
 type CommandDiscovery struct {
 	projectRoot string
 	timeout     int
+	debug       bool
 	deps        *Dependencies
 }
 
@@ -42,7 +43,20 @@ func NewCommandDiscovery(projectRoot string, timeoutSecs int, deps *Dependencies
 	return &CommandDiscovery{
 		projectRoot: projectRoot,
 		timeout:     timeoutSecs,
+		debug:       false,
 		deps:        deps,
+	}
+}
+
+// SetDebug enables debug logging for discovery operations.
+func (cd *CommandDiscovery) SetDebug(debug bool) {
+	cd.debug = debug
+}
+
+// debugf writes a debug message to stderr when debug mode is enabled.
+func (cd *CommandDiscovery) debugf(format string, args ...any) {
+	if cd.debug {
+		_, _ = fmt.Fprintf(cd.deps.Stderr, "[discovery] "+format+"\n", args...)
 	}
 }
 
@@ -133,6 +147,7 @@ func (cd *CommandDiscovery) checkMakefile(
 				Source:     makefile,
 			}
 		}
+		cd.debugf("make: target %q not found in %s", target, path)
 	}
 
 	return nil
@@ -166,6 +181,7 @@ func (cd *CommandDiscovery) checkTaskfile(
 				Source:     taskfile,
 			}
 		}
+		cd.debugf("task: target %q not found in %s", task, path)
 	}
 
 	return nil
@@ -199,6 +215,7 @@ func (cd *CommandDiscovery) checkJustfile(
 				Source:     justfile,
 			}
 		}
+		cd.debugf("just: recipe %q not found in %s", recipe, path)
 	}
 
 	return nil
@@ -222,6 +239,7 @@ func (cd *CommandDiscovery) checkPackageJSON(
 
 	if _, err := cd.deps.Runner.RunContext(timeoutCtx, dir, "jq", "-e",
 		fmt.Sprintf(".scripts.\"%s\"", script), packagePath); err != nil {
+		cd.debugf("package.json: script %q not found in %s", script, packagePath)
 		return nil
 	}
 
@@ -252,6 +270,7 @@ func (cd *CommandDiscovery) checkScriptsDir(
 
 	// Check if it's executable
 	if info.Mode()&0o111 == 0 {
+		cd.debugf("scripts/: %s exists but is not executable", scriptPath)
 		return nil
 	}
 
@@ -412,6 +431,7 @@ func (cd *CommandDiscovery) checkPythonCommands(
 					Source:     "Python project",
 				}
 			}
+			cd.debugf("python: linter %q not found in PATH", linter.name)
 		}
 	case CommandTypeTest:
 		// Try test runners in order of preference
