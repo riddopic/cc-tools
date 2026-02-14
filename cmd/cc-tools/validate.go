@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io"
 	"os"
 	"strconv"
@@ -11,14 +12,11 @@ import (
 	"github.com/riddopic/cc-tools/internal/hooks"
 )
 
-const (
-	defaultValidateTimeout  = 60
-	defaultValidateCooldown = 5
-)
-
 func newValidateCmd() *cobra.Command {
 	var timeout int
 	var cooldown int
+
+	defaults := config.GetDefaultConfig()
 
 	cmd := &cobra.Command{
 		Use:   "validate",
@@ -27,39 +25,42 @@ func newValidateCmd() *cobra.Command {
 		Example: `  echo '{"tool_input":{"file_path":"main.go"}}' | cc-tools validate
   cc-tools validate --timeout 120`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			timeout, cooldown = resolveValidateConfig(timeout, cooldown)
+			timeout, cooldown = resolveValidateConfig(
+				defaults, timeout, cooldown,
+			)
 			return runValidate(cmd, timeout, cooldown)
 		},
 	}
 
-	cmd.Flags().IntVarP(&timeout, "timeout", "t", defaultValidateTimeout, "timeout in seconds")
-	cmd.Flags().IntVarP(&cooldown, "cooldown", "c", defaultValidateCooldown, "cooldown between runs in seconds")
+	cmd.Flags().IntVarP(&timeout, "timeout", "t", defaults.Validate.Timeout, "timeout in seconds")
+	cmd.Flags().IntVarP(&cooldown, "cooldown", "c", defaults.Validate.Cooldown, "cooldown between runs in seconds")
 
 	return cmd
 }
 
 // resolveValidateConfig applies config file and env var overrides to the
 // flag defaults. Precedence: env vars > config file > flag defaults.
-func resolveValidateConfig(timeout, cooldown int) (int, int) {
+func resolveValidateConfig(defaults *config.Values, timeout, cooldown int) (int, int) {
 	// Config file overrides flag defaults.
-	cfg, _ := config.Load()
-	if cfg != nil {
-		if timeout == defaultValidateTimeout && cfg.Hooks.Validate.TimeoutSeconds > 0 {
-			timeout = cfg.Hooks.Validate.TimeoutSeconds
+	mgr := config.NewManager()
+	cfg, err := mgr.GetConfig(context.Background())
+	if err == nil && cfg != nil {
+		if timeout == defaults.Validate.Timeout && cfg.Validate.Timeout > 0 {
+			timeout = cfg.Validate.Timeout
 		}
-		if cooldown == defaultValidateCooldown && cfg.Hooks.Validate.CooldownSeconds > 0 {
-			cooldown = cfg.Hooks.Validate.CooldownSeconds
+		if cooldown == defaults.Validate.Cooldown && cfg.Validate.Cooldown > 0 {
+			cooldown = cfg.Validate.Cooldown
 		}
 	}
 
 	// Environment variables take highest precedence.
 	if envTimeout := os.Getenv("CC_TOOLS_HOOKS_VALIDATE_TIMEOUT_SECONDS"); envTimeout != "" {
-		if val, err := strconv.Atoi(envTimeout); err == nil && val > 0 {
+		if val, parseErr := strconv.Atoi(envTimeout); parseErr == nil && val > 0 {
 			timeout = val
 		}
 	}
 	if envCooldown := os.Getenv("CC_TOOLS_HOOKS_VALIDATE_COOLDOWN_SECONDS"); envCooldown != "" {
-		if val, err := strconv.Atoi(envCooldown); err == nil && val >= 0 {
+		if val, parseErr := strconv.Atoi(envCooldown); parseErr == nil && val >= 0 {
 			cooldown = val
 		}
 	}
