@@ -44,7 +44,7 @@ func executeMCPCommand(out *output.Terminal, subcommand string) int {
 	defer cancel()
 
 	switch subcommand {
-	case "list":
+	case listCommand:
 		return handleMCPList(ctx, out, manager)
 	case "enable":
 		return handleMCPEnable(ctx, out, manager)

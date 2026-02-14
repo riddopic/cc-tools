@@ -51,7 +51,7 @@ func runConfigCommand() {
 			_ = out.Error("Error: %v", err)
 			os.Exit(1)
 		}
-	case "list", "show":
+	case listCommand, "show":
 		if err := handleConfigList(ctx, out, manager); err != nil {
 			_ = out.Error("Error: %v", err)
 			os.Exit(1)
