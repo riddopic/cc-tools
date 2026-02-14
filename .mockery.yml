@@ -20,6 +20,11 @@ packages:
       InputReader:
       OutputWriter:
 
+  github.com/riddopic/cc-tools/internal/notify:
+    interfaces:
+      AudioPlayer:
+      CmdRunner:
+
   github.com/riddopic/cc-tools/internal/shared:
     interfaces:
       HooksFS:
