@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -37,13 +38,23 @@ const (
 // Build-time variables.
 var version = "dev"
 
-var stdinTempFile string //nolint:gochecknoglobals // tracks temp file created by debugLog for cleanup
+func needsStdin(cmd string) bool {
+	return cmd == "validate" || cmd == "hook"
+}
 
 func main() {
+	// Read stdin once for commands that need it.
+	var stdinData []byte
+	if len(os.Args) > 1 && needsStdin(os.Args[1]) {
+		if stat, _ := os.Stdin.Stat(); (stat.Mode() & os.ModeCharDevice) == 0 {
+			stdinData, _ = io.ReadAll(os.Stdin)
+		}
+	}
+
 	out := output.NewTerminal(os.Stdout, os.Stderr)
 
 	// Debug logging - log all invocations to a file
-	debugLog()
+	writeDebugLog(os.Args, stdinData)
 
 	if len(os.Args) < minArgs {
 		printUsage(out)
@@ -52,9 +63,9 @@ func main() {
 
 	switch os.Args[1] {
 	case "validate":
-		runValidate()
+		runValidate(stdinData)
 	case "hook":
-		runHookCommand()
+		runHookCommand(stdinData)
 	case "session":
 		runSessionCommand()
 	case "skip":
@@ -120,7 +131,7 @@ var hookEventMap = map[string]string{ //nolint:gochecknoglobals // static lookup
 
 const minHookArgs = 3
 
-func runHookCommand() {
+func runHookCommand(stdinData []byte) {
 	out := output.NewTerminal(os.Stdout, os.Stderr)
 
 	if len(os.Args) < minHookArgs {
@@ -135,7 +146,7 @@ func runHookCommand() {
 		eventName = subCmd
 	}
 
-	input, err := hookcmd.ParseInput(os.Stdin)
+	input, err := hookcmd.ParseInput(bytes.NewReader(stdinData))
 	if err != nil {
 		_ = out.Error("error parsing hook input: %v", err)
 		os.Exit(0) // still exit 0 — hooks must not block
@@ -144,10 +155,6 @@ func runHookCommand() {
 
 	registry := buildHookRegistry()
 	exitCode := hookcmd.Dispatch(context.Background(), input, os.Stdout, os.Stderr, registry)
-
-	if stdinTempFile != "" {
-		_ = os.Remove(stdinTempFile)
-	}
 	os.Exit(exitCode)
 }
 
@@ -539,82 +546,46 @@ func loadValidateConfig() (int, int) {
 	return timeoutSecs, cooldownSecs
 }
 
-func runValidate() {
+func runValidate(stdinData []byte) {
 	timeoutSecs, cooldownSecs := loadValidateConfig()
 	debug := os.Getenv("CLAUDE_HOOKS_DEBUG") == "1"
 
 	exitCode := hooks.ValidateWithSkipCheck(
 		context.Background(),
-		os.Stdin,
+		stdinData,
 		os.Stdout,
 		os.Stderr,
 		debug,
 		timeoutSecs,
 		cooldownSecs,
 	)
-	if stdinTempFile != "" {
-		_ = os.Remove(stdinTempFile)
-	}
 	os.Exit(exitCode)
 }
 
-func debugLog() {
-	// Create or append to debug log file for current directory
+func writeDebugLog(args []string, stdinData []byte) {
 	debugFile := getDebugLogPath()
 
 	f, err := os.OpenFile(debugFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
-		return // Silently fail if we can't write debug log
+		return
 	}
 	defer func() { _ = f.Close() }()
 
-	// Read stdin and save it for both debug and actual use
-	// Only read stdin for commands that actually need it
-	var stdinDebugData []byte
-	needsStdin := len(os.Args) > 1 && (os.Args[1] == "validate" || os.Args[1] == "hook")
-
-	if needsStdin {
-		if stat, _ := os.Stdin.Stat(); (stat.Mode() & os.ModeCharDevice) == 0 {
-			// There's data in stdin
-			stdinDebugData, _ = io.ReadAll(os.Stdin)
-			// Create a new reader from the data we just read
-			// This will be used by the actual commands
-			// Actually, we need to pipe it back - create a temp file
-			if tmpFile, tmpErr := os.CreateTemp("", "cc-tools-stdin-"); tmpErr == nil {
-				_, _ = tmpFile.Write(stdinDebugData)
-				_, _ = tmpFile.Seek(0, 0)
-				os.Stdin = tmpFile //nolint:reassign // Resetting stdin for subsequent reads
-				stdinTempFile = tmpFile.Name()
-			}
-		}
-	}
-
-	// Log the invocation details
 	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
 	_, _ = fmt.Fprintf(f, "\n========================================\n")
 	_, _ = fmt.Fprintf(f, "[%s] cc-tools invoked\n", timestamp)
-	_, _ = fmt.Fprintf(f, "Args: %v\n", os.Args)
-	_, _ = fmt.Fprintf(f, "Environment:\n")
+	_, _ = fmt.Fprintf(f, "Args: %v\n", args)
 	_, _ = fmt.Fprintf(f, "  CLAUDE_HOOKS_DEBUG: %s\n", os.Getenv("CLAUDE_HOOKS_DEBUG"))
-	_, _ = fmt.Fprintf(f, "  Working Dir: %s\n", func() string {
-		if wd, wdErr := os.Getwd(); wdErr == nil {
-			return wd
-		}
-		return "unknown"
-	}())
 
-	if len(stdinDebugData) > 0 {
-		_, _ = fmt.Fprintf(f, "Stdin: %s\n", string(stdinDebugData))
-	} else {
-		_, _ = fmt.Fprintf(f, "Stdin: (no data available)\n")
+	if wd, wdErr := os.Getwd(); wdErr == nil {
+		_, _ = fmt.Fprintf(f, "  Working Dir: %s\n", wd)
 	}
 
-	_, _ = fmt.Fprintf(f, "Command: %s\n", func() string {
-		if len(os.Args) > 1 {
-			return os.Args[1]
-		}
-		return "(none)"
-	}())
+	if len(stdinData) > 0 {
+		_, _ = fmt.Fprintf(f, "Stdin: %s\n", string(stdinData))
+	} else {
+		_, _ = fmt.Fprintf(f, "Stdin: (no data)\n")
+	}
 }
 
 // getDebugLogPath returns the debug log path for the current directory.
