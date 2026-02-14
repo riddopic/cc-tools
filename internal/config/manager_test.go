@@ -5,8 +5,12 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/riddopic/cc-tools/internal/config"
 )
@@ -86,6 +90,36 @@ func newTestValues(timeout, cooldown int) *config.Values {
 		},
 		Notifications: config.NotificationsValues{
 			NtfyTopic: "",
+		},
+		Compact: config.CompactValues{
+			Threshold:        config.ExportDefaultCompactThreshold(),
+			ReminderInterval: config.ExportDefaultCompactReminderInterval(),
+		},
+		Notify: config.NotifyValues{
+			QuietHours: config.QuietHoursValues{
+				Enabled: config.ExportDefaultNotifyQuietHoursEnabled(),
+				Start:   config.ExportDefaultNotifyQuietHoursStart(),
+				End:     config.ExportDefaultNotifyQuietHoursEnd(),
+			},
+			Audio: config.AudioValues{
+				Enabled:   config.ExportDefaultNotifyAudioEnabled(),
+				Directory: config.ExportDefaultNotifyAudioDirectory(),
+			},
+			Desktop: config.DesktopValues{
+				Enabled: config.ExportDefaultNotifyDesktopEnabled(),
+			},
+		},
+		Observe: config.ObserveValues{
+			Enabled:       config.ExportDefaultObserveEnabled(),
+			MaxFileSizeMB: config.ExportDefaultObserveMaxFileSizeMB(),
+		},
+		Learning: config.LearningValues{
+			MinSessionLength:  config.ExportDefaultLearningMinSessionLength(),
+			LearnedSkillsPath: config.ExportDefaultLearningLearnedSkillsPath(),
+		},
+		PreCommit: config.PreCommitValues{
+			Enabled: config.ExportDefaultPreCommitEnabled(),
+			Command: config.ExportDefaultPreCommitCommand(),
 		},
 	}
 }
@@ -418,11 +452,8 @@ func TestGetAllKeys(t *testing.T) {
 		t.Fatalf("GetAllKeys() error = %v", err)
 	}
 
-	expectedKeys := []string{
-		"notifications.ntfy_topic",
-		"validate.cooldown",
-		"validate.timeout",
-	}
+	expectedKeys := config.ExportAllKeys()
+	sort.Strings(expectedKeys)
 
 	if len(keys) != len(expectedKeys) {
 		t.Errorf("GetAllKeys() returned %d keys, want %d", len(keys), len(expectedKeys))
@@ -823,6 +854,49 @@ func TestConfigFilePath(t *testing.T) {
 			if !strings.Contains(path, tt.wantContains) {
 				t.Errorf("getConfigFilePath() = %s, want to contain %s", path, tt.wantContains)
 			}
+		})
+	}
+}
+
+func TestManager_LoadsHookConfig(t *testing.T) {
+	tests := []struct {
+		name     string
+		json     string
+		wantComp int
+		wantQH   bool
+		wantQHS  string
+		wantQHE  string
+	}{
+		{
+			name:     "defaults when empty",
+			json:     `{}`,
+			wantComp: 50,
+			wantQH:   true,
+			wantQHS:  "21:00",
+			wantQHE:  "07:30",
+		},
+		{
+			name:     "custom values",
+			json:     `{"compact":{"threshold":100,"reminder_interval":50},"notify":{"quiet_hours":{"enabled":false,"start":"22:00","end":"08:00"}}}`,
+			wantComp: 100,
+			wantQH:   false,
+			wantQHS:  "22:00",
+			wantQHE:  "08:00",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			cfgPath := filepath.Join(tmpDir, "config.json")
+			require.NoError(t, os.WriteFile(cfgPath, []byte(tt.json), 0o600))
+
+			m := config.NewManagerWithPath(cfgPath)
+			cfg, err := m.GetConfig(context.Background())
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantComp, cfg.Compact.Threshold)
+			assert.Equal(t, tt.wantQH, cfg.Notify.QuietHours.Enabled)
+			assert.Equal(t, tt.wantQHS, cfg.Notify.QuietHours.Start)
+			assert.Equal(t, tt.wantQHE, cfg.Notify.QuietHours.End)
 		})
 	}
 }
