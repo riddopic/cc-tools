@@ -9,12 +9,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
-
-	"os/exec"
 
 	"github.com/riddopic/cc-tools/internal/compact"
 	"github.com/riddopic/cc-tools/internal/config"
@@ -177,7 +176,7 @@ func buildHookRegistry() map[string][]hookcmd.Handler {
 	cfg := loadHookConfig()
 
 	return map[string][]hookcmd.Handler{
-		"SessionStart":       {superpowersHandler(), pkgManagerHandler()},
+		"SessionStart":       {superpowersHandler(), pkgManagerHandler(), sessionContextHandler()},
 		"PreToolUse":         {suggestCompactHandler(cfg), observeHandler(cfg, "pre")},
 		"PostToolUse":        {observeHandler(cfg, "post")},
 		"PostToolUseFailure": {observeHandler(cfg, "failure")},
@@ -276,6 +275,45 @@ func logCompactionHandler() *handlerFunc {
 	}
 }
 
+func sessionContextHandler() *handlerFunc {
+	return &handlerFunc{
+		name: "session-context",
+		fn: func(_ context.Context, _ *hookcmd.HookInput, out, errOut io.Writer) error {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("get home directory: %w", err)
+			}
+
+			storeDir := filepath.Join(homeDir, ".claude", "sessions")
+			store := session.NewStore(storeDir)
+
+			sessions, _ := store.List(1)
+			if len(sessions) == 0 {
+				return nil
+			}
+
+			latest := sessions[0]
+			if latest.Summary != "" {
+				_, _ = fmt.Fprintf(out, "Previous session (%s): %s\n", latest.Date, latest.Summary)
+			}
+
+			aliasFile := filepath.Join(homeDir, ".claude", "session-aliases.json")
+			aliases := session.NewAliasManager(aliasFile)
+			aliasList, aliasErr := aliases.List()
+			if aliasErr == nil && len(aliasList) > 0 {
+				names := make([]string, 0, len(aliasList))
+				for name := range aliasList {
+					names = append(names, name)
+				}
+				_, _ = fmt.Fprintf(errOut, "[session-context] %d alias(es): %s\n",
+					len(aliasList), strings.Join(names, ", "))
+			}
+
+			return nil
+		},
+	}
+}
+
 func notifyAudioHandler(cfg *config.Values) *handlerFunc {
 	return &handlerFunc{
 		name: "notify-audio",
@@ -300,7 +338,7 @@ func notifyAudioHandler(cfg *config.Values) *handlerFunc {
 type afPlayer struct{}
 
 func (a *afPlayer) Play(filepath string) error {
-	return exec.Command("afplay", filepath).Run()
+	return exec.CommandContext(context.Background(), "afplay", filepath).Run()
 }
 
 func notifyDesktopHandler(cfg *config.Values) *handlerFunc {
@@ -341,7 +379,7 @@ func notifyDesktopHandler(cfg *config.Values) *handlerFunc {
 type osascriptRunner struct{}
 
 func (o *osascriptRunner) Run(name string, args ...string) error {
-	return exec.Command(name, args...).Run()
+	return exec.CommandContext(context.Background(), name, args...).Run()
 }
 
 func runSessionCommand() {
