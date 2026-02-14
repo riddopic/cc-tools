@@ -2,13 +2,9 @@ package main
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"github.com/spf13/cobra"
-
-	"github.com/riddopic/cc-tools/internal/mcp"
-	"github.com/riddopic/cc-tools/internal/output"
 )
 
 const mcpTimeout = 30 * time.Second
@@ -34,11 +30,10 @@ func newMCPListCmd() *cobra.Command {
 		Short:   "Show all MCP servers and their status",
 		Example: "  cc-tools mcp list",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			manager := mcp.NewManager(out)
+			out := newTerminal()
 			ctx, cancel := context.WithTimeout(context.Background(), mcpTimeout)
 			defer cancel()
-			return manager.List(ctx)
+			return newMCPManager(out).List(ctx)
 		},
 	}
 }
@@ -50,11 +45,10 @@ func newMCPEnableCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  cc-tools mcp enable jira",
 		RunE: func(_ *cobra.Command, args []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			manager := mcp.NewManager(out)
+			out := newTerminal()
 			ctx, cancel := context.WithTimeout(context.Background(), mcpTimeout)
 			defer cancel()
-			return manager.Enable(ctx, args[0])
+			return newMCPManager(out).Enable(ctx, args[0])
 		},
 	}
 }
@@ -66,11 +60,10 @@ func newMCPDisableCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  cc-tools mcp disable playwright",
 		RunE: func(_ *cobra.Command, args []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			manager := mcp.NewManager(out)
+			out := newTerminal()
 			ctx, cancel := context.WithTimeout(context.Background(), mcpTimeout)
 			defer cancel()
-			return manager.Disable(ctx, args[0])
+			return newMCPManager(out).Disable(ctx, args[0])
 		},
 	}
 }
@@ -81,11 +74,10 @@ func newMCPEnableAllCmd() *cobra.Command {
 		Short:   "Enable all MCP servers from settings",
 		Example: "  cc-tools mcp enable-all",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			manager := mcp.NewManager(out)
+			out := newTerminal()
 			ctx, cancel := context.WithTimeout(context.Background(), mcpTimeout)
 			defer cancel()
-			return manager.EnableAll(ctx)
+			return newMCPManager(out).EnableAll(ctx)
 		},
 	}
 }
@@ -96,11 +88,10 @@ func newMCPDisableAllCmd() *cobra.Command {
 		Short:   "Disable all MCP servers",
 		Example: "  cc-tools mcp disable-all",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			manager := mcp.NewManager(out)
+			out := newTerminal()
 			ctx, cancel := context.WithTimeout(context.Background(), mcpTimeout)
 			defer cancel()
-			return manager.DisableAll(ctx)
+			return newMCPManager(out).DisableAll(ctx)
 		},
 	}
 }

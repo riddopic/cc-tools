@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"sort"
 
 	"github.com/charmbracelet/lipgloss"
@@ -37,9 +36,7 @@ func newConfigGetCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  cc-tools config get validate.timeout",
 		RunE: func(_ *cobra.Command, args []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			manager := config.NewManager()
-			return handleConfigGet(context.Background(), out, manager, args[0])
+			return handleConfigGet(context.Background(), newTerminal(), newConfigManager(), args[0])
 		},
 	}
 }
@@ -51,9 +48,7 @@ func newConfigSetCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(configSetArgs),
 		Example: "  cc-tools config set validate.timeout 90",
 		RunE: func(_ *cobra.Command, args []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			manager := config.NewManager()
-			return handleConfigSet(context.Background(), out, manager, args[0], args[1])
+			return handleConfigSet(context.Background(), newTerminal(), newConfigManager(), args[0], args[1])
 		},
 	}
 }
@@ -64,9 +59,7 @@ func newConfigListCmd() *cobra.Command {
 		Short:   "Show all configuration with defaults and overrides",
 		Aliases: []string{"show"},
 		RunE: func(_ *cobra.Command, _ []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			manager := config.NewManager()
-			return handleConfigList(context.Background(), out, manager)
+			return handleConfigList(context.Background(), newTerminal(), newConfigManager())
 		},
 	}
 }
@@ -78,13 +71,11 @@ func newConfigResetCmd() *cobra.Command {
 		Args:    cobra.MaximumNArgs(1),
 		Example: "  cc-tools config reset validate.timeout\n  cc-tools config reset",
 		RunE: func(_ *cobra.Command, args []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			manager := config.NewManager()
 			var key string
 			if len(args) > 0 {
 				key = args[0]
 			}
-			return handleConfigReset(context.Background(), out, manager, key)
+			return handleConfigReset(context.Background(), newTerminal(), newConfigManager(), key)
 		},
 	}
 }

@@ -40,10 +40,7 @@ func newUnskipCmd() *cobra.Command {
 	)
 	// Default behavior when called without subcommand: clear all skips.
 	cmd.RunE = func(_ *cobra.Command, _ []string) error {
-		out := output.NewTerminal(os.Stdout, os.Stderr)
-		storage := skipregistry.DefaultStorage()
-		registry := skipregistry.NewRegistry(storage)
-		return clearSkips(context.Background(), out, registry)
+		return clearSkips(context.Background(), newTerminal(), newSkipRegistry())
 	}
 	return cmd
 }
@@ -54,10 +51,7 @@ func newSkipLintCmd() *cobra.Command {
 		Short:   "Skip linting in the current directory",
 		Example: "  cc-tools skip lint",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			storage := skipregistry.DefaultStorage()
-			registry := skipregistry.NewRegistry(storage)
-			return addSkip(context.Background(), out, registry, skipregistry.SkipTypeLint)
+			return addSkip(context.Background(), newTerminal(), newSkipRegistry(), skipregistry.SkipTypeLint)
 		},
 	}
 }
@@ -68,10 +62,7 @@ func newSkipTestCmd() *cobra.Command {
 		Short:   "Skip testing in the current directory",
 		Example: "  cc-tools skip test",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			storage := skipregistry.DefaultStorage()
-			registry := skipregistry.NewRegistry(storage)
-			return addSkip(context.Background(), out, registry, skipregistry.SkipTypeTest)
+			return addSkip(context.Background(), newTerminal(), newSkipRegistry(), skipregistry.SkipTypeTest)
 		},
 	}
 }
@@ -82,10 +73,7 @@ func newSkipAllCmd() *cobra.Command {
 		Short:   "Skip both linting and testing in the current directory",
 		Example: "  cc-tools skip all",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			storage := skipregistry.DefaultStorage()
-			registry := skipregistry.NewRegistry(storage)
-			return addSkip(context.Background(), out, registry, skipregistry.SkipTypeAll)
+			return addSkip(context.Background(), newTerminal(), newSkipRegistry(), skipregistry.SkipTypeAll)
 		},
 	}
 }
@@ -95,10 +83,7 @@ func newSkipListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "Show all directories with skip configurations",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			storage := skipregistry.DefaultStorage()
-			registry := skipregistry.NewRegistry(storage)
-			return listSkips(context.Background(), out, registry)
+			return listSkips(context.Background(), newTerminal(), newSkipRegistry())
 		},
 	}
 }
@@ -109,10 +94,7 @@ func newSkipStatusCmd() *cobra.Command {
 		Short:   "Show skip status for the current directory",
 		Example: "  cc-tools skip status",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			storage := skipregistry.DefaultStorage()
-			registry := skipregistry.NewRegistry(storage)
-			return showStatus(context.Background(), out, registry)
+			return showStatus(context.Background(), newTerminal(), newSkipRegistry())
 		},
 	}
 }
@@ -123,10 +105,7 @@ func newUnskipLintCmd() *cobra.Command {
 		Short:   "Remove skip for linting in the current directory",
 		Example: "  cc-tools unskip lint",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			storage := skipregistry.DefaultStorage()
-			registry := skipregistry.NewRegistry(storage)
-			return removeSkip(context.Background(), out, registry, skipregistry.SkipTypeLint)
+			return removeSkip(context.Background(), newTerminal(), newSkipRegistry(), skipregistry.SkipTypeLint)
 		},
 	}
 }
@@ -137,10 +116,7 @@ func newUnskipTestCmd() *cobra.Command {
 		Short:   "Remove skip for testing in the current directory",
 		Example: "  cc-tools unskip test",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			storage := skipregistry.DefaultStorage()
-			registry := skipregistry.NewRegistry(storage)
-			return removeSkip(context.Background(), out, registry, skipregistry.SkipTypeTest)
+			return removeSkip(context.Background(), newTerminal(), newSkipRegistry(), skipregistry.SkipTypeTest)
 		},
 	}
 }
@@ -151,10 +127,7 @@ func newUnskipAllCmd() *cobra.Command {
 		Short:   "Remove all skips for the current directory",
 		Example: "  cc-tools unskip all",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			storage := skipregistry.DefaultStorage()
-			registry := skipregistry.NewRegistry(storage)
-			return clearSkips(context.Background(), out, registry)
+			return clearSkips(context.Background(), newTerminal(), newSkipRegistry())
 		},
 	}
 }

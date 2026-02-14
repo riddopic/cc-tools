@@ -34,9 +34,8 @@ func newDebugEnableCmd() *cobra.Command {
 		Short:   "Enable debug logging for the current directory",
 		Example: "  cc-tools debug enable",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			manager := debug.NewManager()
-			return enableDebug(context.Background(), out, manager)
+			out := newTerminal()
+			return enableDebug(context.Background(), out, newDebugManager())
 		},
 	}
 }
@@ -47,9 +46,8 @@ func newDebugDisableCmd() *cobra.Command {
 		Short:   "Disable debug logging for the current directory",
 		Example: "  cc-tools debug disable",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			manager := debug.NewManager()
-			return disableDebug(context.Background(), out, manager)
+			out := newTerminal()
+			return disableDebug(context.Background(), out, newDebugManager())
 		},
 	}
 }
@@ -60,9 +58,8 @@ func newDebugStatusCmd() *cobra.Command {
 		Short:   "Show debug status for the current directory",
 		Example: "  cc-tools debug status",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			manager := debug.NewManager()
-			return showDebugStatus(context.Background(), out, manager)
+			out := newTerminal()
+			return showDebugStatus(context.Background(), out, newDebugManager())
 		},
 	}
 }
@@ -72,9 +69,8 @@ func newDebugListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "Show all directories with debug logging enabled",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			manager := debug.NewManager()
-			return listDebugDirs(context.Background(), out, manager)
+			out := newTerminal()
+			return listDebugDirs(context.Background(), out, newDebugManager())
 		},
 	}
 }
@@ -85,8 +81,7 @@ func newDebugFilenameCmd() *cobra.Command {
 		Short:   "Print the debug log filename for the current directory",
 		Example: "  cc-tools debug filename",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			out := output.NewTerminal(os.Stdout, os.Stderr)
-			return showDebugFilename(out)
+			return showDebugFilename(newTerminal())
 		},
 	}
 }
