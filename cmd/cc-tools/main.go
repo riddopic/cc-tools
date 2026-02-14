@@ -14,10 +14,13 @@ import (
 	"strings"
 	"time"
 
+	"os/exec"
+
 	"github.com/riddopic/cc-tools/internal/compact"
 	"github.com/riddopic/cc-tools/internal/config"
 	"github.com/riddopic/cc-tools/internal/hookcmd"
 	"github.com/riddopic/cc-tools/internal/hooks"
+	"github.com/riddopic/cc-tools/internal/notify"
 	"github.com/riddopic/cc-tools/internal/observe"
 	"github.com/riddopic/cc-tools/internal/output"
 	"github.com/riddopic/cc-tools/internal/pkgmanager"
@@ -179,7 +182,6 @@ func buildHookRegistry() map[string][]hookcmd.Handler {
 		"PostToolUse":        {observeHandler(cfg, "post")},
 		"PostToolUseFailure": {observeHandler(cfg, "failure")},
 		"PreCompact":         {logCompactionHandler()},
-		"Stop":               {stopGuardHandler()},
 		"Notification":       {notifyAudioHandler(cfg), notifyDesktopHandler(cfg)},
 	}
 }
@@ -274,18 +276,6 @@ func logCompactionHandler() *handlerFunc {
 	}
 }
 
-func stopGuardHandler() *handlerFunc {
-	return &handlerFunc{
-		name: "stop-guard",
-		fn: func(_ context.Context, input *hookcmd.HookInput, _, _ io.Writer) error {
-			if input.StopHookActive {
-				return nil
-			}
-			return nil
-		},
-	}
-}
-
 func notifyAudioHandler(cfg *config.Values) *handlerFunc {
 	return &handlerFunc{
 		name: "notify-audio",
@@ -293,25 +283,65 @@ func notifyAudioHandler(cfg *config.Values) *handlerFunc {
 			if cfg == nil || !cfg.Notify.Audio.Enabled {
 				return nil
 			}
-			// Audio playback requires a real AudioPlayer implementation.
-			// Skipping until one is available.
-			return nil
+
+			player := &afPlayer{}
+			qh := notify.QuietHours{
+				Enabled: cfg.Notify.QuietHours.Enabled,
+				Start:   cfg.Notify.QuietHours.Start,
+				End:     cfg.Notify.QuietHours.End,
+			}
+			audio := notify.NewAudio(player, cfg.Notify.Audio.Directory, qh, nil)
+			return audio.PlayRandom()
 		},
 	}
+}
+
+// afPlayer implements notify.AudioPlayer using macOS afplay.
+type afPlayer struct{}
+
+func (a *afPlayer) Play(filepath string) error {
+	return exec.Command("afplay", filepath).Run()
 }
 
 func notifyDesktopHandler(cfg *config.Values) *handlerFunc {
 	return &handlerFunc{
 		name: "notify-desktop",
-		fn: func(_ context.Context, _ *hookcmd.HookInput, _, _ io.Writer) error {
+		fn: func(_ context.Context, input *hookcmd.HookInput, _, _ io.Writer) error {
 			if cfg == nil || !cfg.Notify.Desktop.Enabled {
 				return nil
 			}
-			// Desktop notifications require a real CmdRunner implementation.
-			// Skipping until one is available.
-			return nil
+
+			qh := notify.QuietHours{
+				Enabled: cfg.Notify.QuietHours.Enabled,
+				Start:   cfg.Notify.QuietHours.Start,
+				End:     cfg.Notify.QuietHours.End,
+			}
+			if qh.IsActive(time.Now()) {
+				return nil
+			}
+
+			runner := &osascriptRunner{}
+			desktop := notify.NewDesktop(runner)
+
+			title := "Claude Code"
+			message := "Task completed"
+			if input.Title != "" {
+				title = input.Title
+			}
+			if input.Message != "" {
+				message = input.Message
+			}
+
+			return desktop.Send(title, message)
 		},
 	}
+}
+
+// osascriptRunner implements notify.CmdRunner.
+type osascriptRunner struct{}
+
+func (o *osascriptRunner) Run(name string, args ...string) error {
+	return exec.Command(name, args...).Run()
 }
 
 func runSessionCommand() {
