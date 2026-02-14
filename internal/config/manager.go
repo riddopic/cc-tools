@@ -254,7 +254,7 @@ func (m *Manager) GetAll(ctx context.Context) (map[string]Info, error) {
 		}
 	}
 
-	defaults := getDefaultConfig()
+	defaults := GetDefaultConfig()
 	result := make(map[string]Info)
 
 	// Process all configuration keys
@@ -288,7 +288,7 @@ func (m *Manager) Reset(_ context.Context, key string) error {
 		}
 	}
 
-	defaults := getDefaultConfig()
+	defaults := GetDefaultConfig()
 
 	// Reset to default value
 	switch key {
@@ -341,7 +341,7 @@ func (m *Manager) Reset(_ context.Context, key string) error {
 // ResetAll resets all configuration to defaults.
 func (m *Manager) ResetAll(_ context.Context) error {
 	// Create new config with defaults
-	m.config = getDefaultConfig()
+	m.config = GetDefaultConfig()
 
 	// Save to file
 	if err := m.saveConfig(); err != nil {
@@ -370,7 +370,7 @@ func (m *Manager) GetConfigPath() string {
 // loadConfig loads the configuration from file.
 func (m *Manager) loadConfig() error {
 	// Initialize with defaults
-	m.config = getDefaultConfig()
+	m.config = GetDefaultConfig()
 
 	// Read file if it exists
 	data, err := os.ReadFile(m.configPath)
@@ -426,7 +426,7 @@ func (m *Manager) saveConfig() error {
 
 // createDefaultConfig creates a configuration file with default values.
 func (m *Manager) createDefaultConfig() error {
-	m.config = getDefaultConfig()
+	m.config = GetDefaultConfig()
 	return m.saveConfig()
 }
 
@@ -434,7 +434,7 @@ func (m *Manager) createDefaultConfig() error {
 // Boolean fields are not checked here because we unmarshal into a defaults struct,
 // which preserves default true values when the field is absent from JSON.
 func (m *Manager) ensureDefaults() {
-	defaults := getDefaultConfig()
+	defaults := GetDefaultConfig()
 
 	if m.config.Validate.Timeout == 0 {
 		m.config.Validate.Timeout = defaults.Validate.Timeout
@@ -474,7 +474,7 @@ func (m *Manager) ensureDefaults() {
 // convertFromMap converts the old map-based config to the new structured format.
 func (m *Manager) convertFromMap(mapConfig map[string]any) {
 	// Initialize with defaults
-	m.config = getDefaultConfig()
+	m.config = GetDefaultConfig()
 
 	convertValidateFromMap(&m.config.Validate, mapConfig)
 	convertNotificationsFromMap(&m.config.Notifications, mapConfig)

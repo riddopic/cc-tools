@@ -101,8 +101,8 @@ func ExportDefaultPreCommitEnabled() bool { return defaultPreCommitEnabled }
 // ExportDefaultPreCommitCommand returns the unexported default constant.
 func ExportDefaultPreCommitCommand() string { return defaultPreCommitCommand }
 
-// ExportGetDefaultConfig exposes getDefaultConfig for testing.
-func ExportGetDefaultConfig() *Values { return getDefaultConfig() }
+// ExportGetDefaultConfig exposes GetDefaultConfig for testing.
+func ExportGetDefaultConfig() *Values { return GetDefaultConfig() }
 
 // ExportGetDefaultValue exposes getDefaultValue for testing.
 func ExportGetDefaultValue(defaults *Values, key string) string {
