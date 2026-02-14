@@ -263,6 +263,8 @@ linters:
         - ^gopkg.in/yaml.v3.Node$
         # internal types with many optional fields
         - ^github.com/riddopic/cc-tools/internal/hookcmd\.HookInput$
+        - ^github.com/riddopic/cc-tools/internal/handler\.Response$
+        - ^github.com/riddopic/cc-tools/internal/handler\.HookOutput$
       # Allows empty structures in return statements.
       # Default: false
       allow-empty-returns: true
