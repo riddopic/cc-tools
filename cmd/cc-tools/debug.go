@@ -6,74 +6,90 @@ import (
 	"os"
 	"sort"
 
+	"github.com/spf13/cobra"
+
 	"github.com/riddopic/cc-tools/internal/debug"
 	"github.com/riddopic/cc-tools/internal/output"
 	"github.com/riddopic/cc-tools/internal/shared"
 )
 
-const (
-	minDebugArgs = 3
-	listCommand  = "list"
-)
-
-func runDebugCommand() {
-	out := output.NewTerminal(os.Stdout, os.Stderr)
-
-	if len(os.Args) < minDebugArgs {
-		printDebugUsage(out)
-		os.Exit(1)
+func newDebugCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "debug",
+		Short: "Configure debug logging for directories",
 	}
+	cmd.AddCommand(
+		newDebugEnableCmd(),
+		newDebugDisableCmd(),
+		newDebugStatusCmd(),
+		newDebugListCmd(),
+		newDebugFilenameCmd(),
+	)
+	return cmd
+}
 
-	ctx := context.Background()
-	manager := debug.NewManager()
-
-	switch os.Args[2] {
-	case "enable":
-		if err := enableDebug(ctx, out, manager); err != nil {
-			_ = out.Error("Error: %v", err)
-			os.Exit(1)
-		}
-	case "disable":
-		if err := disableDebug(ctx, out, manager); err != nil {
-			_ = out.Error("Error: %v", err)
-			os.Exit(1)
-		}
-	case "status":
-		if err := showDebugStatus(ctx, out, manager); err != nil {
-			_ = out.Error("Error: %v", err)
-			os.Exit(1)
-		}
-	case listCommand:
-		if err := listDebugDirs(ctx, out, manager); err != nil {
-			_ = out.Error("Error: %v", err)
-			os.Exit(1)
-		}
-	case "filename":
-		showDebugFilename(out)
-	default:
-		_ = out.Error("Unknown debug subcommand: %s", os.Args[2])
-		printDebugUsage(out)
-		os.Exit(1)
+func newDebugEnableCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "enable",
+		Short:   "Enable debug logging for the current directory",
+		Example: "  cc-tools debug enable",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			out := output.NewTerminal(os.Stdout, os.Stderr)
+			manager := debug.NewManager()
+			return enableDebug(context.Background(), out, manager)
+		},
 	}
 }
 
-func printDebugUsage(out *output.Terminal) {
-	_ = out.RawError(`Usage: cc-tools debug <subcommand>
+func newDebugDisableCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "disable",
+		Short:   "Disable debug logging for the current directory",
+		Example: "  cc-tools debug disable",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			out := output.NewTerminal(os.Stdout, os.Stderr)
+			manager := debug.NewManager()
+			return disableDebug(context.Background(), out, manager)
+		},
+	}
+}
 
-Subcommands:
-  enable    Enable debug logging for the current directory
-  disable   Disable debug logging for the current directory
-  status    Show debug status for the current directory
-  list      Show all directories with debug logging enabled
-  filename  Print the debug log filename for the current directory
+func newDebugStatusCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "status",
+		Short:   "Show debug status for the current directory",
+		Example: "  cc-tools debug status",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			out := output.NewTerminal(os.Stdout, os.Stderr)
+			manager := debug.NewManager()
+			return showDebugStatus(context.Background(), out, manager)
+		},
+	}
+}
 
-Examples:
-  cc-tools debug enable     # Enable debug logging in current directory
-  cc-tools debug disable    # Disable debug logging in current directory
-  cc-tools debug status     # Check if debug logging is enabled
-  cc-tools debug list       # List all directories with debug enabled
-  cc-tools debug filename   # Get the debug log file path for current directory
-`)
+func newDebugListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "Show all directories with debug logging enabled",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			out := output.NewTerminal(os.Stdout, os.Stderr)
+			manager := debug.NewManager()
+			return listDebugDirs(context.Background(), out, manager)
+		},
+	}
+}
+
+func newDebugFilenameCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "filename",
+		Short:   "Print the debug log filename for the current directory",
+		Example: "  cc-tools debug filename",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			out := output.NewTerminal(os.Stdout, os.Stderr)
+			showDebugFilename(out)
+			return nil
+		},
+	}
 }
 
 func enableDebug(ctx context.Context, out *output.Terminal, manager *debug.Manager) error {
@@ -121,7 +137,6 @@ func showDebugStatus(ctx context.Context, out *output.Terminal, manager *debug.M
 		return fmt.Errorf("check debug status: %w", err)
 	}
 
-	// Create table for debug status
 	table := output.NewTable(
 		[]string{"Property", "Value"},
 		[]int{15, 60},
@@ -154,7 +169,6 @@ func listDebugDirs(ctx context.Context, out *output.Terminal, manager *debug.Man
 
 	sort.Strings(dirs)
 
-	// Create table for debug directories
 	table := output.NewTable(
 		[]string{"Directory", "Log File", "Debug File"},
 		[]int{30, 35, 35},
@@ -177,7 +191,6 @@ func listDebugDirs(ctx context.Context, out *output.Terminal, manager *debug.Man
 }
 
 func showDebugFilename(out *output.Terminal) {
-	// Print the debug log filename for the current directory
 	wd, err := os.Getwd()
 	if err != nil {
 		_ = out.Error("Error getting current directory: %v", err)

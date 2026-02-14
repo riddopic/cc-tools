@@ -9,133 +9,156 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/riddopic/cc-tools/internal/output"
 	"github.com/riddopic/cc-tools/internal/skipregistry"
 )
 
-const (
-	skipLint    = "lint"
-	skipTest    = "test"
-	skipAll     = "all"
-	minSkipArgs = 3
-)
-
-// runSkipCommand handles the skip command and its subcommands.
-func runSkipCommand() {
-	out := output.NewTerminal(os.Stdout, os.Stderr)
-
-	if len(os.Args) < minSkipArgs {
-		printSkipUsage(out)
-		os.Exit(1)
+func newSkipCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "skip",
+		Short: "Configure skip settings for directories",
 	}
+	cmd.AddCommand(
+		newSkipLintCmd(),
+		newSkipTestCmd(),
+		newSkipAllCmd(),
+		newSkipListCmd(),
+		newSkipStatusCmd(),
+	)
+	return cmd
+}
 
-	ctx := context.Background()
-	storage := skipregistry.DefaultStorage()
-	registry := skipregistry.NewRegistry(storage)
+func newUnskipCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "unskip",
+		Short: "Remove skip settings from directories",
+	}
+	cmd.AddCommand(
+		newUnskipLintCmd(),
+		newUnskipTestCmd(),
+		newUnskipAllCmd(),
+	)
+	// Default behavior when called without subcommand: clear all skips.
+	cmd.RunE = func(_ *cobra.Command, _ []string) error {
+		out := output.NewTerminal(os.Stdout, os.Stderr)
+		storage := skipregistry.DefaultStorage()
+		registry := skipregistry.NewRegistry(storage)
+		return clearSkips(context.Background(), out, registry)
+	}
+	return cmd
+}
 
-	switch os.Args[2] {
-	case skipLint:
-		if err := addSkip(ctx, out, registry, skipregistry.SkipTypeLint); err != nil {
-			_ = out.Error("Error: %v", err)
-			os.Exit(1)
-		}
-	case skipTest:
-		if err := addSkip(ctx, out, registry, skipregistry.SkipTypeTest); err != nil {
-			_ = out.Error("Error: %v", err)
-			os.Exit(1)
-		}
-	case skipAll:
-		if err := addSkip(ctx, out, registry, skipregistry.SkipTypeAll); err != nil {
-			_ = out.Error("Error: %v", err)
-			os.Exit(1)
-		}
-	case listCommand:
-		if err := listSkips(ctx, out, registry); err != nil {
-			_ = out.Error("Error: %v", err)
-			os.Exit(1)
-		}
-	case "status":
-		if err := showStatus(ctx, out, registry); err != nil {
-			_ = out.Error("Error: %v", err)
-			os.Exit(1)
-		}
-	default:
-		_ = out.Error("Unknown skip subcommand: %s", os.Args[2])
-		printSkipUsage(out)
-		os.Exit(1)
+func newSkipLintCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "lint",
+		Short:   "Skip linting in the current directory",
+		Example: "  cc-tools skip lint",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			out := output.NewTerminal(os.Stdout, os.Stderr)
+			storage := skipregistry.DefaultStorage()
+			registry := skipregistry.NewRegistry(storage)
+			return addSkip(context.Background(), out, registry, skipregistry.SkipTypeLint)
+		},
 	}
 }
 
-// runUnskipCommand handles the unskip command.
-func runUnskipCommand() {
-	out := output.NewTerminal(os.Stdout, os.Stderr)
-
-	if len(os.Args) < minSkipArgs {
-		printUnskipUsage(out)
-		os.Exit(1)
-	}
-
-	ctx := context.Background()
-	storage := skipregistry.DefaultStorage()
-	registry := skipregistry.NewRegistry(storage)
-
-	switch os.Args[2] {
-	case skipLint:
-		if err := removeSkip(ctx, out, registry, skipregistry.SkipTypeLint); err != nil {
-			_ = out.Error("Error: %v", err)
-			os.Exit(1)
-		}
-	case skipTest:
-		if err := removeSkip(ctx, out, registry, skipregistry.SkipTypeTest); err != nil {
-			_ = out.Error("Error: %v", err)
-			os.Exit(1)
-		}
-	case skipAll:
-		if err := clearSkips(ctx, out, registry); err != nil {
-			_ = out.Error("Error: %v", err)
-			os.Exit(1)
-		}
-	default:
-		// If no argument, default to "all"
-		if err := clearSkips(ctx, out, registry); err != nil {
-			_ = out.Error("Error: %v", err)
-			os.Exit(1)
-		}
+func newSkipTestCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "test",
+		Short:   "Skip testing in the current directory",
+		Example: "  cc-tools skip test",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			out := output.NewTerminal(os.Stdout, os.Stderr)
+			storage := skipregistry.DefaultStorage()
+			registry := skipregistry.NewRegistry(storage)
+			return addSkip(context.Background(), out, registry, skipregistry.SkipTypeTest)
+		},
 	}
 }
 
-func printSkipUsage(out *output.Terminal) {
-	_ = out.RawError(`Usage: cc-tools skip <subcommand>
-
-Subcommands:
-  lint      Skip linting in the current directory
-  test      Skip testing in the current directory
-  all       Skip both linting and testing in the current directory
-  list      Show all directories with skip configurations
-  status    Show skip status for the current directory
-
-Examples:
-  cc-tools skip lint        # Skip linting in current directory
-  cc-tools skip all         # Skip both lint and test in current directory
-  cc-tools skip list        # List all skip configurations
-  cc-tools skip status      # Show skip status for current directory
-`)
+func newSkipAllCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "all",
+		Short:   "Skip both linting and testing in the current directory",
+		Example: "  cc-tools skip all",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			out := output.NewTerminal(os.Stdout, os.Stderr)
+			storage := skipregistry.DefaultStorage()
+			registry := skipregistry.NewRegistry(storage)
+			return addSkip(context.Background(), out, registry, skipregistry.SkipTypeAll)
+		},
+	}
 }
 
-func printUnskipUsage(out *output.Terminal) {
-	_ = out.RawError(`Usage: cc-tools unskip [<type>]
+func newSkipListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "Show all directories with skip configurations",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			out := output.NewTerminal(os.Stdout, os.Stderr)
+			storage := skipregistry.DefaultStorage()
+			registry := skipregistry.NewRegistry(storage)
+			return listSkips(context.Background(), out, registry)
+		},
+	}
+}
 
-Types:
-  lint      Remove skip for linting in the current directory
-  test      Remove skip for testing in the current directory
-  all       Remove all skips for the current directory (default)
+func newSkipStatusCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "status",
+		Short:   "Show skip status for the current directory",
+		Example: "  cc-tools skip status",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			out := output.NewTerminal(os.Stdout, os.Stderr)
+			storage := skipregistry.DefaultStorage()
+			registry := skipregistry.NewRegistry(storage)
+			return showStatus(context.Background(), out, registry)
+		},
+	}
+}
 
-Examples:
-  cc-tools unskip           # Remove all skips from current directory
-  cc-tools unskip lint      # Remove lint skip from current directory
-  cc-tools unskip test      # Remove test skip from current directory
-  cc-tools unskip all       # Remove all skips from current directory
-`)
+func newUnskipLintCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "lint",
+		Short:   "Remove skip for linting in the current directory",
+		Example: "  cc-tools unskip lint",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			out := output.NewTerminal(os.Stdout, os.Stderr)
+			storage := skipregistry.DefaultStorage()
+			registry := skipregistry.NewRegistry(storage)
+			return removeSkip(context.Background(), out, registry, skipregistry.SkipTypeLint)
+		},
+	}
+}
+
+func newUnskipTestCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "test",
+		Short:   "Remove skip for testing in the current directory",
+		Example: "  cc-tools unskip test",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			out := output.NewTerminal(os.Stdout, os.Stderr)
+			storage := skipregistry.DefaultStorage()
+			registry := skipregistry.NewRegistry(storage)
+			return removeSkip(context.Background(), out, registry, skipregistry.SkipTypeTest)
+		},
+	}
+}
+
+func newUnskipAllCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "all",
+		Short:   "Remove all skips for the current directory",
+		Example: "  cc-tools unskip all",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			out := output.NewTerminal(os.Stdout, os.Stderr)
+			storage := skipregistry.DefaultStorage()
+			registry := skipregistry.NewRegistry(storage)
+			return clearSkips(context.Background(), out, registry)
+		},
+	}
 }
 
 func validateSkipPath(dir string) (string, error) {
@@ -172,7 +195,6 @@ func addSkip(
 		return fmt.Errorf("add skip: %w", addErr)
 	}
 
-	// Print confirmation
 	switch skipType {
 	case skipregistry.SkipTypeLint:
 		_ = out.Success("✓ Linting will be skipped in %s", dir)
@@ -200,7 +222,6 @@ func removeSkip(
 		return fmt.Errorf("remove skip: %w", removeErr)
 	}
 
-	// Print confirmation
 	switch skipType {
 	case skipregistry.SkipTypeLint:
 		_ = out.Success("✓ Linting will no longer be skipped in %s", dir)
@@ -246,12 +267,10 @@ func listSkips(
 		return nil
 	}
 
-	// Sort entries by path for consistent output
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].Path.String() < entries[j].Path.String()
 	})
 
-	// Create table for skip configurations
 	table := output.NewTable(
 		[]string{"Directory", "Skip Types"},
 		[]int{50, 30},
@@ -294,13 +313,11 @@ func showStatus(
 		return nil
 	}
 
-	// Create table for skip status
 	table := output.NewTable(
 		[]string{"Type", "Status"},
 		[]int{20, 30},
 	)
 
-	// Add status for each possible type
 	hasLint := false
 	hasTest := false
 	for _, t := range types {
@@ -310,7 +327,6 @@ func showStatus(
 		case skipregistry.SkipTypeTest:
 			hasTest = true
 		case skipregistry.SkipTypeAll:
-			// This case won't occur as we don't store SkipTypeAll
 			hasLint = true
 			hasTest = true
 		}

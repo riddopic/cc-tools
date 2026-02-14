@@ -8,95 +8,88 @@ import (
 	"sort"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/spf13/cobra"
 
 	"github.com/riddopic/cc-tools/internal/config"
 	"github.com/riddopic/cc-tools/internal/output"
 )
 
-const (
-	minConfigArgs = 3
-	minGetArgs    = 4
-	minSetArgs    = 5
-)
+const configSetArgs = 2
 
-func runConfigCommand() {
-	out := output.NewTerminal(os.Stdout, os.Stderr)
-
-	if len(os.Args) < minConfigArgs {
-		printConfigUsage(out)
-		os.Exit(1)
+func newConfigCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "config",
+		Short: "Manage configuration settings",
 	}
+	cmd.AddCommand(
+		newConfigGetCmd(),
+		newConfigSetCmd(),
+		newConfigListCmd(),
+		newConfigResetCmd(),
+	)
+	return cmd
+}
 
-	ctx := context.Background()
-	manager := config.NewManager()
-
-	switch os.Args[2] {
-	case "get":
-		if len(os.Args) < minGetArgs {
-			_ = out.Error("Error: 'get' requires a key")
-			printConfigUsage(out)
-			os.Exit(1)
-		}
-		if err := handleConfigGet(ctx, out, manager, os.Args[3]); err != nil {
-			_ = out.Error("Error: %v", err)
-			os.Exit(1)
-		}
-	case "set":
-		if len(os.Args) < minSetArgs {
-			_ = out.Error("Error: 'set' requires a key and value")
-			printConfigUsage(out)
-			os.Exit(1)
-		}
-		if err := handleConfigSet(ctx, out, manager, os.Args[3], os.Args[4]); err != nil {
-			_ = out.Error("Error: %v", err)
-			os.Exit(1)
-		}
-	case listCommand, "show":
-		if err := handleConfigList(ctx, out, manager); err != nil {
-			_ = out.Error("Error: %v", err)
-			os.Exit(1)
-		}
-	case "reset":
-		var key string
-		if len(os.Args) >= minGetArgs {
-			key = os.Args[3]
-		}
-		if err := handleConfigReset(ctx, out, manager, key); err != nil {
-			_ = out.Error("Error: %v", err)
-			os.Exit(1)
-		}
-	default:
-		_ = out.Error("Unknown config subcommand: %s", os.Args[2])
-		printConfigUsage(out)
-		os.Exit(1)
+func newConfigGetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "get <key>",
+		Short:   "Get a configuration value",
+		Args:    cobra.ExactArgs(1),
+		Example: "  cc-tools config get validate.timeout",
+		RunE: func(_ *cobra.Command, args []string) error {
+			out := output.NewTerminal(os.Stdout, os.Stderr)
+			manager := config.NewManager()
+			return handleConfigGet(context.Background(), out, manager, args[0])
+		},
 	}
 }
 
-func printConfigUsage(out *output.Terminal) {
-	_ = out.RawError(`Usage: cc-tools config <subcommand> [arguments]
+func newConfigSetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "set <key> <value>",
+		Short:   "Set a configuration value",
+		Args:    cobra.ExactArgs(configSetArgs),
+		Example: "  cc-tools config set validate.timeout 90",
+		RunE: func(_ *cobra.Command, args []string) error {
+			out := output.NewTerminal(os.Stdout, os.Stderr)
+			manager := config.NewManager()
+			return handleConfigSet(context.Background(), out, manager, args[0], args[1])
+		},
+	}
+}
 
-Subcommands:
-  get <key>         Get a configuration value
-  set <key> <value> Set a configuration value
-  list              Show all configuration with defaults and overrides
-  show              Alias for list
-  reset [key]       Reset configuration to defaults (all or specific key)
+func newConfigListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "list",
+		Short:   "Show all configuration with defaults and overrides",
+		Aliases: []string{"show"},
+		RunE: func(_ *cobra.Command, _ []string) error {
+			out := output.NewTerminal(os.Stdout, os.Stderr)
+			manager := config.NewManager()
+			return handleConfigList(context.Background(), out, manager)
+		},
+	}
+}
 
-Configuration Keys:
-  validate.timeout    Timeout for validation commands (seconds)
-  validate.cooldown   Cooldown between validation runs (seconds)
-
-Examples:
-  cc-tools config set validate.timeout 90
-  cc-tools config get validate.timeout
-  cc-tools config list
-  cc-tools config reset validate.timeout
-  cc-tools config reset              # Reset all to defaults
-`)
+func newConfigResetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "reset [key]",
+		Short:   "Reset configuration to defaults (all or specific key)",
+		Args:    cobra.MaximumNArgs(1),
+		Example: "  cc-tools config reset validate.timeout\n  cc-tools config reset",
+		RunE: func(_ *cobra.Command, args []string) error {
+			out := output.NewTerminal(os.Stdout, os.Stderr)
+			manager := config.NewManager()
+			var key string
+			if len(args) > 0 {
+				key = args[0]
+			}
+			return handleConfigReset(context.Background(), out, manager, key)
+		},
+	}
 }
 
 func handleConfigGet(ctx context.Context, out *output.Terminal, manager *config.Manager, key string) error {
-	// Ensure config exists with defaults
 	if err := manager.EnsureConfig(ctx); err != nil {
 		return fmt.Errorf("ensure config: %w", err)
 	}
@@ -121,7 +114,6 @@ func handleConfigGet(ctx context.Context, out *output.Terminal, manager *config.
 }
 
 func handleConfigSet(ctx context.Context, out *output.Terminal, manager *config.Manager, key, value string) error {
-	// Ensure config exists with defaults
 	if err := manager.EnsureConfig(ctx); err != nil {
 		return fmt.Errorf("ensure config: %w", err)
 	}
@@ -135,7 +127,6 @@ func handleConfigSet(ctx context.Context, out *output.Terminal, manager *config.
 }
 
 func handleConfigList(ctx context.Context, out *output.Terminal, manager *config.Manager) error {
-	// Ensure config exists with defaults
 	if err := manager.EnsureConfig(ctx); err != nil {
 		return fmt.Errorf("ensure config: %w", err)
 	}
@@ -145,22 +136,19 @@ func handleConfigList(ctx context.Context, out *output.Terminal, manager *config
 		return fmt.Errorf("get all config: %w", err)
 	}
 
-	// Sort keys for consistent display
 	keys := make([]string, 0, len(settings))
 	for key := range settings {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 
-	// Create table
 	table := output.NewTable(
 		[]string{"Setting", "Value", "Status"},
 		[]int{30, 25, 10},
 	)
 
-	// Create styles for status column
-	defaultStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240")) // Gray for defaults
-	customStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("220"))  // Yellow for custom
+	defaultStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	customStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("220"))
 
 	for _, key := range keys {
 		info := settings[key]
@@ -171,7 +159,6 @@ func handleConfigList(ctx context.Context, out *output.Terminal, manager *config
 			status = customStyle.Render("custom")
 		}
 
-		// Handle empty values display
 		value := info.Value
 		if value == "" {
 			value = "(empty)"
@@ -183,7 +170,6 @@ func handleConfigList(ctx context.Context, out *output.Terminal, manager *config
 	_ = out.Info("Configuration Settings")
 	_ = out.Write(table.Render())
 
-	// Show config file location
 	configPath := manager.GetConfigPath()
 	_ = out.Info("\nConfig file: %s", configPath)
 
@@ -192,13 +178,11 @@ func handleConfigList(ctx context.Context, out *output.Terminal, manager *config
 
 func handleConfigReset(ctx context.Context, out *output.Terminal, manager *config.Manager, key string) error {
 	if key == "" {
-		// Reset all
 		if err := manager.ResetAll(ctx); err != nil {
 			return fmt.Errorf("reset all config: %w", err)
 		}
 		_ = out.Success("✓ Reset all configuration to defaults")
 	} else {
-		// Reset specific key
 		if err := manager.Reset(ctx, key); err != nil {
 			return fmt.Errorf("reset config key: %w", err)
 		}
