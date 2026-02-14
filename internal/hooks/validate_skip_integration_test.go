@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/riddopic/cc-tools/internal/hookcmd"
 	"github.com/riddopic/cc-tools/internal/hooks"
 )
 
@@ -74,12 +74,11 @@ func TestValidateWithSkipCheck_RealIntegration(t *testing.T) {
 			updateToolInputPathIntegration(tt.input, tmpDir)
 
 			inputJSON, _ := json.Marshal(tt.input)
-			stdin := bytes.NewReader(inputJSON)
 			var stdout, stderr bytes.Buffer
 
 			exitCode := hooks.ValidateWithSkipCheck(
 				context.Background(),
-				stdin, &stdout, &stderr,
+				inputJSON, &stdout, &stderr,
 				tt.debug, 5, 0,
 			)
 
@@ -134,14 +133,6 @@ func TestCheckSkipsFromInput_Unit(t *testing.T) {
 			},
 		},
 		{
-			name:  "invalid JSON",
-			input: `{invalid json}`,
-			debug: true,
-			wantLogs: []string{
-				"Failed to parse JSON input",
-			},
-		},
-		{
 			name: "no file path",
 			input: `{
 				"hook_event_name": "PostToolUse",
@@ -172,7 +163,16 @@ func TestCheckSkipsFromInput_Unit(t *testing.T) {
 			ctx := context.Background()
 			var stderr hooks.MockOutputWriter
 
-			hooks.CheckSkipsFromInputForTest(ctx, []byte(tt.input), tt.debug, &stderr)
+			input, parseErr := hookcmd.ParseInput(bytes.NewReader([]byte(tt.input)))
+			if parseErr != nil {
+				// For invalid JSON tests, check that the debug output reflects the error
+				if tt.debug {
+					assertStderrStringsIntegration(t, stderr.String(), tt.wantLogs)
+				}
+				return
+			}
+
+			hooks.CheckSkipsFromInputForTest(ctx, input, tt.debug, &stderr)
 
 			assertStderrStringsIntegration(t, stderr.String(), tt.wantLogs)
 		})
@@ -182,22 +182,22 @@ func TestCheckSkipsFromInput_Unit(t *testing.T) {
 func TestValidateWithSkipCheck_ErrorHandling(t *testing.T) {
 	tests := []struct {
 		name         string
-		stdin        io.Reader
+		stdinData    []byte
 		wantExitCode int
 	}{
 		{
-			name:         "empty reader",
-			stdin:        bytes.NewReader([]byte{}),
+			name:         "empty bytes",
+			stdinData:    []byte{},
 			wantExitCode: 0,
 		},
 		{
 			name:         "nil bytes",
-			stdin:        bytes.NewReader(nil),
+			stdinData:    nil,
 			wantExitCode: 0,
 		},
 		{
-			name:         "reader that returns error",
-			stdin:        &errorReaderIntegration{err: context.DeadlineExceeded},
+			name:         "invalid JSON",
+			stdinData:    []byte("{invalid}"),
 			wantExitCode: 0,
 		},
 	}
@@ -208,20 +208,11 @@ func TestValidateWithSkipCheck_ErrorHandling(t *testing.T) {
 
 			exitCode := hooks.ValidateWithSkipCheck(
 				context.Background(),
-				tt.stdin, &stdout, &stderr,
+				tt.stdinData, &stdout, &stderr,
 				false, 1, 0,
 			)
 
 			assertExitCode(t, exitCode, tt.wantExitCode)
 		})
 	}
-}
-
-// errorReaderIntegration is a reader that always returns an error.
-type errorReaderIntegration struct {
-	err error
-}
-
-func (r *errorReaderIntegration) Read(_ []byte) (int, error) {
-	return 0, r.err
 }

@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"time"
+
+	"github.com/riddopic/cc-tools/internal/hookcmd"
 )
 
 // MustMarshalJSON creates a [json.RawMessage] from a map (test helper).
@@ -136,26 +138,6 @@ func (m *MockClock) Now() time.Time {
 	return time.Unix(1700000000, 0)
 }
 
-// MockInputReader implements InputReader for testing.
-type MockInputReader struct {
-	ReadAllFunc    func() ([]byte, error)
-	IsTerminalFunc func() bool
-}
-
-func (m *MockInputReader) ReadAll() ([]byte, error) {
-	if m.ReadAllFunc != nil {
-		return m.ReadAllFunc()
-	}
-	return nil, io.EOF
-}
-
-func (m *MockInputReader) IsTerminal() bool {
-	if m.IsTerminalFunc != nil {
-		return m.IsTerminalFunc()
-	}
-	return false
-}
-
 // MockOutputWriter implements OutputWriter for testing.
 type MockOutputWriter struct {
 	WrittenData []byte
@@ -178,7 +160,6 @@ type TestDependencies struct {
 	MockRunner  *MockCommandRunner
 	MockProcess *MockProcessManager
 	MockClock   *MockClock
-	MockInput   *MockInputReader
 	MockStdout  *MockOutputWriter
 	MockStderr  *MockOutputWriter
 }
@@ -205,10 +186,6 @@ func CreateTestDependencies() *TestDependencies {
 	clock := &MockClock{
 		NowFunc: nil,
 	}
-	input := &MockInputReader{
-		ReadAllFunc:    nil,
-		IsTerminalFunc: nil,
-	}
 	stdout := &MockOutputWriter{
 		WrittenData: nil,
 	}
@@ -222,7 +199,6 @@ func CreateTestDependencies() *TestDependencies {
 			Runner:  runner,
 			Process: process,
 			Clock:   clock,
-			Input:   input,
 			Stdout:  stdout,
 			Stderr:  stderr,
 		},
@@ -230,7 +206,6 @@ func CreateTestDependencies() *TestDependencies {
 		MockRunner:  runner,
 		MockProcess: process,
 		MockClock:   clock,
-		MockInput:   input,
 		MockStdout:  stdout,
 		MockStderr:  stderr,
 	}
@@ -283,7 +258,7 @@ func HandleInputErrorForTest(err error, debug bool, stderr OutputWriter) {
 }
 
 // ValidateHookEventForTest exposes validateHookEvent for external test packages.
-func ValidateHookEventForTest(input *HookInput, debug bool, stderr OutputWriter) (string, bool) {
+func ValidateHookEventForTest(input *hookcmd.HookInput, debug bool, stderr OutputWriter) (string, bool) {
 	return validateHookEvent(input, debug, stderr)
 }
 
@@ -293,8 +268,13 @@ func SplitLinesForTest(s string) []string {
 }
 
 // CheckSkipsFromInputForTest exposes checkSkipsFromInput for external test packages.
-func CheckSkipsFromInputForTest(ctx context.Context, stdinData []byte, debug bool, stderr io.Writer) (bool, bool) {
-	return checkSkipsFromInput(ctx, stdinData, debug, stderr)
+func CheckSkipsFromInputForTest(
+	ctx context.Context,
+	input *hookcmd.HookInput,
+	debug bool,
+	stderr io.Writer,
+) (bool, bool) {
+	return checkSkipsFromInput(ctx, input, debug, stderr)
 }
 
 // SetCleanupOnExit sets the cleanupOnExit field on a LockManager for testing.
