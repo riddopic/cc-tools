@@ -86,8 +86,7 @@ func newDebugFilenameCmd() *cobra.Command {
 		Example: "  cc-tools debug filename",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			out := output.NewTerminal(os.Stdout, os.Stderr)
-			showDebugFilename(out)
-			return nil
+			return showDebugFilename(out)
 		},
 	}
 }
@@ -190,12 +189,12 @@ func listDebugDirs(ctx context.Context, out *output.Terminal, manager *debug.Man
 	return nil
 }
 
-func showDebugFilename(out *output.Terminal) {
+func showDebugFilename(out *output.Terminal) error {
 	wd, err := os.Getwd()
 	if err != nil {
-		_ = out.Error("Error getting current directory: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("get current directory: %w", err)
 	}
 	_ = out.Raw(shared.GetDebugLogPathForDir(wd))
 	_ = out.Raw("\n")
+	return nil
 }

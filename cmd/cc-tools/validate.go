@@ -86,7 +86,7 @@ func runValidate(cmd *cobra.Command, timeout, cooldown int) error {
 	)
 
 	if exitCode != 0 {
-		os.Exit(exitCode)
+		return &exitError{code: exitCode}
 	}
 	return nil
 }

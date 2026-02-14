@@ -69,7 +69,7 @@ func writeHookResponse(stdout, stderr io.Writer, resp *handler.Response) error {
 	}
 
 	if resp.ExitCode != 0 {
-		os.Exit(resp.ExitCode)
+		return &exitError{code: resp.ExitCode}
 	}
 
 	return nil

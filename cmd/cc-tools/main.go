@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -17,7 +18,11 @@ var version = "dev"
 func main() {
 	root := newRootCmd()
 	if err := root.Execute(); err != nil {
-		os.Exit(1)
+		code := 1
+		if exitErr, ok := errors.AsType[*exitError](err); ok {
+			code = exitErr.code
+		}
+		os.Exit(code)
 	}
 }
 
