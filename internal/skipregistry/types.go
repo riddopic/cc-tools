@@ -73,8 +73,8 @@ func ParseSkipType(s string) (SkipType, error) {
 	}
 }
 
-// expandSkipType converts SkipTypeAll to individual skip types.
-func expandSkipType(skipType SkipType) []SkipType {
+// ExpandSkipType converts SkipTypeAll to individual skip types.
+func ExpandSkipType(skipType SkipType) []SkipType {
 	if skipType == SkipTypeAll {
 		return []SkipType{SkipTypeLint, SkipTypeTest}
 	}

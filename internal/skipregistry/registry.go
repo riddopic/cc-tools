@@ -163,7 +163,7 @@ func (r *JSONRegistry) AddSkip(ctx context.Context, dir DirectoryPath, skipType 
 	}
 
 	// Expand the skip type if it's "all"
-	typesToAdd := expandSkipType(skipType)
+	typesToAdd := ExpandSkipType(skipType)
 
 	// Add new types if not already present
 	modified := false
@@ -222,7 +222,7 @@ func (r *JSONRegistry) RemoveSkip(ctx context.Context, dir DirectoryPath, skipTy
 	}
 
 	// Expand the skip type if it's "all"
-	typesToRemove := expandSkipType(skipType)
+	typesToRemove := ExpandSkipType(skipType)
 
 	// Remove specified types
 	modified := false

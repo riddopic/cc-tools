@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -161,20 +159,6 @@ func newUnskipAllCmd() *cobra.Command {
 	}
 }
 
-func validateSkipPath(dir string) (string, error) {
-	absPath, err := filepath.Abs(dir)
-	if err != nil {
-		return "", fmt.Errorf("resolve path: %w", err)
-	}
-
-	cleanPath := filepath.Clean(absPath)
-	if strings.Contains(cleanPath, "..") {
-		return "", errors.New("invalid path: directory traversal not allowed")
-	}
-
-	return cleanPath, nil
-}
-
 func addSkip(
 	ctx context.Context,
 	out *output.Terminal,
@@ -184,11 +168,6 @@ func addSkip(
 	dir, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("get current directory: %w", err)
-	}
-
-	dir, err = validateSkipPath(dir)
-	if err != nil {
-		return err
 	}
 
 	if addErr := registry.AddSkip(ctx, skipregistry.DirectoryPath(dir), skipType); addErr != nil {
@@ -318,27 +297,21 @@ func showStatus(
 		[]int{20, 30},
 	)
 
-	hasLint := false
-	hasTest := false
+	// Expand all types to determine effective skip state.
+	expanded := make(map[skipregistry.SkipType]bool)
 	for _, t := range types {
-		switch t {
-		case skipregistry.SkipTypeLint:
-			hasLint = true
-		case skipregistry.SkipTypeTest:
-			hasTest = true
-		case skipregistry.SkipTypeAll:
-			hasLint = true
-			hasTest = true
+		for _, et := range skipregistry.ExpandSkipType(t) {
+			expanded[et] = true
 		}
 	}
 
-	if hasLint {
+	if expanded[skipregistry.SkipTypeLint] {
 		table.AddRow([]string{"Linting", "SKIPPED"})
 	} else {
 		table.AddRow([]string{"Linting", "Active"})
 	}
 
-	if hasTest {
+	if expanded[skipregistry.SkipTypeTest] {
 		table.AddRow([]string{"Testing", "SKIPPED"})
 	} else {
 		table.AddRow([]string{"Testing", "Active"})
