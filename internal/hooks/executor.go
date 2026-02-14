@@ -8,6 +8,7 @@ import (
 	"time"
 
 	debuglog "github.com/riddopic/cc-tools/internal/debug"
+	"github.com/riddopic/cc-tools/internal/hookcmd"
 )
 
 const (
@@ -110,14 +111,13 @@ func (ce *CommandExecutor) Execute(ctx context.Context, cmd *DiscoveredCommand) 
 
 // handleInputError handles errors from reading hook input.
 func handleInputError(err error, debug bool, stderr OutputWriter) {
-	if !errors.Is(err, ErrNoInput) && debug {
-		// Only log if it's not the expected "no input" error
+	if debug {
 		_, _ = fmt.Fprintf(stderr, "Error reading input: %v\n", err)
 	}
 }
 
 // validateHookEvent checks if the event should be processed.
-func validateHookEvent(input *HookInput, debug bool, stderr OutputWriter) (string, bool) {
+func validateHookEvent(input *hookcmd.HookInput, debug bool, stderr OutputWriter) (string, bool) {
 	if input == nil || input.HookEventName != "PostToolUse" || !input.IsEditTool() {
 		if debug && input != nil {
 			_, _ = fmt.Fprintf(stderr, "Ignoring event: %s, tool: %s\n",

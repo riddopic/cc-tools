@@ -36,12 +36,6 @@ type Clock interface {
 	Now() time.Time
 }
 
-// InputReader reads input from various sources.
-type InputReader interface {
-	ReadAll() ([]byte, error)
-	IsTerminal() bool
-}
-
 // OutputWriter writes output to various destinations.
 type OutputWriter interface {
 	io.Writer
@@ -53,7 +47,6 @@ type Dependencies struct {
 	Runner  CommandRunner
 	Process ProcessManager
 	Clock   Clock
-	Input   InputReader
 	Stdout  OutputWriter
 	Stderr  OutputWriter
 }
@@ -144,21 +137,6 @@ func (r *realClock) Now() time.Time {
 	return time.Now()
 }
 
-type stdinReader struct{}
-
-func (s *stdinReader) ReadAll() ([]byte, error) {
-	data, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		return nil, fmt.Errorf("read stdin: %w", err)
-	}
-	return data, nil
-}
-
-func (s *stdinReader) IsTerminal() bool {
-	fileInfo, _ := os.Stdin.Stat()
-	return (fileInfo.Mode() & os.ModeCharDevice) != 0
-}
-
 // NewDefaultDependencies creates production dependencies.
 func NewDefaultDependencies() *Dependencies {
 	return &Dependencies{
@@ -166,7 +144,6 @@ func NewDefaultDependencies() *Dependencies {
 		Runner:  &realCommandRunner{},
 		Process: &realProcessManager{},
 		Clock:   &realClock{},
-		Input:   &stdinReader{},
 		Stdout:  os.Stdout,
 		Stderr:  os.Stderr,
 	}

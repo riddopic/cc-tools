@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/riddopic/cc-tools/internal/hookcmd"
 	"github.com/riddopic/cc-tools/internal/hooks"
 )
 
@@ -104,20 +105,16 @@ func TestCommandExecutor(t *testing.T) {
 
 // --- TestValidateHookEvent ---
 
-// newTestHookInput creates a HookInput with all fields for lint compliance.
-func newTestHookInput(eventName, toolName string, toolInput map[string]any) *hooks.HookInput {
+// newTestHookInput creates a hookcmd.HookInput for testing.
+func newTestHookInput(eventName, toolName string, toolInput map[string]any) *hookcmd.HookInput {
 	var rawInput json.RawMessage
 	if toolInput != nil {
 		rawInput = hooks.MustMarshalJSON(toolInput)
 	}
-	return &hooks.HookInput{
-		HookEventName:  eventName,
-		SessionID:      "",
-		TranscriptPath: "",
-		CWD:            "",
-		ToolName:       toolName,
-		ToolInput:      rawInput,
-		ToolResponse:   nil,
+	return &hookcmd.HookInput{
+		HookEventName: eventName,
+		ToolName:      toolName,
+		ToolInput:     rawInput,
 	}
 }
 

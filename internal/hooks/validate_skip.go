@@ -1,36 +1,38 @@
 package hooks
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
 
+	"github.com/riddopic/cc-tools/internal/hookcmd"
 	"github.com/riddopic/cc-tools/internal/shared"
 	"github.com/riddopic/cc-tools/internal/skipregistry"
 )
 
-// ValidateWithSkipCheck reads stdin, checks skip registry, and runs validation.
-// This is the main entry point for both cc-tools validate and cc-tools-validate binaries.
+// ValidateWithSkipCheck parses stdinData into a hookcmd.HookInput, checks the
+// skip registry, and runs validation. This is the main entry point for both
+// cc-tools validate and cc-tools-validate binaries.
 func ValidateWithSkipCheck(
 	ctx context.Context,
-	stdin io.Reader,
+	stdinData []byte,
 	stdout io.Writer,
 	stderr io.Writer,
 	debug bool,
 	timeoutSecs int,
 	cooldownSecs int,
 ) int {
-	// Read stdin once
-	stdinData, err := io.ReadAll(stdin)
+	// Parse stdin into HookInput
+	input, err := hookcmd.ParseInput(bytes.NewReader(stdinData))
 	if err != nil {
-		// If we can't read input, run normally without skip checking
-		return RunValidateHook(ctx, debug, timeoutSecs, cooldownSecs, nil)
+		handleInputError(err, debug, stderr)
+		return 0
 	}
 
 	// Check if directory should be skipped
-	skipLint, skipTest := checkSkipsFromInput(ctx, stdinData, debug, stderr)
+	skipLint, skipTest := checkSkipsFromInput(ctx, input, debug, stderr)
 
 	// If both are skipped, exit silently
 	if skipLint && skipTest {
@@ -46,10 +48,9 @@ func ValidateWithSkipCheck(
 		SkipTest: skipTest,
 	}
 
-	// Create dependencies with our input reader
+	// Create dependencies
 	defaults := NewDefaultDependencies()
 	deps := &Dependencies{
-		Input:   &bytesInputReader{data: stdinData},
 		Stdout:  stdout,
 		Stderr:  stderr,
 		FS:      defaults.FS,
@@ -58,41 +59,17 @@ func ValidateWithSkipCheck(
 		Clock:   defaults.Clock,
 	}
 
-	return RunValidateHookWithSkip(ctx, debug, timeoutSecs, cooldownSecs, skipConfig, deps)
+	return RunValidateHookWithSkip(ctx, input, debug, timeoutSecs, cooldownSecs, skipConfig, deps)
 }
 
-// bytesInputReader implements InputReader for a byte slice.
-type bytesInputReader struct {
-	data []byte
-}
-
-func (b *bytesInputReader) ReadAll() ([]byte, error) {
-	return b.data, nil
-}
-
-func (b *bytesInputReader) IsTerminal() bool {
-	return false
-}
-
-// checkSkipsFromInput parses the JSON input and checks the skip registry.
-func checkSkipsFromInput(ctx context.Context, stdinData []byte, debug bool, stderr io.Writer) (bool, bool) {
-	// Parse the JSON
-	var input map[string]any
-	if err := json.Unmarshal(stdinData, &input); err != nil {
-		// If we can't decode input, don't skip
-		if debug {
-			_, _ = fmt.Fprintf(stderr, "Failed to parse JSON input: %v\n", err)
-		}
+// checkSkipsFromInput checks the skip registry using the parsed HookInput.
+func checkSkipsFromInput(ctx context.Context, input *hookcmd.HookInput, debug bool, stderr io.Writer) (bool, bool) {
+	if input == nil {
 		return false, false
 	}
 
-	// Get file path from input
-	var filePath string
-	if toolInput, ok := input["tool_input"].(map[string]any); ok {
-		if fp, fpOk := toolInput["file_path"].(string); fpOk {
-			filePath = fp
-		}
-	}
+	// Get file path from input using the canonical method
+	filePath := input.GetFilePath()
 
 	if filePath == "" {
 		// No file path, don't skip

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/riddopic/cc-tools/internal/hookcmd"
 	"github.com/riddopic/cc-tools/internal/hooks"
 )
 
@@ -398,14 +399,6 @@ func TestParallelValidateExecutor_ExecuteValidations(t *testing.T) {
 
 // --- Validate hook test helpers ---
 
-// setupValidateHookDeps configures mock dependencies for RunValidateHook tests with
-// filesystem and runner mocks.
-func setupValidateHookDeps(deps *hooks.TestDependencies, input string) {
-	deps.MockInput.ReadAllFunc = func() ([]byte, error) {
-		return []byte(input), nil
-	}
-}
-
 // setupGitMakefileProjectFS configures the mock filesystem to detect .git and Makefile for
 // project root resolution.
 func setupGitMakefileProjectFS(deps *hooks.TestDependencies) {
@@ -420,17 +413,19 @@ func setupGitMakefileProjectFS(deps *hooks.TestDependencies) {
 func TestRunValidateHook(t *testing.T) {
 	tests := []struct {
 		name         string
-		input        string
+		input        *hookcmd.HookInput
 		setupDeps    func(*hooks.TestDependencies)
 		wantExitCode int
 	}{
 		{
 			name: "successful validation",
-			input: `{
-				"hook_event_name": "PostToolUse",
-				"tool_name": "Edit",
-				"tool_input": {"file_path": "/project/main.go"}
-			}`,
+			input: &hookcmd.HookInput{
+				HookEventName: "PostToolUse",
+				ToolName:      "Edit",
+				ToolInput: hooks.MustMarshalJSON(map[string]any{
+					"file_path": "/project/main.go",
+				}),
+			},
 			setupDeps: func(deps *hooks.TestDependencies) {
 				setupGitMakefileProjectFS(deps)
 				deps.MockRunner.RunContextFunc = makeDiscoveryAndExecRunner(
@@ -442,11 +437,13 @@ func TestRunValidateHook(t *testing.T) {
 		},
 		{
 			name: "validation failures",
-			input: `{
-				"hook_event_name": "PostToolUse",
-				"tool_name": "Edit",
-				"tool_input": {"file_path": "/project/main.go"}
-			}`,
+			input: &hookcmd.HookInput{
+				HookEventName: "PostToolUse",
+				ToolName:      "Edit",
+				ToolInput: hooks.MustMarshalJSON(map[string]any{
+					"file_path": "/project/main.go",
+				}),
+			},
 			setupDeps: func(deps *hooks.TestDependencies) {
 				setupGitMakefileProjectFS(deps)
 				deps.MockRunner.RunContextFunc = makeDiscoveryAndExecRunner(
@@ -457,18 +454,20 @@ func TestRunValidateHook(t *testing.T) {
 			wantExitCode: 2,
 		},
 		{
-			name:         "invalid input",
-			input:        "not json",
+			name:         "nil input",
+			input:        nil,
 			setupDeps:    func(_ *hooks.TestDependencies) {},
 			wantExitCode: 0,
 		},
 		{
 			name: "wrong event type",
-			input: `{
-				"hook_event_name": "PreToolUse",
-				"tool_name": "Edit",
-				"tool_input": {"file_path": "/project/main.go"}
-			}`,
+			input: &hookcmd.HookInput{
+				HookEventName: "PreToolUse",
+				ToolName:      "Edit",
+				ToolInput: hooks.MustMarshalJSON(map[string]any{
+					"file_path": "/project/main.go",
+				}),
+			},
 			setupDeps:    func(_ *hooks.TestDependencies) {},
 			wantExitCode: 0,
 		},
@@ -478,10 +477,10 @@ func TestRunValidateHook(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			testDeps := hooks.CreateTestDependencies()
 			tt.setupDeps(testDeps)
-			setupValidateHookDeps(testDeps, tt.input)
 
 			exitCode := hooks.RunValidateHook(
 				context.Background(),
+				tt.input,
 				false, 10, 2,
 				testDeps.Dependencies,
 			)

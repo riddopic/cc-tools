@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/riddopic/cc-tools/internal/hookcmd"
 	"github.com/riddopic/cc-tools/internal/output"
 	"github.com/riddopic/cc-tools/internal/shared"
 )
@@ -230,29 +231,32 @@ func (pve *ParallelValidateExecutor) executeCommand(
 // RunValidateHookWithSkip is the main entry point for the validate hook with skip configuration.
 func RunValidateHookWithSkip(
 	ctx context.Context,
+	input *hookcmd.HookInput,
 	debug bool,
 	timeoutSecs int,
 	cooldownSecs int,
 	skipConfig *SkipConfig,
 	deps *Dependencies,
 ) int {
-	return runValidateHookInternal(ctx, debug, timeoutSecs, cooldownSecs, skipConfig, deps)
+	return runValidateHookInternal(ctx, input, debug, timeoutSecs, cooldownSecs, skipConfig, deps)
 }
 
 // RunValidateHook is the main entry point for the validate hook.
 func RunValidateHook(
 	ctx context.Context,
+	input *hookcmd.HookInput,
 	debug bool,
 	timeoutSecs int,
 	cooldownSecs int,
 	deps *Dependencies,
 ) int {
-	return runValidateHookInternal(ctx, debug, timeoutSecs, cooldownSecs, nil, deps)
+	return runValidateHookInternal(ctx, input, debug, timeoutSecs, cooldownSecs, nil, deps)
 }
 
 // runValidateHookInternal contains the shared logic for running validation.
 func runValidateHookInternal(
 	ctx context.Context,
+	input *hookcmd.HookInput,
 	debug bool,
 	timeoutSecs int,
 	cooldownSecs int,
@@ -261,13 +265,6 @@ func runValidateHookInternal(
 ) int {
 	if deps == nil {
 		deps = NewDefaultDependencies()
-	}
-
-	// Read and validate input
-	input, err := ReadHookInput(deps.Input)
-	if err != nil {
-		handleInputError(err, debug, deps.Stderr)
-		return 0
 	}
 
 	// Validate event and get file path

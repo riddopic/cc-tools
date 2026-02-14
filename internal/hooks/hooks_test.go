@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/riddopic/cc-tools/internal/hookcmd"
 	"github.com/riddopic/cc-tools/internal/hooks"
 	"github.com/riddopic/cc-tools/internal/shared"
 )
@@ -66,7 +67,7 @@ func TestHookInputParsing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var input hooks.HookInput
+			var input hookcmd.HookInput
 			err := json.Unmarshal([]byte(tt.input), &input)
 
 			if tt.expectError {
@@ -96,62 +97,42 @@ func TestHookInputParsing(t *testing.T) {
 func TestGetFilePathOld(t *testing.T) {
 	tests := []struct {
 		name       string
-		input      *hooks.HookInput
+		input      *hookcmd.HookInput
 		expectPath string
 	}{
 		{
 			name: "Edit tool file path",
-			input: &hooks.HookInput{
-				HookEventName:  "",
-				SessionID:      "",
-				TranscriptPath: "",
-				CWD:            "",
-				ToolName:       "Edit",
+			input: &hookcmd.HookInput{
+				ToolName: "Edit",
 				ToolInput: hooks.MustMarshalJSON(map[string]any{
 					"file_path": "/path/to/file.go",
 				}),
-				ToolResponse: nil,
 			},
 			expectPath: "/path/to/file.go",
 		},
 		{
 			name: "NotebookEdit tool notebook path",
-			input: &hooks.HookInput{
-				HookEventName:  "",
-				SessionID:      "",
-				TranscriptPath: "",
-				CWD:            "",
-				ToolName:       "NotebookEdit",
+			input: &hookcmd.HookInput{
+				ToolName: "NotebookEdit",
 				ToolInput: hooks.MustMarshalJSON(map[string]any{
 					"notebook_path": "/path/to/notebook.ipynb",
 				}),
-				ToolResponse: nil,
 			},
 			expectPath: "/path/to/notebook.ipynb",
 		},
 		{
 			name: "nil tool input",
-			input: &hooks.HookInput{
-				HookEventName:  "",
-				SessionID:      "",
-				TranscriptPath: "",
-				CWD:            "",
-				ToolName:       "Edit",
-				ToolInput:      nil,
-				ToolResponse:   nil,
+			input: &hookcmd.HookInput{
+				ToolName:  "Edit",
+				ToolInput: nil,
 			},
 			expectPath: "",
 		},
 		{
 			name: "empty file paths",
-			input: &hooks.HookInput{
-				HookEventName:  "",
-				SessionID:      "",
-				TranscriptPath: "",
-				CWD:            "",
-				ToolName:       "Edit",
-				ToolInput:      hooks.MustMarshalJSON(map[string]any{}),
-				ToolResponse:   nil,
+			input: &hookcmd.HookInput{
+				ToolName:  "Edit",
+				ToolInput: hooks.MustMarshalJSON(map[string]any{}),
 			},
 			expectPath: "",
 		},
@@ -171,72 +152,32 @@ func TestGetFilePathOld(t *testing.T) {
 func TestIsEditToolOld(t *testing.T) {
 	tests := []struct {
 		name       string
-		input      *hooks.HookInput
+		input      *hookcmd.HookInput
 		expectEdit bool
 	}{
 		{
-			name: "Edit is an edit tool",
-			input: &hooks.HookInput{
-				HookEventName:  "",
-				SessionID:      "",
-				TranscriptPath: "",
-				CWD:            "",
-				ToolName:       "Edit",
-				ToolInput:      nil,
-				ToolResponse:   nil,
-			},
+			name:       "Edit is an edit tool",
+			input:      &hookcmd.HookInput{ToolName: "Edit"},
 			expectEdit: true,
 		},
 		{
-			name: "MultiEdit is an edit tool",
-			input: &hooks.HookInput{
-				HookEventName:  "",
-				SessionID:      "",
-				TranscriptPath: "",
-				CWD:            "",
-				ToolName:       "MultiEdit",
-				ToolInput:      nil,
-				ToolResponse:   nil,
-			},
+			name:       "MultiEdit is an edit tool",
+			input:      &hookcmd.HookInput{ToolName: "MultiEdit"},
 			expectEdit: true,
 		},
 		{
-			name: "Write is an edit tool",
-			input: &hooks.HookInput{
-				HookEventName:  "",
-				SessionID:      "",
-				TranscriptPath: "",
-				CWD:            "",
-				ToolName:       "Write",
-				ToolInput:      nil,
-				ToolResponse:   nil,
-			},
+			name:       "Write is an edit tool",
+			input:      &hookcmd.HookInput{ToolName: "Write"},
 			expectEdit: true,
 		},
 		{
-			name: "NotebookEdit is an edit tool",
-			input: &hooks.HookInput{
-				HookEventName:  "",
-				SessionID:      "",
-				TranscriptPath: "",
-				CWD:            "",
-				ToolName:       "NotebookEdit",
-				ToolInput:      nil,
-				ToolResponse:   nil,
-			},
+			name:       "NotebookEdit is an edit tool",
+			input:      &hookcmd.HookInput{ToolName: "NotebookEdit"},
 			expectEdit: true,
 		},
 		{
-			name: "Bash is not an edit tool",
-			input: &hooks.HookInput{
-				HookEventName:  "",
-				SessionID:      "",
-				TranscriptPath: "",
-				CWD:            "",
-				ToolName:       "Bash",
-				ToolInput:      nil,
-				ToolResponse:   nil,
-			},
+			name:       "Bash is not an edit tool",
+			input:      &hookcmd.HookInput{ToolName: "Bash"},
 			expectEdit: false,
 		},
 	}

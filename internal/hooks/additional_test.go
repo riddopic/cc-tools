@@ -174,7 +174,7 @@ func testDiscoveryStopsAtRoot(t *testing.T) {
 }
 
 func TestHandleInputError(t *testing.T) {
-	t.Run("logs non-ErrNoInput errors in debug mode", func(t *testing.T) {
+	t.Run("logs errors in debug mode", func(t *testing.T) {
 		stderr := &hooks.MockOutputWriter{WrittenData: nil}
 		err := errors.New("unexpected error")
 
@@ -183,17 +183,6 @@ func TestHandleInputError(t *testing.T) {
 		output := stderr.String()
 		if !strings.Contains(output, "Error reading input") {
 			t.Errorf("Expected error log in debug mode, got: %s", output)
-		}
-	})
-
-	t.Run("silent for ErrNoInput even in debug mode", func(t *testing.T) {
-		stderr := &hooks.MockOutputWriter{WrittenData: nil}
-
-		hooks.HandleInputErrorForTest(hooks.ErrNoInput, true, stderr)
-
-		output := stderr.String()
-		if output != "" {
-			t.Errorf("Expected no output for ErrNoInput, got: %s", output)
 		}
 	})
 
