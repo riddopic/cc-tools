@@ -2,17 +2,12 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/riddopic/cc-tools/internal/config"
-	"github.com/riddopic/cc-tools/internal/hooks"
 	"github.com/riddopic/cc-tools/internal/shared"
 )
 
@@ -50,63 +45,6 @@ func newRootCmd() *cobra.Command {
 	)
 
 	return root
-}
-
-func newValidateCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:    "validate",
-		Short:  "Run smart validation (lint and test in parallel)",
-		Hidden: true,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			stdinData, _ := io.ReadAll(os.Stdin)
-			runValidate(stdinData)
-			return nil // runValidate calls os.Exit
-		},
-	}
-}
-
-func loadValidateConfig() (int, int) {
-	timeoutSecs := 60
-	cooldownSecs := 5
-
-	cfg, _ := config.Load()
-	if cfg != nil {
-		if cfg.Hooks.Validate.TimeoutSeconds > 0 {
-			timeoutSecs = cfg.Hooks.Validate.TimeoutSeconds
-		}
-		if cfg.Hooks.Validate.CooldownSeconds > 0 {
-			cooldownSecs = cfg.Hooks.Validate.CooldownSeconds
-		}
-	}
-
-	if envTimeout := os.Getenv("CC_TOOLS_HOOKS_VALIDATE_TIMEOUT_SECONDS"); envTimeout != "" {
-		if val, err := strconv.Atoi(envTimeout); err == nil && val > 0 {
-			timeoutSecs = val
-		}
-	}
-	if envCooldown := os.Getenv("CC_TOOLS_HOOKS_VALIDATE_COOLDOWN_SECONDS"); envCooldown != "" {
-		if val, err := strconv.Atoi(envCooldown); err == nil && val >= 0 {
-			cooldownSecs = val
-		}
-	}
-
-	return timeoutSecs, cooldownSecs
-}
-
-func runValidate(stdinData []byte) {
-	timeoutSecs, cooldownSecs := loadValidateConfig()
-	debug := os.Getenv("CLAUDE_HOOKS_DEBUG") == "1"
-
-	exitCode := hooks.ValidateWithSkipCheck(
-		context.Background(),
-		stdinData,
-		os.Stdout,
-		os.Stderr,
-		debug,
-		timeoutSecs,
-		cooldownSecs,
-	)
-	os.Exit(exitCode)
 }
 
 func writeDebugLog(args []string, stdinData []byte) {
