@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/riddopic/cc-tools/internal/config"
+	"github.com/riddopic/cc-tools/internal/hookcmd"
 	"github.com/riddopic/cc-tools/internal/hooks"
 	"github.com/riddopic/cc-tools/internal/output"
 	"github.com/riddopic/cc-tools/internal/shared"
@@ -40,6 +41,10 @@ func main() {
 	switch os.Args[1] {
 	case "validate":
 		runValidate()
+	case "hook":
+		runHookCommand()
+	case "session":
+		runSessionCommand()
 	case "skip":
 		runSkipCommand()
 	case "unskip":
@@ -70,6 +75,8 @@ Usage:
 
 Commands:
   validate      Run smart validation (lint and test in parallel)
+  hook          Handle Claude Code hook events
+  session       Manage Claude Code sessions
   skip          Configure skip settings for directories
   unskip        Remove skip settings from directories
   debug         Configure debug logging for directories
@@ -80,9 +87,69 @@ Commands:
 
 Examples:
   echo '{"file_path": "main.go"}' | cc-tools validate
+  echo '{"hook_event_name":"SessionStart"}' | cc-tools hook session-start
+  cc-tools session list
   cc-tools mcp list
   cc-tools mcp enable jira
 `)
+}
+
+// hookEventMap maps CLI subcommand names to Claude Code hook event names.
+var hookEventMap = map[string]string{ //nolint:gochecknoglobals // static lookup table
+	"session-start":         "SessionStart",
+	"session-end":           "SessionEnd",
+	"pre-tool-use":          "PreToolUse",
+	"post-tool-use":         "PostToolUse",
+	"post-tool-use-failure": "PostToolUseFailure",
+	"pre-compact":           "PreCompact",
+	"stop":                  "Stop",
+	"notification":          "Notification",
+}
+
+const minHookArgs = 3
+
+func runHookCommand() {
+	out := output.NewTerminal(os.Stdout, os.Stderr)
+
+	if len(os.Args) < minHookArgs {
+		_ = out.Error("Usage: cc-tools hook <event-type>")
+		os.Exit(1)
+	}
+
+	subCmd := os.Args[2]
+	eventName, ok := hookEventMap[subCmd]
+	if !ok {
+		// Accept unknown events gracefully (future-proofing)
+		eventName = subCmd
+	}
+
+	input, err := hookcmd.ParseInput(os.Stdin)
+	if err != nil {
+		_ = out.Error("error parsing hook input: %v", err)
+		os.Exit(0) // still exit 0 — hooks must not block
+	}
+	input.HookEventName = eventName
+
+	registry := buildHookRegistry()
+	exitCode := hookcmd.Dispatch(context.Background(), input, os.Stdout, os.Stderr, registry)
+
+	if stdinTempFile != "" {
+		_ = os.Remove(stdinTempFile)
+	}
+	os.Exit(exitCode)
+}
+
+func buildHookRegistry() map[string][]hookcmd.Handler {
+	return map[string][]hookcmd.Handler{
+		// Handlers will be added in subsequent tasks
+	}
+}
+
+func runSessionCommand() {
+	out := output.NewTerminal(os.Stdout, os.Stderr)
+	// Stub — will be implemented in Task 11
+	_ = out.Error("session command not yet implemented")
+	os.Exit(1)
 }
 
 func loadValidateConfig() (int, int) {
@@ -147,7 +214,7 @@ func debugLog() {
 	// Read stdin and save it for both debug and actual use
 	// Only read stdin for commands that actually need it
 	var stdinDebugData []byte
-	needsStdin := len(os.Args) > 1 && os.Args[1] == "validate"
+	needsStdin := len(os.Args) > 1 && (os.Args[1] == "validate" || os.Args[1] == "hook")
 
 	if needsStdin {
 		if stat, _ := os.Stdin.Stat(); (stat.Mode() & os.ModeCharDevice) == 0 {
