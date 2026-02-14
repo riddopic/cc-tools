@@ -52,6 +52,11 @@ const (
 	defaultPreCommitCommand = "task pre-commit"
 )
 
+// GetDefaultConfig returns the default configuration values.
+func GetDefaultConfig() *Values {
+	return getDefaultConfig()
+}
+
 // getDefaultConfig returns a new config with default values.
 func getDefaultConfig() *Values {
 	return &Values{
