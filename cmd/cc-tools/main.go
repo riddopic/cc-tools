@@ -177,7 +177,8 @@ func buildHookRegistry() map[string][]hookcmd.Handler {
 
 	return map[string][]hookcmd.Handler{
 		"SessionStart":       {superpowersHandler(), pkgManagerHandler(), sessionContextHandler()},
-		"PreToolUse":         {suggestCompactHandler(cfg), observeHandler(cfg, "pre")},
+		"SessionEnd":         {sessionEndHandler(cfg)},
+		"PreToolUse":         {suggestCompactHandler(cfg), observeHandler(cfg, "pre"), preCommitReminderHandler(cfg)},
 		"PostToolUse":        {observeHandler(cfg, "post")},
 		"PostToolUseFailure": {observeHandler(cfg, "failure")},
 		"PreCompact":         {logCompactionHandler()},
@@ -307,6 +308,95 @@ func sessionContextHandler() *handlerFunc {
 				}
 				_, _ = fmt.Fprintf(errOut, "[session-context] %d alias(es): %s\n",
 					len(aliasList), strings.Join(names, ", "))
+			}
+
+			return nil
+		},
+	}
+}
+
+func sessionEndHandler(cfg *config.Values) *handlerFunc {
+	return &handlerFunc{
+		name: "session-end",
+		fn: func(_ context.Context, input *hookcmd.HookInput, _, errOut io.Writer) error {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("get home directory: %w", err)
+			}
+
+			storeDir := filepath.Join(homeDir, ".claude", "sessions")
+			store := session.NewStore(storeDir)
+
+			// Parse transcript if available.
+			var summary *session.TranscriptSummary
+			if input.TranscriptPath != "" {
+				summary, _ = session.ParseTranscript(input.TranscriptPath)
+			}
+
+			// Build session metadata.
+			now := time.Now()
+			var toolsUsed []string
+			var filesModified []string
+			var messageCount int
+			if summary != nil {
+				toolsUsed = summary.ToolsUsed
+				filesModified = summary.FilesModified
+				messageCount = summary.TotalMessages
+			}
+
+			sess := &session.Session{
+				Version:       "1",
+				ID:            input.SessionID,
+				Date:          now.Format("2006-01-02"),
+				Started:       now,
+				Ended:         now,
+				Title:         fmt.Sprintf("Session %s", now.Format("15:04")),
+				Summary:       "",
+				ToolsUsed:     toolsUsed,
+				FilesModified: filesModified,
+				MessageCount:  messageCount,
+			}
+
+			if saveErr := store.Save(sess); saveErr != nil {
+				_, _ = fmt.Fprintf(errOut, "[session-end] save error: %v\n", saveErr)
+			}
+
+			// Continuous learning signal.
+			minLength := 10
+			if cfg != nil && cfg.Learning.MinSessionLength > 0 {
+				minLength = cfg.Learning.MinSessionLength
+			}
+			if summary != nil && summary.TotalMessages >= minLength {
+				_, _ = fmt.Fprintf(errOut,
+					"[session-end] %d messages — evaluate for extractable patterns\n",
+					summary.TotalMessages)
+			}
+
+			return nil
+		},
+	}
+}
+
+func preCommitReminderHandler(cfg *config.Values) *handlerFunc {
+	return &handlerFunc{
+		name: "pre-commit-reminder",
+		fn: func(_ context.Context, input *hookcmd.HookInput, _, errOut io.Writer) error {
+			if cfg == nil || !cfg.PreCommit.Enabled {
+				return nil
+			}
+
+			if input.ToolName != "Bash" {
+				return nil
+			}
+
+			command := input.GetToolInputString("command")
+			if strings.Contains(command, "git commit") {
+				reminder := cfg.PreCommit.Command
+				if reminder == "" {
+					reminder = "task pre-commit"
+				}
+				_, _ = fmt.Fprintf(errOut,
+					"Reminder: Run '%s' (fmt + lint + test) before committing.\n", reminder)
 			}
 
 			return nil
