@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -136,6 +138,20 @@ Examples:
 `)
 }
 
+func validateSkipPath(dir string) (string, error) {
+	absPath, err := filepath.Abs(dir)
+	if err != nil {
+		return "", fmt.Errorf("resolve path: %w", err)
+	}
+
+	cleanPath := filepath.Clean(absPath)
+	if strings.Contains(cleanPath, "..") {
+		return "", errors.New("invalid path: directory traversal not allowed")
+	}
+
+	return cleanPath, nil
+}
+
 func addSkip(
 	ctx context.Context,
 	out *output.Terminal,
@@ -145,6 +161,11 @@ func addSkip(
 	dir, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("get current directory: %w", err)
+	}
+
+	dir, err = validateSkipPath(dir)
+	if err != nil {
+		return err
 	}
 
 	if addErr := registry.AddSkip(ctx, skipregistry.DirectoryPath(dir), skipType); addErr != nil {
