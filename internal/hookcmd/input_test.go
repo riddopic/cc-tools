@@ -208,3 +208,76 @@ func TestGetToolInputString(t *testing.T) {
 		})
 	}
 }
+
+func TestHookInput_IsEditTool(t *testing.T) {
+	tests := []struct {
+		name     string
+		toolName string
+		want     bool
+	}{
+		{name: "Edit is an edit tool", toolName: "Edit", want: true},
+		{name: "MultiEdit is an edit tool", toolName: "MultiEdit", want: true},
+		{name: "Write is an edit tool", toolName: "Write", want: true},
+		{name: "NotebookEdit is an edit tool", toolName: "NotebookEdit", want: true},
+		{name: "Read is not an edit tool", toolName: "Read", want: false},
+		{name: "Bash is not an edit tool", toolName: "Bash", want: false},
+		{name: "empty tool name is not an edit tool", toolName: "", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := &hookcmd.HookInput{ToolName: tt.toolName}
+			assert.Equal(t, tt.want, input.IsEditTool())
+		})
+	}
+}
+
+func TestHookInput_GetFilePath(t *testing.T) {
+	tests := []struct {
+		name      string
+		toolName  string
+		toolInput json.RawMessage
+		want      string
+	}{
+		{
+			name:      "extracts file_path from Edit tool",
+			toolName:  "Edit",
+			toolInput: json.RawMessage(`{"file_path": "/tmp/main.go", "old_string": "foo"}`),
+			want:      "/tmp/main.go",
+		},
+		{
+			name:      "extracts notebook_path from NotebookEdit tool",
+			toolName:  "NotebookEdit",
+			toolInput: json.RawMessage(`{"notebook_path": "/tmp/notebook.ipynb", "cell_number": 0}`),
+			want:      "/tmp/notebook.ipynb",
+		},
+		{
+			name:      "returns empty for missing file_path",
+			toolName:  "Edit",
+			toolInput: json.RawMessage(`{"old_string": "foo"}`),
+			want:      "",
+		},
+		{
+			name:      "returns empty for empty tool_input",
+			toolName:  "Edit",
+			toolInput: nil,
+			want:      "",
+		},
+		{
+			name:      "returns empty for invalid JSON",
+			toolName:  "Edit",
+			toolInput: json.RawMessage(`{invalid`),
+			want:      "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := &hookcmd.HookInput{
+				ToolName:  tt.toolName,
+				ToolInput: tt.toolInput,
+			}
+			assert.Equal(t, tt.want, input.GetFilePath())
+		})
+	}
+}

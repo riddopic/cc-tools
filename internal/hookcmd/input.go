@@ -68,6 +68,28 @@ func ParseInput(r io.Reader) (*HookInput, error) {
 	return &input, nil
 }
 
+// IsEditTool reports whether the hook event involves a file-editing tool.
+func (h *HookInput) IsEditTool() bool {
+	switch h.ToolName {
+	case "Edit", "MultiEdit", "Write", "NotebookEdit":
+		return true
+	default:
+		return false
+	}
+}
+
+// GetFilePath extracts the target file path from tool_input JSON.
+// For NotebookEdit it reads "notebook_path"; for all other tools it reads "file_path".
+// It returns an empty string when ToolInput is empty, invalid, or the field is absent.
+func (h *HookInput) GetFilePath() string {
+	key := "file_path"
+	if h.ToolName == "NotebookEdit" {
+		key = "notebook_path"
+	}
+
+	return h.GetToolInputString(key)
+}
+
 // GetToolInputString extracts a string field from tool_input JSON.
 func (h *HookInput) GetToolInputString(key string) string {
 	if len(h.ToolInput) == 0 {
