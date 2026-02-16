@@ -120,18 +120,24 @@ Settings are stored at `~/.config/cc-tools/config.json`.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `validate.timeout` | 60 | Validation timeout in seconds |
-| `validate.cooldown` | 5 | Cooldown between validation runs |
+| `validate.timeout` | `60` | Validation timeout in seconds |
+| `validate.cooldown` | `5` | Cooldown between validation runs |
 | `notifications.ntfy_topic` | `""` | ntfy.sh topic for push notifications |
-| `notify.audio.enabled` | false | Enable audio notification sounds |
-| `notify.audio.directory` | `""` | Path to directory of MP3 files |
-| `notify.desktop.enabled` | false | Enable macOS desktop notifications |
-| `notify.quiet_hours.enabled` | false | Suppress notifications during quiet hours |
-| `notify.quiet_hours.start` | `""` | Quiet hours start time (HH:MM) |
-| `notify.quiet_hours.end` | `""` | Quiet hours end time (HH:MM) |
-| `compact.threshold` | 0 | Token threshold for compact suggestions |
-| `observe.enabled` | false | Enable tool use observation logging |
-| `pre_commit_reminder.enabled` | false | Remind to run checks before git commit |
+| `compact.threshold` | `50` | Token threshold for compact suggestions |
+| `compact.reminder_interval` | `25` | Tool calls between compact reminders |
+| `notify.quiet_hours.enabled` | `true` | Suppress notifications during quiet hours |
+| `notify.quiet_hours.start` | `"21:00"` | Quiet hours start time (HH:MM) |
+| `notify.quiet_hours.end` | `"07:30"` | Quiet hours end time (HH:MM) |
+| `notify.audio.enabled` | `true` | Enable audio notification sounds |
+| `notify.audio.directory` | `"~/.claude/audio"` | Path to directory of MP3 files |
+| `notify.desktop.enabled` | `true` | Enable macOS desktop notifications |
+| `observe.enabled` | `true` | Enable tool use observation logging |
+| `observe.max_file_size_mb` | `10` | Max file size in MB for observation logging |
+| `learning.min_session_length` | `10` | Minimum session length for learning extraction |
+| `learning.learned_skills_path` | `".claude/skills/learned"` | Path for learned skill files |
+| `pre_commit_reminder.enabled` | `true` | Remind to run checks before git commit |
+| `pre_commit_reminder.command` | `"task pre-commit"` | Command to suggest before commits |
+| `package_manager.preferred` | `""` | Preferred package manager (overrides auto-detection) |
 
 Debug logs are written to `~/.cache/cc-tools/debug/`.
 
