@@ -38,6 +38,7 @@ All test commands require the `-tags=testmode` build tag. Tests use `gotestsum` 
 CLI built with [Cobra](https://github.com/spf13/cobra) — `cmd/cc-tools/main.go` registers subcommands via `root.AddCommand()`. Commands: `hook`, `validate`, `session`, `config`, `skip`, `unskip`, `mcp`, `debug`, `version`.
 
 Two separate execution paths:
+
 - **`cc-tools hook`** — reads hook event JSON from stdin, dispatches to a handler registry (`internal/handler`), returns structured output
 - **`cc-tools validate`** — reads tool call JSON from stdin, discovers lint/test commands, runs them in parallel
 

@@ -412,6 +412,7 @@
     "getsourcecode",
     "gettokenprice",
     "getunderlyingprice",
+    "getwd",
     "GOARCH",
     "gobreaker",
     "gochecknoglobals",
