@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**cc-tools** is a CLI tool for Claude Code that automates validation hooks, MCP server management, skip registry, and configuration. It runs as a Claude Code hook to execute lint and test in parallel before tool use is accepted.
+**cc-tools** is a CLI companion for Claude Code that automates hook event handling, parallel lint/test validation, MCP server management, notifications, session tracking, and per-directory skip configuration. It runs as a Claude Code hook to dispatch registered handlers for every hook event.
 
 Module: `github.com/riddopic/cc-tools` — Go 1.26
 
@@ -35,23 +35,51 @@ All test commands require the `-tags=testmode` build tag. Tests use `gotestsum` 
 
 ## Architecture
 
-Hand-rolled CLI (no Cobra/Viper) — `cmd/cc-tools/main.go` dispatches via `switch` on `os.Args[1]`. Commands: `validate`, `skip`, `unskip`, `debug`, `mcp`, `config`, `version`.
+CLI built with [Cobra](https://github.com/spf13/cobra) — `cmd/cc-tools/main.go` registers subcommands via `root.AddCommand()`. Commands: `hook`, `validate`, `session`, `config`, `skip`, `unskip`, `mcp`, `debug`, `version`.
+
+Two separate execution paths:
+- **`cc-tools hook`** — reads hook event JSON from stdin, dispatches to a handler registry (`internal/handler`), returns structured output
+- **`cc-tools validate`** — reads tool call JSON from stdin, discovers lint/test commands, runs them in parallel
 
 ### Internal packages
 
 | Package | Purpose |
 |---------|---------|
+| `internal/handler` | Handler registry and event dispatch; all hook handlers (notification, session, observation, compaction, superpowers, pre-commit) |
+| `internal/hookcmd` | Hook event constants, JSON input parsing, `HookInput` struct |
 | `internal/hooks` | Core validation: discovers lint/test commands, runs them in parallel with `sync.WaitGroup`, manages cooldown locks |
+| `internal/notify` | Notification backends: `NtfyNotifier` (HTTP push), `Audio` (afplay), `Desktop` (osascript), `QuietHours`, `MultiNotifier` |
+| `internal/config` | JSON config persistence at `~/.config/cc-tools/config.json`; `Values` struct, `Manager` with get/set/reset |
+| `internal/session` | Session metadata storage, alias management, search |
+| `internal/observe` | Tool use observation logging to filesystem |
+| `internal/compact` | Context compaction suggestions and log tracking |
+| `internal/superpowers` | Skill injection for SessionStart events |
+| `internal/pkgmanager` | Package manager detection (npm, pnpm, bun, yarn) |
 | `internal/shared` | Filesystem interfaces (`HooksFS`, `RegistryFS`, `FS`), project detection, dependency injection container, debug path utilities |
-| `internal/config` | JSON config persistence at `~/.config/cc-tools/config.json` |
 | `internal/skipregistry` | Persistent skip settings (lint/test/all) per directory with JSON storage |
 | `internal/output` | Thread-safe terminal writer using `charmbracelet/lipgloss` for styled output |
 | `internal/mcp` | MCP server enable/disable management |
 | `internal/debug` | Debug log infrastructure at `~/.cache/cc-tools/debug/` |
 
+### Handler registry
+
+`internal/handler/defaults.go` wires all handlers to their events:
+
+| Event | Handlers |
+|-------|----------|
+| SessionStart | `SuperpowersHandler`, `PkgManagerHandler`, `SessionContextHandler` |
+| SessionEnd | `SessionEndHandler` |
+| PreToolUse | `SuggestCompactHandler`, `ObserveHandler(pre)`, `PreCommitReminderHandler` |
+| PostToolUse | `ObserveHandler(post)` |
+| PostToolUseFailure | `ObserveHandler(failure)` |
+| PreCompact | `LogCompactionHandler` |
+| Notification | `NotifyAudioHandler`, `NotifyDesktopHandler`, `NotifyNtfyHandler` |
+
 ### Key design patterns
 
-- **Dependency injection**: `shared.Dependencies` struct holds `FS`, `Runner`, `Stdout`, `Stderr` — injected into hooks for testability
+- **Handler interface**: `Handler.Handle(ctx, *HookInput) (*Response, error)` with `Name()` for identification
+- **Dependency injection**: Functional options pattern (`WithAudioPlayer`, `WithCmdRunner`, `WithNtfySender`) for testability
+- **Registry dispatch**: Iterates handlers for an event; errors logged to stderr, dispatch continues
 - **Three filesystem interfaces**: `HooksFS` (hook operations), `RegistryFS` (registry persistence), `FS` (general stat/getwd) — each scoped to its concern
 - **Compile-time interface checks**: `var _ Interface = (*Impl)(nil)`
 - **Parallel validation**: lint and test run concurrently via `sync.WaitGroup`; `LockManager` prevents concurrent validation races
@@ -67,13 +95,14 @@ task mocks              # Regenerate all mocks
 Mocks live in `internal/{package}/mocks/`. Mocked interfaces:
 
 - `hooks`: `CommandRunner`, `ProcessManager`, `Clock`, `InputReader`, `OutputWriter`
+- `notify`: `AudioPlayer`, `CmdRunner`
 - `shared`: `HooksFS`, `RegistryFS`, `FS`
 
 Config: `.mockery.yml` at project root.
 
 ## Linting
 
-golangci-lint v2 with strict settings: max cyclomatic complexity 30, max cognitive complexity 20, max function length 100 lines/50 statements, max line length 120 chars. Over 60 linters enabled including `gosec`, `errcheck`, `errorlint`.
+golangci-lint v2 with strict settings: max cyclomatic complexity 30, max cognitive complexity 20, max function length 100 lines/50 statements, max line length 120 chars. Over 60 linters enabled including `gosec`, `errcheck`, `errorlint`, `exhaustruct`.
 
 ## Imports
 
