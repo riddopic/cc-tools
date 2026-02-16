@@ -418,6 +418,161 @@ func TestObserveHandler_RecordsEvent(t *testing.T) {
 	assert.Contains(t, string(data), "observe-session")
 }
 
+func TestObserveHandler_PostPhase(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	obsDir := filepath.Join(tmpDir, "observations")
+
+	cfg := newTestConfig()
+	cfg.Observe.Enabled = true
+	cfg.Observe.MaxFileSizeMB = 10
+
+	h := handler.NewObserveHandler(cfg, "post", handler.WithObserveDir(obsDir))
+
+	toolInput, _ := json.Marshal(map[string]string{"command": "ls"})
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventPostToolUse,
+		ToolName:      "Bash",
+		ToolInput:     toolInput,
+		SessionID:     "post-phase-session",
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 0, resp.ExitCode)
+
+	obsFile := filepath.Join(obsDir, "observations.jsonl")
+	data, readErr := os.ReadFile(obsFile)
+	require.NoError(t, readErr, "observations file should exist")
+	assert.Contains(t, string(data), `"phase":"post"`)
+}
+
+func TestObserveHandler_FailurePhase(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	obsDir := filepath.Join(tmpDir, "observations")
+
+	cfg := newTestConfig()
+	cfg.Observe.Enabled = true
+	cfg.Observe.MaxFileSizeMB = 10
+
+	h := handler.NewObserveHandler(cfg, "failure", handler.WithObserveDir(obsDir))
+
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventPostToolUseFailure,
+		ToolName:      "Bash",
+		SessionID:     "failure-phase-session",
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 0, resp.ExitCode)
+
+	obsFile := filepath.Join(obsDir, "observations.jsonl")
+	data, readErr := os.ReadFile(obsFile)
+	require.NoError(t, readErr, "observations file should exist")
+	assert.Contains(t, string(data), `"phase":"failure"`)
+}
+
+func TestObserveHandler_MultipleEventsAppend(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	obsDir := filepath.Join(tmpDir, "observations")
+
+	cfg := newTestConfig()
+	cfg.Observe.Enabled = true
+	cfg.Observe.MaxFileSizeMB = 10
+
+	h := handler.NewObserveHandler(cfg, "pre", handler.WithObserveDir(obsDir))
+
+	tools := []string{"Bash", "Read", "Edit"}
+	for _, tool := range tools {
+		input := &hookcmd.HookInput{
+			HookEventName: hookcmd.EventPreToolUse,
+			ToolName:      tool,
+			SessionID:     "multi-event-session",
+		}
+
+		resp, err := h.Handle(context.Background(), input)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+	}
+
+	obsFile := filepath.Join(obsDir, "observations.jsonl")
+	data, readErr := os.ReadFile(obsFile)
+	require.NoError(t, readErr, "observations file should exist")
+
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	assert.Len(t, lines, 3, "should have 3 lines for 3 events")
+
+	for i, line := range lines {
+		assert.True(t, json.Valid([]byte(line)), "line %d should be valid JSON", i+1)
+	}
+}
+
+func TestObserveHandler_DisabledMarkerFile(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	obsDir := filepath.Join(tmpDir, "observations")
+
+	cfg := newTestConfig()
+	cfg.Observe.Enabled = true
+	cfg.Observe.MaxFileSizeMB = 10
+
+	// Create the obsDir and place a .disabled marker file inside it.
+	require.NoError(t, os.MkdirAll(obsDir, 0o750))
+	disabledPath := filepath.Join(obsDir, ".disabled")
+	require.NoError(t, os.WriteFile(disabledPath, []byte{}, 0o600))
+
+	h := handler.NewObserveHandler(cfg, "pre", handler.WithObserveDir(obsDir))
+
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventPreToolUse,
+		ToolName:      "Bash",
+		SessionID:     "disabled-marker-session",
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 0, resp.ExitCode)
+
+	obsFile := filepath.Join(obsDir, "observations.jsonl")
+	_, statErr := os.Stat(obsFile)
+	assert.True(t, os.IsNotExist(statErr), "observations.jsonl should not exist when .disabled marker is present")
+}
+
+func TestObserveHandler_EmptyToolInput(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	obsDir := filepath.Join(tmpDir, "observations")
+
+	cfg := newTestConfig()
+	cfg.Observe.Enabled = true
+	cfg.Observe.MaxFileSizeMB = 10
+
+	h := handler.NewObserveHandler(cfg, "pre", handler.WithObserveDir(obsDir))
+
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventPreToolUse,
+		ToolName:      "Read",
+		ToolInput:     nil,
+		SessionID:     "empty-input",
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 0, resp.ExitCode)
+
+	obsFile := filepath.Join(obsDir, "observations.jsonl")
+	data, readErr := os.ReadFile(obsFile)
+	require.NoError(t, readErr, "observations file should exist")
+	assert.Contains(t, string(data), "Read")
+}
+
 func TestObserveHandler_ImplementsHandler(t *testing.T) {
 	t.Parallel()
 	var _ handler.Handler = handler.NewObserveHandler(nil, "pre")
