@@ -67,6 +67,37 @@ func TestSuperpowersHandler_Handle_WithSkillFile(t *testing.T) {
 	assert.NotNil(t, resp.Stdout.HookSpecificOutput, "should populate hookSpecificOutput")
 }
 
+func TestSuperpowersHandler_Handle_MultipleSkills(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Create two skill directories; include using-superpowers which is the
+	// one the injector actually reads.
+	for _, name := range []string{"using-superpowers", "skill-b"} {
+		skillDir := filepath.Join(tmpDir, ".claude", "skills", name)
+		require.NoError(t, os.MkdirAll(skillDir, 0o755))
+		require.NoError(t, os.WriteFile(
+			filepath.Join(skillDir, "SKILL.md"),
+			[]byte("Skill "+name+" content."),
+			0o600,
+		))
+	}
+
+	h := handler.NewSuperpowersHandler()
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventSessionStart,
+		Cwd:           tmpDir,
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 0, resp.ExitCode)
+	require.NotNil(t, resp.Stdout)
+	require.NotNil(t, resp.Stdout.HookSpecificOutput)
+}
+
 func TestSuperpowersHandler_ImplementsHandler(t *testing.T) {
 	t.Parallel()
 	var _ handler.Handler = handler.NewSuperpowersHandler()
@@ -125,6 +156,78 @@ func TestPkgManagerHandler_Handle_DetectsYarn(t *testing.T) {
 	data, readErr := os.ReadFile(envFile)
 	require.NoError(t, readErr)
 	assert.Contains(t, string(data), "PREFERRED_PACKAGE_MANAGER=yarn")
+}
+
+func TestPkgManagerHandler_Handle_DetectsNpm(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0o600,
+	))
+
+	h := handler.NewPkgManagerHandler()
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventSessionStart,
+		Cwd:           tmpDir,
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	envFile := filepath.Join(tmpDir, ".claude", ".env")
+	data, readErr := os.ReadFile(envFile)
+	require.NoError(t, readErr)
+	assert.Contains(t, string(data), "PREFERRED_PACKAGE_MANAGER=npm")
+}
+
+func TestPkgManagerHandler_Handle_DetectsPnpm(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "pnpm-lock.yaml"), []byte(""), 0o600,
+	))
+
+	h := handler.NewPkgManagerHandler()
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventSessionStart,
+		Cwd:           tmpDir,
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	envFile := filepath.Join(tmpDir, ".claude", ".env")
+	data, readErr := os.ReadFile(envFile)
+	require.NoError(t, readErr)
+	assert.Contains(t, string(data), "PREFERRED_PACKAGE_MANAGER=pnpm")
+}
+
+func TestPkgManagerHandler_Handle_DetectsBun(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "bun.lock"), []byte(""), 0o600,
+	))
+
+	h := handler.NewPkgManagerHandler()
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventSessionStart,
+		Cwd:           tmpDir,
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	envFile := filepath.Join(tmpDir, ".claude", ".env")
+	data, readErr := os.ReadFile(envFile)
+	require.NoError(t, readErr)
+	assert.Contains(t, string(data), "PREFERRED_PACKAGE_MANAGER=bun")
 }
 
 func TestPkgManagerHandler_Handle_NoStdout(t *testing.T) {
@@ -279,6 +382,53 @@ func TestSessionContextHandler_Handle_WithAliases(t *testing.T) {
 	require.NotNil(t, resp)
 	assert.Contains(t, resp.Stderr, "[session-context]")
 	assert.Contains(t, resp.Stderr, "2 alias(es)")
+}
+
+func TestSessionContextHandler_Handle_MultipleSessionsUsesRecent(t *testing.T) {
+	t.Parallel()
+	tmpHome := t.TempDir()
+
+	storeDir := filepath.Join(tmpHome, ".claude", "sessions")
+	store := session.NewStore(storeDir)
+
+	// Save two sessions — older first, then newer.
+	require.NoError(t, store.Save(&session.Session{
+		Version:       "1",
+		ID:            "older-session",
+		Date:          "2025-01-10",
+		Started:       time.Date(2025, 1, 10, 9, 0, 0, 0, time.UTC),
+		Ended:         time.Time{},
+		Title:         "Older session",
+		Summary:       "Old work done here",
+		ToolsUsed:     nil,
+		FilesModified: nil,
+		MessageCount:  0,
+	}))
+	require.NoError(t, store.Save(&session.Session{
+		Version:       "1",
+		ID:            "newer-session",
+		Date:          "2025-01-15",
+		Started:       time.Date(2025, 1, 15, 14, 0, 0, 0, time.UTC),
+		Ended:         time.Time{},
+		Title:         "Newer session",
+		Summary:       "Recent work done here",
+		ToolsUsed:     nil,
+		FilesModified: nil,
+		MessageCount:  0,
+	}))
+
+	h := handler.NewSessionContextHandler(handler.WithHomeDir(tmpHome))
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventSessionStart,
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.NotNil(t, resp.Stdout)
+	require.NotEmpty(t, resp.Stdout.AdditionalContext)
+	assert.Contains(t, resp.Stdout.AdditionalContext[0], "Recent work done here",
+		"should use most recent session's summary")
 }
 
 func TestSessionContextHandler_ImplementsHandler(t *testing.T) {
