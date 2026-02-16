@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -158,6 +159,85 @@ func TestSessionEndHandler_DefaultMinSessionLength(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Contains(t, resp.Stderr, "evaluate for extractable patterns")
+}
+
+func TestSessionEndHandler_ShortSessionNoSignal(t *testing.T) {
+	t.Parallel()
+	tmpHome := t.TempDir()
+
+	// Create a transcript with fewer messages than threshold.
+	transcriptDir := t.TempDir()
+	transcriptPath := filepath.Join(transcriptDir, "transcript.jsonl")
+
+	var b strings.Builder
+	for range 3 {
+		b.WriteString("{\"type\":\"human\",\"content\":\"short msg\"}\n")
+	}
+	require.NoError(t, os.WriteFile(transcriptPath, []byte(b.String()), 0o600))
+
+	cfg := &config.Values{
+		Learning: config.LearningValues{
+			MinSessionLength: 10,
+		},
+	}
+
+	h := handler.NewSessionEndHandler(cfg, handler.WithSessionEndHomeDir(tmpHome))
+	input := &hookcmd.HookInput{
+		HookEventName:  hookcmd.EventSessionEnd,
+		SessionID:      "short-session",
+		TranscriptPath: transcriptPath,
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 0, resp.ExitCode)
+	assert.NotContains(t, resp.Stderr, "evaluate for extractable patterns",
+		"short session should not emit learning signal")
+}
+
+func TestSessionEndHandler_SessionMetadata(t *testing.T) {
+	t.Parallel()
+	tmpHome := t.TempDir()
+
+	transcriptDir := t.TempDir()
+	transcriptPath := filepath.Join(transcriptDir, "transcript.jsonl")
+	content := strings.Join([]string{
+		`{"type":"human","content":"hello"}`,
+		`{"type":"tool_use","name":"Edit","input":{"file_path":"/tmp/foo.go"}}`,
+		`{"type":"tool_use","name":"Bash","input":{"command":"go test"}}`,
+		`{"type":"human","content":"thanks"}`,
+	}, "\n") + "\n"
+	require.NoError(t, os.WriteFile(transcriptPath, []byte(content), 0o600))
+
+	cfg := &config.Values{}
+
+	h := handler.NewSessionEndHandler(cfg, handler.WithSessionEndHomeDir(tmpHome))
+	input := &hookcmd.HookInput{
+		HookEventName:  hookcmd.EventSessionEnd,
+		SessionID:      "metadata-session",
+		TranscriptPath: transcriptPath,
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 0, resp.ExitCode)
+
+	// Verify session file was saved.
+	sessDir := filepath.Join(tmpHome, ".claude", "sessions")
+	matches, _ := filepath.Glob(filepath.Join(sessDir, "*metadata-session.json"))
+	require.NotEmpty(t, matches, "session file should exist")
+
+	data, readErr := os.ReadFile(matches[0])
+	require.NoError(t, readErr)
+
+	var saved map[string]any
+	require.NoError(t, json.Unmarshal(data, &saved))
+
+	assert.Equal(t, "metadata-session", saved["id"])
+	assert.NotEmpty(t, saved["date"], "should include date")
+	assert.NotEmpty(t, saved["title"], "should include title")
 }
 
 func TestSessionEndHandler_ImplementsHandler(t *testing.T) {
