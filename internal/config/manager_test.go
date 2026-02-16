@@ -121,6 +121,9 @@ func newTestValues(timeout, cooldown int) *config.Values {
 			Enabled: config.ExportDefaultPreCommitEnabled(),
 			Command: config.ExportDefaultPreCommitCommand(),
 		},
+		PackageManager: config.PackageManagerValues{
+			Preferred: config.ExportDefaultPackageManagerPreferred(),
+		},
 	}
 }
 
@@ -965,6 +968,24 @@ func TestGetString_AllKeys(t *testing.T) {
 			wantFound: true,
 		},
 		{
+			name:      "get package manager preferred (empty default)",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyPackageManagerPreferred(),
+			wantValue: "",
+			wantFound: true,
+		},
+		{
+			name: "get package manager preferred (custom)",
+			config: func() *config.Values {
+				v := newTestValues(0, 0)
+				v.PackageManager.Preferred = "bun"
+				return v
+			}(),
+			key:       config.ExportKeyPackageManagerPreferred(),
+			wantValue: "bun",
+			wantFound: true,
+		},
+		{
 			name: "get custom quiet hours start",
 			config: func() *config.Values {
 				v := newTestValues(0, 0)
@@ -1326,6 +1347,26 @@ func TestSetStringAndIntFields(t *testing.T) {
 			wantErr: true,
 			check:   nil,
 		},
+		{
+			name:    "set package manager preferred",
+			key:     config.ExportKeyPackageManagerPreferred(),
+			value:   "bun",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, "bun", cfg.PackageManager.Preferred)
+			},
+		},
+		{
+			name:    "set package manager preferred to empty (reset to auto-detect)",
+			key:     config.ExportKeyPackageManagerPreferred(),
+			value:   "",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Empty(t, cfg.PackageManager.Preferred)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -1510,6 +1551,16 @@ func TestReset_AllKeyTypes(t *testing.T) {
 			check: func(t *testing.T, cfg *config.Values) {
 				t.Helper()
 				assert.Equal(t, config.ExportDefaultPreCommitCommand(), cfg.PreCommit.Command)
+			},
+		},
+		{
+			name:     "reset package manager preferred",
+			setupKey: config.ExportKeyPackageManagerPreferred(),
+			setupVal: "bun",
+			resetKey: config.ExportKeyPackageManagerPreferred(),
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultPackageManagerPreferred(), cfg.PackageManager.Preferred)
 			},
 		},
 	}
@@ -2077,6 +2128,24 @@ func TestGetValue_AllKeys(t *testing.T) {
 			wantValue: "task pre-commit",
 			wantFound: true,
 		},
+		{
+			name:      "get package manager preferred as string (empty default)",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyPackageManagerPreferred(),
+			wantValue: "",
+			wantFound: true,
+		},
+		{
+			name: "get package manager preferred as string (custom)",
+			config: func() *config.Values {
+				v := newTestValues(0, 0)
+				v.PackageManager.Preferred = "pnpm"
+				return v
+			}(),
+			key:       config.ExportKeyPackageManagerPreferred(),
+			wantValue: "pnpm",
+			wantFound: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -2114,6 +2183,7 @@ func TestGetDefaultValue_AllKeys(t *testing.T) {
 		{config.ExportKeyLearningLearnedSkillsPath(), ".claude/skills/learned"},
 		{config.ExportKeyPreCommitEnabled(), "true"},
 		{config.ExportKeyPreCommitCommand(), "task pre-commit"},
+		{config.ExportKeyPackageManagerPreferred(), ""},
 	}
 
 	for _, tt := range tests {
@@ -2184,6 +2254,66 @@ func TestConvertNotificationsFromMap(t *testing.T) {
 	}
 }
 
+func TestConvertPackageManagerFromMap(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[string]any
+		check func(t *testing.T, cfg *config.Values)
+	}{
+		{
+			name: "full package manager settings",
+			input: map[string]any{
+				"package_manager": map[string]any{
+					"preferred": "bun",
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, "bun", cfg.PackageManager.Preferred)
+			},
+		},
+		{
+			name: "package manager section is not a map",
+			input: map[string]any{
+				"package_manager": "not-a-map",
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Empty(t, cfg.PackageManager.Preferred)
+			},
+		},
+		{
+			name: "package manager with wrong type for preferred",
+			input: map[string]any{
+				"package_manager": map[string]any{
+					"preferred": 12345,
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Empty(t, cfg.PackageManager.Preferred)
+			},
+		},
+		{
+			name:  "missing package manager section",
+			input: map[string]any{},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Empty(t, cfg.PackageManager.Preferred)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := config.NewTestManager("", nil)
+			config.ManagerConvertFromMap(m, tt.input)
+			cfg := config.ManagerConfig(m)
+			tt.check(t, cfg)
+		})
+	}
+}
+
 func TestConvertFromMap_AllSections(t *testing.T) {
 	t.Run("all sections populated", func(t *testing.T) {
 		m := config.NewTestManager("", nil)
@@ -2225,6 +2355,9 @@ func TestConvertFromMap_AllSections(t *testing.T) {
 				"enabled": false,
 				"command": "make all",
 			},
+			"package_manager": map[string]any{
+				"preferred": "bun",
+			},
 		})
 		cfg := config.ManagerConfig(m)
 
@@ -2245,5 +2378,6 @@ func TestConvertFromMap_AllSections(t *testing.T) {
 		assert.Equal(t, "all/skills", cfg.Learning.LearnedSkillsPath)
 		assert.False(t, cfg.PreCommit.Enabled)
 		assert.Equal(t, "make all", cfg.PreCommit.Command)
+		assert.Equal(t, "bun", cfg.PackageManager.Preferred)
 	})
 }

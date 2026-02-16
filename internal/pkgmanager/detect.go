@@ -2,9 +2,11 @@
 package pkgmanager
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // lockFileEntry maps a lock file name to its corresponding package manager.
@@ -47,21 +49,46 @@ func Detect(projectDir string) string {
 	return defaultManager
 }
 
+// DetectWithPreferred returns the preferred package manager, using the config
+// value if set, otherwise falling back to Detect (env var → lock file → default).
+func DetectWithPreferred(projectDir, preferred string) string {
+	if preferred != "" {
+		return preferred
+	}
+	return Detect(projectDir)
+}
+
 // WriteToEnvFile writes the PREFERRED_PACKAGE_MANAGER to the specified env file
 // so it persists across Bash commands in the Claude Code session.
+// If the file already contains a PREFERRED_PACKAGE_MANAGER line, the existing
+// value is preserved to respect the user's choice.
 func WriteToEnvFile(envFilePath, manager string) error {
-	//nolint:gosec // File permissions 0644 are appropriate for env files
-	f, err := os.OpenFile(envFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if err != nil {
-		return fmt.Errorf("open env file %s: %w", envFilePath, err)
+	prefix := envVarName + "="
+
+	data, err := os.ReadFile(envFilePath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("read env file %s: %w", envFilePath, err)
 	}
-	defer f.Close()
 
-	line := envVarName + "=" + manager + "\n"
+	if err == nil {
+		scanner := bufio.NewScanner(strings.NewReader(string(data)))
+		for scanner.Scan() {
+			if strings.HasPrefix(scanner.Text(), prefix) {
+				return nil // already set — respect existing value
+			}
+		}
+	}
 
-	_, writeErr := f.WriteString(line)
-	if writeErr != nil {
-		return fmt.Errorf("write to env file %s: %w", envFilePath, writeErr)
+	var content string
+	if len(data) > 0 && !strings.HasSuffix(string(data), "\n") {
+		content = string(data) + "\n" + prefix + manager + "\n"
+	} else {
+		content = string(data) + prefix + manager + "\n"
+	}
+
+	//nolint:gosec // File permissions 0644 are appropriate for env files
+	if writeErr := os.WriteFile(envFilePath, []byte(content), 0o644); writeErr != nil {
+		return fmt.Errorf("write env file %s: %w", envFilePath, writeErr)
 	}
 
 	return nil

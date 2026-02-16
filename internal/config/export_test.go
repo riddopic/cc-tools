@@ -101,6 +101,12 @@ func ExportDefaultPreCommitEnabled() bool { return defaultPreCommitEnabled }
 // ExportDefaultPreCommitCommand returns the unexported default constant.
 func ExportDefaultPreCommitCommand() string { return defaultPreCommitCommand }
 
+// ExportKeyPackageManagerPreferred returns the unexported key constant.
+func ExportKeyPackageManagerPreferred() string { return keyPackageManagerPreferred }
+
+// ExportDefaultPackageManagerPreferred returns the unexported default constant.
+func ExportDefaultPackageManagerPreferred() string { return defaultPackageManagerPreferred }
+
 // ExportGetDefaultConfig exposes GetDefaultConfig for testing.
 func ExportGetDefaultConfig() *Values { return GetDefaultConfig() }
 

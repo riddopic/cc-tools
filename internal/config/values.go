@@ -2,13 +2,14 @@ package config
 
 // Values represents the concrete configuration structure.
 type Values struct {
-	Validate      ValidateValues      `json:"validate"`
-	Notifications NotificationsValues `json:"notifications"`
-	Compact       CompactValues       `json:"compact"`
-	Notify        NotifyValues        `json:"notify"`
-	Observe       ObserveValues       `json:"observe"`
-	Learning      LearningValues      `json:"learning"`
-	PreCommit     PreCommitValues     `json:"pre_commit_reminder"`
+	Validate       ValidateValues       `json:"validate"`
+	Notifications  NotificationsValues  `json:"notifications"`
+	Compact        CompactValues        `json:"compact"`
+	Notify         NotifyValues         `json:"notify"`
+	Observe        ObserveValues        `json:"observe"`
+	Learning       LearningValues       `json:"learning"`
+	PreCommit      PreCommitValues      `json:"pre_commit_reminder"`
+	PackageManager PackageManagerValues `json:"package_manager"`
 }
 
 // NotificationsValues represents notification-related settings.
@@ -69,6 +70,11 @@ type LearningValues struct {
 type PreCommitValues struct {
 	Enabled bool   `json:"enabled"`
 	Command string `json:"command"`
+}
+
+// PackageManagerValues represents package manager preference settings.
+type PackageManagerValues struct {
+	Preferred string `json:"preferred"`
 }
 
 // convertValidateFromMap extracts validate settings from a map config.
@@ -177,5 +183,16 @@ func convertPreCommitFromMap(p *PreCommitValues, mapConfig map[string]any) {
 	}
 	if cmd, cmdOk := section["command"].(string); cmdOk {
 		p.Command = cmd
+	}
+}
+
+// convertPackageManagerFromMap extracts package manager settings from a map config.
+func convertPackageManagerFromMap(pm *PackageManagerValues, mapConfig map[string]any) {
+	section, sectionOk := mapConfig["package_manager"].(map[string]any)
+	if !sectionOk {
+		return
+	}
+	if preferred, preferredOk := section["preferred"].(string); preferredOk {
+		pm.Preferred = preferred
 	}
 }

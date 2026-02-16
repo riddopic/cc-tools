@@ -26,6 +26,8 @@ const (
 
 	keyPreCommitEnabled = "pre_commit_reminder.enabled"
 	keyPreCommitCommand = "pre_commit_reminder.command"
+
+	keyPackageManagerPreferred = "package_manager.preferred"
 )
 
 const (
@@ -50,6 +52,8 @@ const (
 
 	defaultPreCommitEnabled = true
 	defaultPreCommitCommand = "task pre-commit"
+
+	defaultPackageManagerPreferred = ""
 )
 
 // GetDefaultConfig returns the default configuration values.
@@ -92,6 +96,9 @@ func GetDefaultConfig() *Values {
 			Enabled: defaultPreCommitEnabled,
 			Command: defaultPreCommitCommand,
 		},
+		PackageManager: PackageManagerValues{
+			Preferred: defaultPackageManagerPreferred,
+		},
 	}
 }
 
@@ -132,6 +139,8 @@ func getDefaultValue(defaults *Values, key string) string {
 		return strconv.FormatBool(defaults.PreCommit.Enabled)
 	case keyPreCommitCommand:
 		return defaults.PreCommit.Command
+	case keyPackageManagerPreferred:
+		return defaults.PackageManager.Preferred
 	default:
 		return ""
 	}
@@ -157,5 +166,6 @@ func allKeys() []string {
 		keyLearningLearnedSkillsPath,
 		keyPreCommitEnabled,
 		keyPreCommitCommand,
+		keyPackageManagerPreferred,
 	}
 }

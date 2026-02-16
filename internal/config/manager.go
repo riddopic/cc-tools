@@ -109,6 +109,8 @@ func (m *Manager) GetString(_ context.Context, key string) (string, bool, error)
 		return m.config.Learning.LearnedSkillsPath, true, nil
 	case keyPreCommitCommand:
 		return m.config.PreCommit.Command, true, nil
+	case keyPackageManagerPreferred:
+		return m.config.PackageManager.Preferred, true, nil
 	default:
 		return "", false, nil
 	}
@@ -158,6 +160,8 @@ func (m *Manager) GetValue(_ context.Context, key string) (string, bool, error) 
 		return strconv.FormatBool(m.config.PreCommit.Enabled), true, nil
 	case keyPreCommitCommand:
 		return m.config.PreCommit.Command, true, nil
+	case keyPackageManagerPreferred:
+		return m.config.PackageManager.Preferred, true, nil
 	default:
 		return "", false, nil
 	}
@@ -220,6 +224,8 @@ func (m *Manager) setField(key string, value string) error {
 		return setBoolField(&m.config.PreCommit.Enabled, value)
 	case keyPreCommitCommand:
 		m.config.PreCommit.Command = value
+	case keyPackageManagerPreferred:
+		m.config.PackageManager.Preferred = value
 	default:
 		return fmt.Errorf("unknown configuration key: %s", key)
 	}
@@ -326,6 +332,8 @@ func (m *Manager) Reset(_ context.Context, key string) error {
 		m.config.PreCommit.Enabled = defaults.PreCommit.Enabled
 	case keyPreCommitCommand:
 		m.config.PreCommit.Command = defaults.PreCommit.Command
+	case keyPackageManagerPreferred:
+		m.config.PackageManager.Preferred = defaults.PackageManager.Preferred
 	default:
 		return fmt.Errorf("unknown configuration key: %s", key)
 	}
@@ -481,6 +489,7 @@ func (m *Manager) convertFromMap(mapConfig map[string]any) {
 	convertObserveFromMap(&m.config.Observe, mapConfig)
 	convertLearningFromMap(&m.config.Learning, mapConfig)
 	convertPreCommitFromMap(&m.config.PreCommit, mapConfig)
+	convertPackageManagerFromMap(&m.config.PackageManager, mapConfig)
 
 	if notifyMap, notifyOk := mapConfig["notify"].(map[string]any); notifyOk {
 		convertNotifyFromMap(&m.config.Notify, notifyMap)

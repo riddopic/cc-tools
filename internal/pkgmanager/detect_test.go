@@ -109,7 +109,13 @@ func TestWriteToEnvFile(t *testing.T) {
 			wantContent:     "PREFERRED_PACKAGE_MANAGER=pnpm\n",
 		},
 		{
-			name:            "appends to existing file",
+			name:            "preserves existing PREFERRED_PACKAGE_MANAGER",
+			existingContent: "PREFERRED_PACKAGE_MANAGER=bun\n",
+			manager:         "npm",
+			wantContent:     "PREFERRED_PACKAGE_MANAGER=bun\n",
+		},
+		{
+			name:            "appends when other vars exist but no PREFERRED_PACKAGE_MANAGER",
 			existingContent: "SOME_VAR=value\n",
 			manager:         "yarn",
 			wantContent:     "SOME_VAR=value\nPREFERRED_PACKAGE_MANAGER=yarn\n",
@@ -141,8 +147,90 @@ func TestWriteToEnvFile(t *testing.T) {
 	}
 }
 
+func TestDetectWithPreferred(t *testing.T) {
+	tests := []struct {
+		name      string
+		lockFiles []string
+		envVar    string
+		preferred string
+		want      string
+	}{
+		{
+			name:      "preferred overrides lock file",
+			lockFiles: []string{"yarn.lock"},
+			envVar:    "",
+			preferred: "bun",
+			want:      "bun",
+		},
+		{
+			name:      "preferred overrides env var",
+			lockFiles: nil,
+			envVar:    "pnpm",
+			preferred: "bun",
+			want:      "bun",
+		},
+		{
+			name:      "empty preferred falls through to env var",
+			lockFiles: nil,
+			envVar:    "yarn",
+			preferred: "",
+			want:      "yarn",
+		},
+		{
+			name:      "empty preferred falls through to lock file",
+			lockFiles: []string{"pnpm-lock.yaml"},
+			envVar:    "",
+			preferred: "",
+			want:      "pnpm",
+		},
+		{
+			name:      "empty preferred and no lock file defaults to npm",
+			lockFiles: nil,
+			envVar:    "",
+			preferred: "",
+			want:      "npm",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			projectDir := t.TempDir()
+
+			for _, lf := range tt.lockFiles {
+				lockPath := filepath.Join(projectDir, lf)
+				require.NoError(t, os.WriteFile(lockPath, []byte(""), 0o600))
+			}
+
+			if tt.envVar != "" {
+				t.Setenv("PREFERRED_PACKAGE_MANAGER", tt.envVar)
+			} else {
+				t.Setenv("PREFERRED_PACKAGE_MANAGER", "")
+			}
+
+			got := pkgmanager.DetectWithPreferred(projectDir, tt.preferred)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestWriteToEnvFile_Idempotent(t *testing.T) {
+	tmpDir := t.TempDir()
+	envFile := filepath.Join(tmpDir, "claude.env")
+
+	// Call WriteToEnvFile three times with the same manager.
+	for range 3 {
+		err := pkgmanager.WriteToEnvFile(envFile, "bun")
+		require.NoError(t, err)
+	}
+
+	got, err := os.ReadFile(envFile)
+	require.NoError(t, err)
+	assert.Equal(t, "PREFERRED_PACKAGE_MANAGER=bun\n", string(got),
+		"file should contain exactly one entry after multiple writes")
+}
+
 func TestWriteToEnvFileError(t *testing.T) {
 	err := pkgmanager.WriteToEnvFile("/nonexistent/path/to/file.env", "npm")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "open env file")
+	assert.Contains(t, err.Error(), "env file")
 }

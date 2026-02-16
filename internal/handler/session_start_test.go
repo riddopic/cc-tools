@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/riddopic/cc-tools/internal/config"
 	"github.com/riddopic/cc-tools/internal/handler"
 	"github.com/riddopic/cc-tools/internal/hookcmd"
 	"github.com/riddopic/cc-tools/internal/session"
@@ -109,14 +110,14 @@ func TestSuperpowersHandler_ImplementsHandler(t *testing.T) {
 
 func TestPkgManagerHandler_Name(t *testing.T) {
 	t.Parallel()
-	h := handler.NewPkgManagerHandler()
+	h := handler.NewPkgManagerHandler(nil)
 	assert.Equal(t, "pkg-manager", h.Name())
 }
 
 func TestPkgManagerHandler_Handle_CreatesEnvFile(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
-	h := handler.NewPkgManagerHandler()
+	h := handler.NewPkgManagerHandler(nil)
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -141,7 +142,7 @@ func TestPkgManagerHandler_Handle_DetectsYarn(t *testing.T) {
 	// Create a yarn.lock file so detection picks yarn.
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "yarn.lock"), []byte(""), 0o600))
 
-	h := handler.NewPkgManagerHandler()
+	h := handler.NewPkgManagerHandler(nil)
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -166,7 +167,7 @@ func TestPkgManagerHandler_Handle_DetectsNpm(t *testing.T) {
 		filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0o600,
 	))
 
-	h := handler.NewPkgManagerHandler()
+	h := handler.NewPkgManagerHandler(nil)
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -190,7 +191,7 @@ func TestPkgManagerHandler_Handle_DetectsPnpm(t *testing.T) {
 		filepath.Join(tmpDir, "pnpm-lock.yaml"), []byte(""), 0o600,
 	))
 
-	h := handler.NewPkgManagerHandler()
+	h := handler.NewPkgManagerHandler(nil)
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -214,7 +215,7 @@ func TestPkgManagerHandler_Handle_DetectsBun(t *testing.T) {
 		filepath.Join(tmpDir, "bun.lock"), []byte(""), 0o600,
 	))
 
-	h := handler.NewPkgManagerHandler()
+	h := handler.NewPkgManagerHandler(nil)
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -233,7 +234,7 @@ func TestPkgManagerHandler_Handle_DetectsBun(t *testing.T) {
 func TestPkgManagerHandler_Handle_NoStdout(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
-	h := handler.NewPkgManagerHandler()
+	h := handler.NewPkgManagerHandler(nil)
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -244,9 +245,64 @@ func TestPkgManagerHandler_Handle_NoStdout(t *testing.T) {
 	assert.Nil(t, resp.Stdout, "pkg-manager handler should not produce stdout output")
 }
 
+func TestPkgManagerHandler_Handle_ConfigPreferredOverridesLockFile(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create a yarn.lock so detection would normally pick yarn.
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "yarn.lock"), []byte(""), 0o600))
+
+	cfg := config.GetDefaultConfig()
+	cfg.PackageManager.Preferred = "bun"
+
+	h := handler.NewPkgManagerHandler(cfg)
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventSessionStart,
+		Cwd:           tmpDir,
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 0, resp.ExitCode)
+
+	envFile := filepath.Join(tmpDir, ".claude", ".env")
+	data, readErr := os.ReadFile(envFile)
+	require.NoError(t, readErr)
+	assert.Contains(t, string(data), "PREFERRED_PACKAGE_MANAGER=bun",
+		"config preferred should override lock file detection")
+}
+
+func TestPkgManagerHandler_Handle_EmptyConfigFallsBackToDetection(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create a pnpm-lock.yaml so detection picks pnpm.
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "pnpm-lock.yaml"), []byte(""), 0o600))
+
+	cfg := config.GetDefaultConfig()
+	// Preferred is empty — should fall through to lock file detection.
+
+	h := handler.NewPkgManagerHandler(cfg)
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventSessionStart,
+		Cwd:           tmpDir,
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	envFile := filepath.Join(tmpDir, ".claude", ".env")
+	data, readErr := os.ReadFile(envFile)
+	require.NoError(t, readErr)
+	assert.Contains(t, string(data), "PREFERRED_PACKAGE_MANAGER=pnpm",
+		"empty config preferred should fall back to lock file detection")
+}
+
 func TestPkgManagerHandler_ImplementsHandler(t *testing.T) {
 	t.Parallel()
-	var _ handler.Handler = handler.NewPkgManagerHandler()
+	var _ handler.Handler = handler.NewPkgManagerHandler(nil)
 }
 
 // ---------------------------------------------------------------------

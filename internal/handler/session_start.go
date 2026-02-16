@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/riddopic/cc-tools/internal/config"
 	"github.com/riddopic/cc-tools/internal/hookcmd"
 	"github.com/riddopic/cc-tools/internal/pkgmanager"
 	"github.com/riddopic/cc-tools/internal/session"
@@ -66,10 +67,14 @@ func (h *SuperpowersHandler) Handle(ctx context.Context, input *hookcmd.HookInpu
 // ---------------------------------------------------------------------
 
 // PkgManagerHandler detects the package manager and writes to .claude/.env.
-type PkgManagerHandler struct{}
+type PkgManagerHandler struct {
+	cfg *config.Values
+}
 
 // NewPkgManagerHandler creates a new PkgManagerHandler.
-func NewPkgManagerHandler() *PkgManagerHandler { return &PkgManagerHandler{} }
+func NewPkgManagerHandler(cfg *config.Values) *PkgManagerHandler {
+	return &PkgManagerHandler{cfg: cfg}
+}
 
 // Name returns the handler identifier.
 func (h *PkgManagerHandler) Name() string { return "pkg-manager" }
@@ -77,7 +82,11 @@ func (h *PkgManagerHandler) Name() string { return "pkg-manager" }
 // Handle detects the project's package manager and persists it in the
 // .claude/.env file so it is available to Bash commands during the session.
 func (h *PkgManagerHandler) Handle(_ context.Context, input *hookcmd.HookInput) (*Response, error) {
-	manager := pkgmanager.Detect(input.Cwd)
+	var preferred string
+	if h.cfg != nil {
+		preferred = h.cfg.PackageManager.Preferred
+	}
+	manager := pkgmanager.DetectWithPreferred(input.Cwd, preferred)
 
 	envDir := filepath.Join(input.Cwd, ".claude")
 	if err := os.MkdirAll(envDir, 0o750); err != nil {
