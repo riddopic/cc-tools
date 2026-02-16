@@ -900,3 +900,1350 @@ func TestManager_LoadsHookConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestGetString_AllKeys(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name      string
+		config    *config.Values
+		key       string
+		wantValue string
+		wantFound bool
+	}{
+		{
+			name:      "get notifications ntfy topic (empty default)",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyNotificationsNtfyTopic(),
+			wantValue: "",
+			wantFound: true,
+		},
+		{
+			name: "get notifications ntfy topic (custom)",
+			config: func() *config.Values {
+				v := newTestValues(0, 0)
+				v.Notifications.NtfyTopic = "my-topic"
+				return v
+			}(),
+			key:       config.ExportKeyNotificationsNtfyTopic(),
+			wantValue: "my-topic",
+			wantFound: true,
+		},
+		{
+			name:      "get notify quiet hours start",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyNotifyQuietHoursStart(),
+			wantValue: config.ExportDefaultNotifyQuietHoursStart(),
+			wantFound: true,
+		},
+		{
+			name:      "get notify quiet hours end",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyNotifyQuietHoursEnd(),
+			wantValue: config.ExportDefaultNotifyQuietHoursEnd(),
+			wantFound: true,
+		},
+		{
+			name:      "get notify audio directory",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyNotifyAudioDirectory(),
+			wantValue: config.ExportDefaultNotifyAudioDirectory(),
+			wantFound: true,
+		},
+		{
+			name:      "get learning learned skills path",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyLearningLearnedSkillsPath(),
+			wantValue: config.ExportDefaultLearningLearnedSkillsPath(),
+			wantFound: true,
+		},
+		{
+			name:      "get pre-commit command",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyPreCommitCommand(),
+			wantValue: config.ExportDefaultPreCommitCommand(),
+			wantFound: true,
+		},
+		{
+			name: "get custom quiet hours start",
+			config: func() *config.Values {
+				v := newTestValues(0, 0)
+				v.Notify.QuietHours.Start = "23:00"
+				return v
+			}(),
+			key:       config.ExportKeyNotifyQuietHoursStart(),
+			wantValue: "23:00",
+			wantFound: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			m := config.NewTestManager(filepath.Join(tmpDir, "config.json"), tt.config)
+
+			value, found, err := m.GetString(ctx, tt.key)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantValue, value)
+			assert.Equal(t, tt.wantFound, found)
+		})
+	}
+}
+
+func TestGetInt_AllKeys(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name      string
+		config    *config.Values
+		key       string
+		wantValue int
+		wantFound bool
+	}{
+		{
+			name:      "get compact threshold default",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyCompactThreshold(),
+			wantValue: config.ExportDefaultCompactThreshold(),
+			wantFound: true,
+		},
+		{
+			name: "get compact threshold custom",
+			config: func() *config.Values {
+				v := newTestValues(0, 0)
+				v.Compact.Threshold = 100
+				return v
+			}(),
+			key:       config.ExportKeyCompactThreshold(),
+			wantValue: 100,
+			wantFound: true,
+		},
+		{
+			name:      "get compact reminder interval default",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyCompactReminderInterval(),
+			wantValue: config.ExportDefaultCompactReminderInterval(),
+			wantFound: true,
+		},
+		{
+			name:      "get observe max file size mb default",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyObserveMaxFileSizeMB(),
+			wantValue: config.ExportDefaultObserveMaxFileSizeMB(),
+			wantFound: true,
+		},
+		{
+			name: "get observe max file size mb custom",
+			config: func() *config.Values {
+				v := newTestValues(0, 0)
+				v.Observe.MaxFileSizeMB = 25
+				return v
+			}(),
+			key:       config.ExportKeyObserveMaxFileSizeMB(),
+			wantValue: 25,
+			wantFound: true,
+		},
+		{
+			name:      "get learning min session length default",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyLearningMinSessionLength(),
+			wantValue: config.ExportDefaultLearningMinSessionLength(),
+			wantFound: true,
+		},
+		{
+			name: "get learning min session length custom",
+			config: func() *config.Values {
+				v := newTestValues(0, 0)
+				v.Learning.MinSessionLength = 30
+				return v
+			}(),
+			key:       config.ExportKeyLearningMinSessionLength(),
+			wantValue: 30,
+			wantFound: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			m := config.NewTestManager(filepath.Join(tmpDir, "config.json"), tt.config)
+
+			value, found, err := m.GetInt(ctx, tt.key)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantValue, value)
+			assert.Equal(t, tt.wantFound, found)
+		})
+	}
+}
+
+func TestSetBoolField(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name    string
+		key     string
+		value   string
+		wantErr bool
+		check   func(t *testing.T, cfg *config.Values)
+	}{
+		{
+			name:    "set quiet hours enabled to true",
+			key:     config.ExportKeyNotifyQuietHoursEnabled(),
+			value:   "true",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.True(t, cfg.Notify.QuietHours.Enabled)
+			},
+		},
+		{
+			name:    "set quiet hours enabled to false",
+			key:     config.ExportKeyNotifyQuietHoursEnabled(),
+			value:   "false",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.False(t, cfg.Notify.QuietHours.Enabled)
+			},
+		},
+		{
+			name:    "set audio enabled to 1",
+			key:     config.ExportKeyNotifyAudioEnabled(),
+			value:   "1",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.True(t, cfg.Notify.Audio.Enabled)
+			},
+		},
+		{
+			name:    "set audio enabled to 0",
+			key:     config.ExportKeyNotifyAudioEnabled(),
+			value:   "0",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.False(t, cfg.Notify.Audio.Enabled)
+			},
+		},
+		{
+			name:    "set observe enabled to false",
+			key:     config.ExportKeyObserveEnabled(),
+			value:   "false",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.False(t, cfg.Observe.Enabled)
+			},
+		},
+		{
+			name:    "set observe enabled to true",
+			key:     config.ExportKeyObserveEnabled(),
+			value:   "true",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.True(t, cfg.Observe.Enabled)
+			},
+		},
+		{
+			name:    "set pre-commit enabled to false",
+			key:     config.ExportKeyPreCommitEnabled(),
+			value:   "false",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.False(t, cfg.PreCommit.Enabled)
+			},
+		},
+		{
+			name:    "set pre-commit enabled to true",
+			key:     config.ExportKeyPreCommitEnabled(),
+			value:   "true",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.True(t, cfg.PreCommit.Enabled)
+			},
+		},
+		{
+			name:    "invalid bool value returns error",
+			key:     config.ExportKeyNotifyQuietHoursEnabled(),
+			value:   "invalid",
+			wantErr: true,
+			check:   nil,
+		},
+		{
+			name:    "set desktop enabled to false",
+			key:     config.ExportKeyNotifyDesktopEnabled(),
+			value:   "false",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.False(t, cfg.Notify.Desktop.Enabled)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			m := config.NewTestManager(
+				filepath.Join(tmpDir, "config.json"),
+				config.ExportGetDefaultConfig(),
+			)
+
+			err := m.Set(ctx, tt.key, tt.value)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			cfg, getErr := m.GetConfig(ctx)
+			require.NoError(t, getErr)
+			tt.check(t, cfg)
+
+			assertConfigSavedToFile(t, config.ManagerConfigPath(m))
+		})
+	}
+}
+
+func TestSetStringAndIntFields(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name    string
+		key     string
+		value   string
+		wantErr bool
+		check   func(t *testing.T, cfg *config.Values)
+	}{
+		{
+			name:    "set ntfy topic",
+			key:     config.ExportKeyNotificationsNtfyTopic(),
+			value:   "my-notifications",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, "my-notifications", cfg.Notifications.NtfyTopic)
+			},
+		},
+		{
+			name:    "set quiet hours start",
+			key:     config.ExportKeyNotifyQuietHoursStart(),
+			value:   "22:30",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, "22:30", cfg.Notify.QuietHours.Start)
+			},
+		},
+		{
+			name:    "set quiet hours end",
+			key:     config.ExportKeyNotifyQuietHoursEnd(),
+			value:   "08:00",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, "08:00", cfg.Notify.QuietHours.End)
+			},
+		},
+		{
+			name:    "set audio directory",
+			key:     config.ExportKeyNotifyAudioDirectory(),
+			value:   "/custom/audio/path",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, "/custom/audio/path", cfg.Notify.Audio.Directory)
+			},
+		},
+		{
+			name:    "set learned skills path",
+			key:     config.ExportKeyLearningLearnedSkillsPath(),
+			value:   "custom/skills/dir",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, "custom/skills/dir", cfg.Learning.LearnedSkillsPath)
+			},
+		},
+		{
+			name:    "set pre-commit command",
+			key:     config.ExportKeyPreCommitCommand(),
+			value:   "make lint && make test",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, "make lint && make test", cfg.PreCommit.Command)
+			},
+		},
+		{
+			name:    "set compact threshold",
+			key:     config.ExportKeyCompactThreshold(),
+			value:   "75",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, 75, cfg.Compact.Threshold)
+			},
+		},
+		{
+			name:    "set compact reminder interval",
+			key:     config.ExportKeyCompactReminderInterval(),
+			value:   "10",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, 10, cfg.Compact.ReminderInterval)
+			},
+		},
+		{
+			name:    "set observe max file size mb",
+			key:     config.ExportKeyObserveMaxFileSizeMB(),
+			value:   "50",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, 50, cfg.Observe.MaxFileSizeMB)
+			},
+		},
+		{
+			name:    "set learning min session length",
+			key:     config.ExportKeyLearningMinSessionLength(),
+			value:   "20",
+			wantErr: false,
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, 20, cfg.Learning.MinSessionLength)
+			},
+		},
+		{
+			name:    "set compact threshold invalid int",
+			key:     config.ExportKeyCompactThreshold(),
+			value:   "abc",
+			wantErr: true,
+			check:   nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			m := config.NewTestManager(
+				filepath.Join(tmpDir, "config.json"),
+				config.ExportGetDefaultConfig(),
+			)
+
+			err := m.Set(ctx, tt.key, tt.value)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			cfg, getErr := m.GetConfig(ctx)
+			require.NoError(t, getErr)
+			tt.check(t, cfg)
+
+			assertConfigSavedToFile(t, config.ManagerConfigPath(m))
+		})
+	}
+}
+
+func TestReset_AllKeyTypes(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name     string
+		setupKey string
+		setupVal string
+		resetKey string
+		check    func(t *testing.T, cfg *config.Values)
+	}{
+		{
+			name:     "reset string key ntfy topic",
+			setupKey: config.ExportKeyNotificationsNtfyTopic(),
+			setupVal: "custom-topic",
+			resetKey: config.ExportKeyNotificationsNtfyTopic(),
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Empty(t, cfg.Notifications.NtfyTopic)
+			},
+		},
+		{
+			name:     "reset bool key quiet hours enabled",
+			setupKey: config.ExportKeyNotifyQuietHoursEnabled(),
+			setupVal: "false",
+			resetKey: config.ExportKeyNotifyQuietHoursEnabled(),
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultNotifyQuietHoursEnabled(), cfg.Notify.QuietHours.Enabled)
+			},
+		},
+		{
+			name:     "reset int key compact threshold",
+			setupKey: config.ExportKeyCompactThreshold(),
+			setupVal: "999",
+			resetKey: config.ExportKeyCompactThreshold(),
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultCompactThreshold(), cfg.Compact.Threshold)
+			},
+		},
+		{
+			name:     "reset compact reminder interval",
+			setupKey: config.ExportKeyCompactReminderInterval(),
+			setupVal: "999",
+			resetKey: config.ExportKeyCompactReminderInterval(),
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultCompactReminderInterval(), cfg.Compact.ReminderInterval)
+			},
+		},
+		{
+			name:     "reset quiet hours start",
+			setupKey: config.ExportKeyNotifyQuietHoursStart(),
+			setupVal: "23:30",
+			resetKey: config.ExportKeyNotifyQuietHoursStart(),
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultNotifyQuietHoursStart(), cfg.Notify.QuietHours.Start)
+			},
+		},
+		{
+			name:     "reset quiet hours end",
+			setupKey: config.ExportKeyNotifyQuietHoursEnd(),
+			setupVal: "09:00",
+			resetKey: config.ExportKeyNotifyQuietHoursEnd(),
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultNotifyQuietHoursEnd(), cfg.Notify.QuietHours.End)
+			},
+		},
+		{
+			name:     "reset audio enabled",
+			setupKey: config.ExportKeyNotifyAudioEnabled(),
+			setupVal: "false",
+			resetKey: config.ExportKeyNotifyAudioEnabled(),
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultNotifyAudioEnabled(), cfg.Notify.Audio.Enabled)
+			},
+		},
+		{
+			name:     "reset audio directory",
+			setupKey: config.ExportKeyNotifyAudioDirectory(),
+			setupVal: "/tmp/audio",
+			resetKey: config.ExportKeyNotifyAudioDirectory(),
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultNotifyAudioDirectory(), cfg.Notify.Audio.Directory)
+			},
+		},
+		{
+			name:     "reset desktop enabled",
+			setupKey: config.ExportKeyNotifyDesktopEnabled(),
+			setupVal: "false",
+			resetKey: config.ExportKeyNotifyDesktopEnabled(),
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultNotifyDesktopEnabled(), cfg.Notify.Desktop.Enabled)
+			},
+		},
+		{
+			name:     "reset observe enabled",
+			setupKey: config.ExportKeyObserveEnabled(),
+			setupVal: "false",
+			resetKey: config.ExportKeyObserveEnabled(),
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultObserveEnabled(), cfg.Observe.Enabled)
+			},
+		},
+		{
+			name:     "reset observe max file size mb",
+			setupKey: config.ExportKeyObserveMaxFileSizeMB(),
+			setupVal: "99",
+			resetKey: config.ExportKeyObserveMaxFileSizeMB(),
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultObserveMaxFileSizeMB(), cfg.Observe.MaxFileSizeMB)
+			},
+		},
+		{
+			name:     "reset learning min session length",
+			setupKey: config.ExportKeyLearningMinSessionLength(),
+			setupVal: "99",
+			resetKey: config.ExportKeyLearningMinSessionLength(),
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultLearningMinSessionLength(), cfg.Learning.MinSessionLength)
+			},
+		},
+		{
+			name:     "reset learning learned skills path",
+			setupKey: config.ExportKeyLearningLearnedSkillsPath(),
+			setupVal: "/custom/path",
+			resetKey: config.ExportKeyLearningLearnedSkillsPath(),
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultLearningLearnedSkillsPath(), cfg.Learning.LearnedSkillsPath)
+			},
+		},
+		{
+			name:     "reset pre-commit enabled",
+			setupKey: config.ExportKeyPreCommitEnabled(),
+			setupVal: "false",
+			resetKey: config.ExportKeyPreCommitEnabled(),
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultPreCommitEnabled(), cfg.PreCommit.Enabled)
+			},
+		},
+		{
+			name:     "reset pre-commit command",
+			setupKey: config.ExportKeyPreCommitCommand(),
+			setupVal: "make check",
+			resetKey: config.ExportKeyPreCommitCommand(),
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultPreCommitCommand(), cfg.PreCommit.Command)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			m := config.NewTestManager(
+				filepath.Join(tmpDir, "config.json"),
+				config.ExportGetDefaultConfig(),
+			)
+
+			err := m.Set(ctx, tt.setupKey, tt.setupVal)
+			require.NoError(t, err, "Set() setup failed")
+
+			err = m.Reset(ctx, tt.resetKey)
+			require.NoError(t, err, "Reset() failed")
+
+			cfg, getErr := m.GetConfig(ctx)
+			require.NoError(t, getErr)
+			tt.check(t, cfg)
+
+			assertConfigSavedToFile(t, config.ManagerConfigPath(m))
+		})
+	}
+}
+
+func TestConvertNotifyFromMap(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[string]any
+		check func(t *testing.T, cfg *config.Values)
+	}{
+		{
+			name: "full map with all fields",
+			input: map[string]any{
+				"notify": map[string]any{
+					"quiet_hours": map[string]any{
+						"enabled": false,
+						"start":   "23:00",
+						"end":     "06:00",
+					},
+					"audio": map[string]any{
+						"enabled":   false,
+						"directory": "/custom/audio",
+					},
+					"desktop": map[string]any{
+						"enabled": false,
+					},
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.False(t, cfg.Notify.QuietHours.Enabled)
+				assert.Equal(t, "23:00", cfg.Notify.QuietHours.Start)
+				assert.Equal(t, "06:00", cfg.Notify.QuietHours.End)
+				assert.False(t, cfg.Notify.Audio.Enabled)
+				assert.Equal(t, "/custom/audio", cfg.Notify.Audio.Directory)
+				assert.False(t, cfg.Notify.Desktop.Enabled)
+			},
+		},
+		{
+			name: "partial map with only quiet hours",
+			input: map[string]any{
+				"notify": map[string]any{
+					"quiet_hours": map[string]any{
+						"start": "22:00",
+					},
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, "22:00", cfg.Notify.QuietHours.Start)
+				// Other notify defaults should be preserved
+				assert.Equal(t, config.ExportDefaultNotifyAudioEnabled(), cfg.Notify.Audio.Enabled)
+				assert.Equal(t, config.ExportDefaultNotifyAudioDirectory(), cfg.Notify.Audio.Directory)
+			},
+		},
+		{
+			name:  "empty notify map preserves defaults",
+			input: map[string]any{},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultNotifyQuietHoursEnabled(), cfg.Notify.QuietHours.Enabled)
+				assert.Equal(t, config.ExportDefaultNotifyQuietHoursStart(), cfg.Notify.QuietHours.Start)
+				assert.Equal(t, config.ExportDefaultNotifyQuietHoursEnd(), cfg.Notify.QuietHours.End)
+				assert.Equal(t, config.ExportDefaultNotifyAudioEnabled(), cfg.Notify.Audio.Enabled)
+				assert.Equal(t, config.ExportDefaultNotifyAudioDirectory(), cfg.Notify.Audio.Directory)
+				assert.Equal(t, config.ExportDefaultNotifyDesktopEnabled(), cfg.Notify.Desktop.Enabled)
+			},
+		},
+		{
+			name: "wrong types in notify map preserves defaults",
+			input: map[string]any{
+				"notify": map[string]any{
+					"quiet_hours": map[string]any{
+						"enabled": "not-a-bool",
+						"start":   123,
+						"end":     true,
+					},
+					"audio": map[string]any{
+						"enabled":   "not-a-bool",
+						"directory": 456,
+					},
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				// Wrong types should be ignored; defaults should be preserved
+				assert.Equal(t, config.ExportDefaultNotifyQuietHoursEnabled(), cfg.Notify.QuietHours.Enabled)
+				assert.Equal(t, config.ExportDefaultNotifyQuietHoursStart(), cfg.Notify.QuietHours.Start)
+				assert.Equal(t, config.ExportDefaultNotifyQuietHoursEnd(), cfg.Notify.QuietHours.End)
+				assert.Equal(t, config.ExportDefaultNotifyAudioEnabled(), cfg.Notify.Audio.Enabled)
+				assert.Equal(t, config.ExportDefaultNotifyAudioDirectory(), cfg.Notify.Audio.Directory)
+			},
+		},
+		{
+			name: "notify is not a map",
+			input: map[string]any{
+				"notify": "not-a-map",
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultNotifyQuietHoursEnabled(), cfg.Notify.QuietHours.Enabled)
+				assert.Equal(t, config.ExportDefaultNotifyQuietHoursStart(), cfg.Notify.QuietHours.Start)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := config.NewTestManager("", nil)
+			config.ManagerConvertFromMap(m, tt.input)
+			cfg := config.ManagerConfig(m)
+			tt.check(t, cfg)
+		})
+	}
+}
+
+func TestConvertCompactFromMap(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[string]any
+		check func(t *testing.T, cfg *config.Values)
+	}{
+		{
+			name: "full compact settings",
+			input: map[string]any{
+				"compact": map[string]any{
+					"threshold":         80.0,
+					"reminder_interval": 40.0,
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, 80, cfg.Compact.Threshold)
+				assert.Equal(t, 40, cfg.Compact.ReminderInterval)
+			},
+		},
+		{
+			name: "partial compact with threshold only",
+			input: map[string]any{
+				"compact": map[string]any{
+					"threshold": 100.0,
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, 100, cfg.Compact.Threshold)
+				assert.Equal(t, config.ExportDefaultCompactReminderInterval(), cfg.Compact.ReminderInterval)
+			},
+		},
+		{
+			name: "compact wrong types",
+			input: map[string]any{
+				"compact": map[string]any{
+					"threshold":         "not-a-number",
+					"reminder_interval": true,
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultCompactThreshold(), cfg.Compact.Threshold)
+				assert.Equal(t, config.ExportDefaultCompactReminderInterval(), cfg.Compact.ReminderInterval)
+			},
+		},
+		{
+			name: "compact section is not a map",
+			input: map[string]any{
+				"compact": "not-a-map",
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultCompactThreshold(), cfg.Compact.Threshold)
+				assert.Equal(t, config.ExportDefaultCompactReminderInterval(), cfg.Compact.ReminderInterval)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := config.NewTestManager("", nil)
+			config.ManagerConvertFromMap(m, tt.input)
+			cfg := config.ManagerConfig(m)
+			tt.check(t, cfg)
+		})
+	}
+}
+
+func TestConvertObserveFromMap(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[string]any
+		check func(t *testing.T, cfg *config.Values)
+	}{
+		{
+			name: "full observe settings",
+			input: map[string]any{
+				"observe": map[string]any{
+					"enabled":          false,
+					"max_file_size_mb": 25.0,
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.False(t, cfg.Observe.Enabled)
+				assert.Equal(t, 25, cfg.Observe.MaxFileSizeMB)
+			},
+		},
+		{
+			name: "partial observe with enabled only",
+			input: map[string]any{
+				"observe": map[string]any{
+					"enabled": false,
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.False(t, cfg.Observe.Enabled)
+				assert.Equal(t, config.ExportDefaultObserveMaxFileSizeMB(), cfg.Observe.MaxFileSizeMB)
+			},
+		},
+		{
+			name: "observe wrong types",
+			input: map[string]any{
+				"observe": map[string]any{
+					"enabled":          "not-a-bool",
+					"max_file_size_mb": "not-a-number",
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultObserveEnabled(), cfg.Observe.Enabled)
+				assert.Equal(t, config.ExportDefaultObserveMaxFileSizeMB(), cfg.Observe.MaxFileSizeMB)
+			},
+		},
+		{
+			name: "observe section is not a map",
+			input: map[string]any{
+				"observe": 42,
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultObserveEnabled(), cfg.Observe.Enabled)
+				assert.Equal(t, config.ExportDefaultObserveMaxFileSizeMB(), cfg.Observe.MaxFileSizeMB)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := config.NewTestManager("", nil)
+			config.ManagerConvertFromMap(m, tt.input)
+			cfg := config.ManagerConfig(m)
+			tt.check(t, cfg)
+		})
+	}
+}
+
+func TestConvertLearningFromMap(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[string]any
+		check func(t *testing.T, cfg *config.Values)
+	}{
+		{
+			name: "full learning settings",
+			input: map[string]any{
+				"learning": map[string]any{
+					"min_session_length":  20.0,
+					"learned_skills_path": "custom/path",
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, 20, cfg.Learning.MinSessionLength)
+				assert.Equal(t, "custom/path", cfg.Learning.LearnedSkillsPath)
+			},
+		},
+		{
+			name: "partial learning with min session length only",
+			input: map[string]any{
+				"learning": map[string]any{
+					"min_session_length": 30.0,
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, 30, cfg.Learning.MinSessionLength)
+				assert.Equal(t, config.ExportDefaultLearningLearnedSkillsPath(), cfg.Learning.LearnedSkillsPath)
+			},
+		},
+		{
+			name: "partial learning with path only",
+			input: map[string]any{
+				"learning": map[string]any{
+					"learned_skills_path": "another/path",
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultLearningMinSessionLength(), cfg.Learning.MinSessionLength)
+				assert.Equal(t, "another/path", cfg.Learning.LearnedSkillsPath)
+			},
+		},
+		{
+			name: "learning wrong types",
+			input: map[string]any{
+				"learning": map[string]any{
+					"min_session_length":  "not-a-number",
+					"learned_skills_path": 123,
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultLearningMinSessionLength(), cfg.Learning.MinSessionLength)
+				assert.Equal(t, config.ExportDefaultLearningLearnedSkillsPath(), cfg.Learning.LearnedSkillsPath)
+			},
+		},
+		{
+			name: "learning section is not a map",
+			input: map[string]any{
+				"learning": []string{"not", "a", "map"},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultLearningMinSessionLength(), cfg.Learning.MinSessionLength)
+				assert.Equal(t, config.ExportDefaultLearningLearnedSkillsPath(), cfg.Learning.LearnedSkillsPath)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := config.NewTestManager("", nil)
+			config.ManagerConvertFromMap(m, tt.input)
+			cfg := config.ManagerConfig(m)
+			tt.check(t, cfg)
+		})
+	}
+}
+
+func TestConvertPreCommitFromMap(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[string]any
+		check func(t *testing.T, cfg *config.Values)
+	}{
+		{
+			name: "full pre-commit settings",
+			input: map[string]any{
+				"pre_commit_reminder": map[string]any{
+					"enabled": false,
+					"command": "make check",
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.False(t, cfg.PreCommit.Enabled)
+				assert.Equal(t, "make check", cfg.PreCommit.Command)
+			},
+		},
+		{
+			name: "partial pre-commit with enabled only",
+			input: map[string]any{
+				"pre_commit_reminder": map[string]any{
+					"enabled": false,
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.False(t, cfg.PreCommit.Enabled)
+				assert.Equal(t, config.ExportDefaultPreCommitCommand(), cfg.PreCommit.Command)
+			},
+		},
+		{
+			name: "partial pre-commit with command only",
+			input: map[string]any{
+				"pre_commit_reminder": map[string]any{
+					"command": "npm run lint",
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultPreCommitEnabled(), cfg.PreCommit.Enabled)
+				assert.Equal(t, "npm run lint", cfg.PreCommit.Command)
+			},
+		},
+		{
+			name: "pre-commit wrong types",
+			input: map[string]any{
+				"pre_commit_reminder": map[string]any{
+					"enabled": "not-a-bool",
+					"command": 12345,
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultPreCommitEnabled(), cfg.PreCommit.Enabled)
+				assert.Equal(t, config.ExportDefaultPreCommitCommand(), cfg.PreCommit.Command)
+			},
+		},
+		{
+			name: "pre-commit section is not a map",
+			input: map[string]any{
+				"pre_commit_reminder": true,
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, config.ExportDefaultPreCommitEnabled(), cfg.PreCommit.Enabled)
+				assert.Equal(t, config.ExportDefaultPreCommitCommand(), cfg.PreCommit.Command)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := config.NewTestManager("", nil)
+			config.ManagerConvertFromMap(m, tt.input)
+			cfg := config.ManagerConfig(m)
+			tt.check(t, cfg)
+		})
+	}
+}
+
+func TestGetValue_AllKeys(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name      string
+		config    *config.Values
+		key       string
+		wantValue string
+		wantFound bool
+	}{
+		{
+			name:      "get cooldown as string",
+			config:    newTestValues(0, 15),
+			key:       config.ExportKeyValidateCooldown(),
+			wantValue: "15",
+			wantFound: true,
+		},
+		{
+			name:      "get ntfy topic as string",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyNotificationsNtfyTopic(),
+			wantValue: "",
+			wantFound: true,
+		},
+		{
+			name:      "get compact threshold as string",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyCompactThreshold(),
+			wantValue: "50",
+			wantFound: true,
+		},
+		{
+			name:      "get compact reminder interval as string",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyCompactReminderInterval(),
+			wantValue: "25",
+			wantFound: true,
+		},
+		{
+			name:      "get quiet hours enabled as string",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyNotifyQuietHoursEnabled(),
+			wantValue: "true",
+			wantFound: true,
+		},
+		{
+			name:      "get quiet hours start as string",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyNotifyQuietHoursStart(),
+			wantValue: "21:00",
+			wantFound: true,
+		},
+		{
+			name:      "get quiet hours end as string",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyNotifyQuietHoursEnd(),
+			wantValue: "07:30",
+			wantFound: true,
+		},
+		{
+			name:      "get audio enabled as string",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyNotifyAudioEnabled(),
+			wantValue: "true",
+			wantFound: true,
+		},
+		{
+			name:      "get audio directory as string",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyNotifyAudioDirectory(),
+			wantValue: "~/.claude/audio",
+			wantFound: true,
+		},
+		{
+			name:      "get desktop enabled as string",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyNotifyDesktopEnabled(),
+			wantValue: "true",
+			wantFound: true,
+		},
+		{
+			name:      "get observe enabled as string",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyObserveEnabled(),
+			wantValue: "true",
+			wantFound: true,
+		},
+		{
+			name:      "get observe max file size as string",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyObserveMaxFileSizeMB(),
+			wantValue: "10",
+			wantFound: true,
+		},
+		{
+			name:      "get learning min session length as string",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyLearningMinSessionLength(),
+			wantValue: "10",
+			wantFound: true,
+		},
+		{
+			name:      "get learning learned skills path as string",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyLearningLearnedSkillsPath(),
+			wantValue: ".claude/skills/learned",
+			wantFound: true,
+		},
+		{
+			name:      "get pre-commit enabled as string",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyPreCommitEnabled(),
+			wantValue: "true",
+			wantFound: true,
+		},
+		{
+			name:      "get pre-commit command as string",
+			config:    newTestValues(0, 0),
+			key:       config.ExportKeyPreCommitCommand(),
+			wantValue: "task pre-commit",
+			wantFound: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			m := config.NewTestManager(filepath.Join(tmpDir, "config.json"), tt.config)
+
+			value, found, err := m.GetValue(ctx, tt.key)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantValue, value)
+			assert.Equal(t, tt.wantFound, found)
+		})
+	}
+}
+
+func TestGetDefaultValue_AllKeys(t *testing.T) {
+	defaults := config.ExportGetDefaultConfig()
+
+	tests := []struct {
+		key  string
+		want string
+	}{
+		{config.ExportKeyNotificationsNtfyTopic(), ""},
+		{config.ExportKeyCompactThreshold(), "50"},
+		{config.ExportKeyCompactReminderInterval(), "25"},
+		{config.ExportKeyNotifyQuietHoursEnabled(), "true"},
+		{config.ExportKeyNotifyQuietHoursStart(), "21:00"},
+		{config.ExportKeyNotifyQuietHoursEnd(), "07:30"},
+		{config.ExportKeyNotifyAudioEnabled(), "true"},
+		{config.ExportKeyNotifyAudioDirectory(), "~/.claude/audio"},
+		{config.ExportKeyNotifyDesktopEnabled(), "true"},
+		{config.ExportKeyObserveEnabled(), "true"},
+		{config.ExportKeyObserveMaxFileSizeMB(), "10"},
+		{config.ExportKeyLearningMinSessionLength(), "10"},
+		{config.ExportKeyLearningLearnedSkillsPath(), ".claude/skills/learned"},
+		{config.ExportKeyPreCommitEnabled(), "true"},
+		{config.ExportKeyPreCommitCommand(), "task pre-commit"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			got := config.ExportGetDefaultValue(defaults, tt.key)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestConvertNotificationsFromMap(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[string]any
+		check func(t *testing.T, cfg *config.Values)
+	}{
+		{
+			name: "full notifications settings",
+			input: map[string]any{
+				"notifications": map[string]any{
+					"ntfy_topic": "test-topic",
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, "test-topic", cfg.Notifications.NtfyTopic)
+			},
+		},
+		{
+			name: "notifications section is not a map",
+			input: map[string]any{
+				"notifications": "not-a-map",
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Empty(t, cfg.Notifications.NtfyTopic)
+			},
+		},
+		{
+			name: "notifications with wrong type for ntfy_topic",
+			input: map[string]any{
+				"notifications": map[string]any{
+					"ntfy_topic": 12345,
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Empty(t, cfg.Notifications.NtfyTopic)
+			},
+		},
+		{
+			name:  "missing notifications section",
+			input: map[string]any{},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Empty(t, cfg.Notifications.NtfyTopic)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := config.NewTestManager("", nil)
+			config.ManagerConvertFromMap(m, tt.input)
+			cfg := config.ManagerConfig(m)
+			tt.check(t, cfg)
+		})
+	}
+}
+
+func TestConvertFromMap_AllSections(t *testing.T) {
+	t.Run("all sections populated", func(t *testing.T) {
+		m := config.NewTestManager("", nil)
+		config.ManagerConvertFromMap(m, map[string]any{
+			"validate": map[string]any{
+				"timeout":  300.0,
+				"cooldown": 20.0,
+			},
+			"notifications": map[string]any{
+				"ntfy_topic": "all-sections-topic",
+			},
+			"compact": map[string]any{
+				"threshold":         75.0,
+				"reminder_interval": 30.0,
+			},
+			"notify": map[string]any{
+				"quiet_hours": map[string]any{
+					"enabled": false,
+					"start":   "20:00",
+					"end":     "09:00",
+				},
+				"audio": map[string]any{
+					"enabled":   false,
+					"directory": "/all/audio",
+				},
+				"desktop": map[string]any{
+					"enabled": false,
+				},
+			},
+			"observe": map[string]any{
+				"enabled":          false,
+				"max_file_size_mb": 50.0,
+			},
+			"learning": map[string]any{
+				"min_session_length":  5.0,
+				"learned_skills_path": "all/skills",
+			},
+			"pre_commit_reminder": map[string]any{
+				"enabled": false,
+				"command": "make all",
+			},
+		})
+		cfg := config.ManagerConfig(m)
+
+		assert.Equal(t, 300, cfg.Validate.Timeout)
+		assert.Equal(t, 20, cfg.Validate.Cooldown)
+		assert.Equal(t, "all-sections-topic", cfg.Notifications.NtfyTopic)
+		assert.Equal(t, 75, cfg.Compact.Threshold)
+		assert.Equal(t, 30, cfg.Compact.ReminderInterval)
+		assert.False(t, cfg.Notify.QuietHours.Enabled)
+		assert.Equal(t, "20:00", cfg.Notify.QuietHours.Start)
+		assert.Equal(t, "09:00", cfg.Notify.QuietHours.End)
+		assert.False(t, cfg.Notify.Audio.Enabled)
+		assert.Equal(t, "/all/audio", cfg.Notify.Audio.Directory)
+		assert.False(t, cfg.Notify.Desktop.Enabled)
+		assert.False(t, cfg.Observe.Enabled)
+		assert.Equal(t, 50, cfg.Observe.MaxFileSizeMB)
+		assert.Equal(t, 5, cfg.Learning.MinSessionLength)
+		assert.Equal(t, "all/skills", cfg.Learning.LearnedSkillsPath)
+		assert.False(t, cfg.PreCommit.Enabled)
+		assert.Equal(t, "make all", cfg.PreCommit.Command)
+	})
+}

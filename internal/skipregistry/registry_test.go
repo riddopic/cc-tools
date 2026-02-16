@@ -571,3 +571,145 @@ func TestDirectoryPath_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestRegistry_GetSkipTypes(t *testing.T) {
+	tests := []struct {
+		name      string
+		setupData skipregistry.RegistryData
+		dir       skipregistry.DirectoryPath
+		wantTypes []skipregistry.SkipType
+		wantErr   bool
+	}{
+		{
+			name:      "empty registry returns empty slice",
+			setupData: skipregistry.RegistryData{},
+			dir:       "/project",
+			wantTypes: []skipregistry.SkipType{},
+			wantErr:   false,
+		},
+		{
+			name: "single type lint",
+			setupData: skipregistry.RegistryData{
+				"/project": {"lint"},
+			},
+			dir:       "/project",
+			wantTypes: []skipregistry.SkipType{skipregistry.SkipTypeLint},
+			wantErr:   false,
+		},
+		{
+			name: "multiple types lint and test",
+			setupData: skipregistry.RegistryData{
+				"/project": {"lint", "test"},
+			},
+			dir: "/project",
+			wantTypes: []skipregistry.SkipType{
+				skipregistry.SkipTypeLint,
+				skipregistry.SkipTypeTest,
+			},
+			wantErr: false,
+		},
+		{
+			name: "non-existent directory returns empty slice",
+			setupData: skipregistry.RegistryData{
+				"/other": {"lint"},
+			},
+			dir:       "/project",
+			wantTypes: []skipregistry.SkipType{},
+			wantErr:   false,
+		},
+		{
+			name:      "invalid relative path returns error",
+			setupData: skipregistry.RegistryData{},
+			dir:       "relative/path",
+			wantTypes: nil,
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := newMockStorage()
+			storage.data = tt.setupData
+			r := skipregistry.NewRegistry(storage)
+
+			got, err := r.GetSkipTypes(context.Background(), tt.dir)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetSkipTypes() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				if len(got) != len(tt.wantTypes) {
+					t.Errorf("GetSkipTypes() returned %d types, want %d", len(got), len(tt.wantTypes))
+					return
+				}
+				for i, wantType := range tt.wantTypes {
+					if got[i] != wantType {
+						t.Errorf("GetSkipTypes()[%d] = %v, want %v", i, got[i], wantType)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestRegistry_EnsureLoaded_ErrNotFound(t *testing.T) {
+	// When storage returns ErrNotFound, the registry should initialize empty.
+	storage := newMockStorage()
+	storage.loadErr = skipregistry.ErrNotFound
+	r := skipregistry.NewRegistry(storage)
+
+	// IsSkipped triggers ensureLoaded; ErrNotFound should be handled gracefully.
+	got, err := r.IsSkipped(context.Background(), "/project", skipregistry.SkipTypeLint)
+	if err != nil {
+		t.Errorf("IsSkipped() should not return error when storage returns ErrNotFound, got: %v", err)
+	}
+	if got {
+		t.Errorf("IsSkipped() should return false for empty registry after ErrNotFound")
+	}
+	if storage.loadCalls != 1 {
+		t.Errorf("Expected 1 load call, got %d", storage.loadCalls)
+	}
+
+	// Second call should not attempt to load again.
+	_, err = r.IsSkipped(context.Background(), "/project", skipregistry.SkipTypeTest)
+	if err != nil {
+		t.Errorf("Second IsSkipped() should not return error, got: %v", err)
+	}
+	if storage.loadCalls != 1 {
+		t.Errorf("Expected 1 load call after second operation, got %d", storage.loadCalls)
+	}
+}
+
+func TestRegistry_EnsureLoaded_OtherError(t *testing.T) {
+	// When storage returns a non-ErrNotFound error, ensureLoaded should propagate it.
+	storage := newMockStorage()
+	storage.loadErr = errors.New("disk I/O error")
+	r := skipregistry.NewRegistry(storage)
+
+	_, err := r.IsSkipped(context.Background(), "/project", skipregistry.SkipTypeLint)
+	if err == nil {
+		t.Errorf("IsSkipped() should return error when storage returns non-ErrNotFound error")
+	}
+	if !errors.Is(err, storage.loadErr) {
+		t.Errorf("IsSkipped() error should wrap the storage error, got: %v", err)
+	}
+}
+
+func TestRegistry_GetSkipTypes_CorruptedData(t *testing.T) {
+	// When the registry contains an invalid skip type string, GetSkipTypes should
+	// return ErrRegistryCorrupted.
+	storage := newMockStorage()
+	storage.data = skipregistry.RegistryData{
+		"/project": {"lint", "bogus"},
+	}
+	r := skipregistry.NewRegistry(storage)
+
+	_, err := r.GetSkipTypes(context.Background(), "/project")
+	if err == nil {
+		t.Errorf("GetSkipTypes() should return error for corrupted data")
+	}
+	if !errors.Is(err, skipregistry.ErrRegistryCorrupted) {
+		t.Errorf("GetSkipTypes() error should be ErrRegistryCorrupted, got: %v", err)
+	}
+}
