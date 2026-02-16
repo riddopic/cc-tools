@@ -115,7 +115,7 @@ func TestNotifyAudioHandler_EnabledWithPlayer(t *testing.T) {
 		filepath.Join(tmpDir, "beep.mp3"), []byte("fake-audio"), 0o600,
 	))
 
-	player := &mockAudioPlayer{}
+	player := &mockAudioPlayer{played: []string{}}
 
 	cfg := &config.Values{
 		Notify: config.NotifyValues{
@@ -140,7 +140,7 @@ func TestNotifyAudioHandler_EnabledWithPlayer(t *testing.T) {
 
 func TestNotifyAudioHandler_QuietHoursSkipsPlay(t *testing.T) {
 	t.Parallel()
-	player := &mockAudioPlayer{}
+	player := &mockAudioPlayer{played: []string{}}
 
 	cfg := &config.Values{
 		Notify: config.NotifyValues{
@@ -271,7 +271,7 @@ func TestNotifyDesktopHandler_NoRunnerInjected(t *testing.T) {
 
 func TestNotifyDesktopHandler_EnabledWithRunner(t *testing.T) {
 	t.Parallel()
-	runner := &mockCmdRunner{}
+	runner := &mockCmdRunner{calls: []cmdRunnerCall{}}
 
 	cfg := &config.Values{
 		Notify: config.NotifyValues{
@@ -297,7 +297,7 @@ func TestNotifyDesktopHandler_EnabledWithRunner(t *testing.T) {
 
 func TestNotifyDesktopHandler_CustomTitleAndMessage(t *testing.T) {
 	t.Parallel()
-	runner := &mockCmdRunner{}
+	runner := &mockCmdRunner{calls: []cmdRunnerCall{}}
 
 	cfg := &config.Values{
 		Notify: config.NotifyValues{
@@ -324,7 +324,7 @@ func TestNotifyDesktopHandler_CustomTitleAndMessage(t *testing.T) {
 
 func TestNotifyDesktopHandler_DefaultTitleAndMessage(t *testing.T) {
 	t.Parallel()
-	runner := &mockCmdRunner{}
+	runner := &mockCmdRunner{calls: []cmdRunnerCall{}}
 
 	cfg := &config.Values{
 		Notify: config.NotifyValues{
@@ -351,4 +351,150 @@ func TestNotifyDesktopHandler_DefaultTitleAndMessage(t *testing.T) {
 func TestNotifyDesktopHandler_ImplementsHandler(t *testing.T) {
 	t.Parallel()
 	var _ handler.Handler = handler.NewNotifyDesktopHandler(nil)
+}
+
+// ---------------------------------------------------------------------
+// NotifyNtfyHandler
+// ---------------------------------------------------------------------
+
+// mockNtfySender records Send calls for assertion.
+type mockNtfySender struct {
+	calls []ntfySendCall
+}
+
+type ntfySendCall struct {
+	title   string
+	message string
+}
+
+func (m *mockNtfySender) Send(
+	_ context.Context,
+	title, message string,
+) error {
+	m.calls = append(m.calls, ntfySendCall{
+		title:   title,
+		message: message,
+	})
+	return nil
+}
+
+func TestNotifyNtfyHandler_Name(t *testing.T) {
+	t.Parallel()
+	h := handler.NewNotifyNtfyHandler(nil)
+	assert.Equal(t, "notify-ntfy", h.Name())
+}
+
+func TestNotifyNtfyHandler_NilConfig(t *testing.T) {
+	t.Parallel()
+	h := handler.NewNotifyNtfyHandler(nil)
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventNotification,
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 0, resp.ExitCode)
+}
+
+func TestNotifyNtfyHandler_EmptyTopic(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Values{
+		Notifications: config.NotificationsValues{
+			NtfyTopic: "",
+		},
+	}
+
+	sender := &mockNtfySender{calls: []ntfySendCall{}}
+	h := handler.NewNotifyNtfyHandler(cfg, handler.WithNtfySender(sender))
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventNotification,
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 0, resp.ExitCode)
+	assert.Empty(t, sender.calls, "should not send when topic is empty")
+}
+
+func TestNotifyNtfyHandler_QuietHoursActive(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Values{
+		Notifications: config.NotificationsValues{
+			NtfyTopic: "test-topic",
+		},
+		Notify: config.NotifyValues{
+			QuietHours: config.QuietHoursValues{
+				Enabled: true,
+				Start:   "00:00",
+				End:     "23:59",
+			},
+		},
+	}
+
+	sender := &mockNtfySender{calls: []ntfySendCall{}}
+	h := handler.NewNotifyNtfyHandler(cfg, handler.WithNtfySender(sender))
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventNotification,
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 0, resp.ExitCode)
+	assert.Empty(t, sender.calls,
+		"should not send during quiet hours")
+}
+
+func TestNotifyNtfyHandler_SendsWithDefaults(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Values{
+		Notifications: config.NotificationsValues{
+			NtfyTopic: "test-topic",
+		},
+	}
+
+	sender := &mockNtfySender{calls: []ntfySendCall{}}
+	h := handler.NewNotifyNtfyHandler(cfg, handler.WithNtfySender(sender))
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventNotification,
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 0, resp.ExitCode)
+	require.Len(t, sender.calls, 1)
+	assert.Equal(t, "Claude Code", sender.calls[0].title)
+	assert.Equal(t, "Task completed", sender.calls[0].message)
+}
+
+func TestNotifyNtfyHandler_CustomTitleAndMessage(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Values{
+		Notifications: config.NotificationsValues{
+			NtfyTopic: "test-topic",
+		},
+	}
+
+	sender := &mockNtfySender{calls: []ntfySendCall{}}
+	h := handler.NewNotifyNtfyHandler(cfg, handler.WithNtfySender(sender))
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventNotification,
+		Title:         "Build Complete",
+		Message:       "All 766 tests passed",
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Len(t, sender.calls, 1)
+	assert.Equal(t, "Build Complete", sender.calls[0].title)
+	assert.Equal(t, "All 766 tests passed", sender.calls[0].message)
+}
+
+func TestNotifyNtfyHandler_ImplementsHandler(t *testing.T) {
+	t.Parallel()
+	var _ handler.Handler = handler.NewNotifyNtfyHandler(nil)
 }

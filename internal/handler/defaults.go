@@ -3,6 +3,7 @@ package handler
 import (
 	"github.com/riddopic/cc-tools/internal/config"
 	"github.com/riddopic/cc-tools/internal/hookcmd"
+	"github.com/riddopic/cc-tools/internal/notify"
 )
 
 // NewDefaultRegistry creates a registry with all default handlers wired.
@@ -38,8 +39,9 @@ func NewDefaultRegistry(cfg *config.Values) *Registry {
 	)
 
 	r.Register(hookcmd.EventNotification,
-		NewNotifyAudioHandler(cfg),
-		NewNotifyDesktopHandler(cfg),
+		NewNotifyAudioHandler(cfg, WithAudioPlayer(&notify.AFPlayer{})),
+		NewNotifyDesktopHandler(cfg, WithCmdRunner(&notify.OSRunner{})),
+		NewNotifyNtfyHandler(cfg),
 	)
 
 	return r
