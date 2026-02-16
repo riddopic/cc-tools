@@ -352,7 +352,6 @@ func (m *Manager) ResetAll(_ context.Context) error {
 }
 
 // GetConfig returns the current configuration structure.
-// This is used by the Load function to get typed configuration.
 func (m *Manager) GetConfig(_ context.Context) (*Values, error) {
 	if m.config == nil {
 		if err := m.loadConfig(); err != nil {
