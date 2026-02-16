@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -135,6 +136,191 @@ func TestSuggestCompactHandler_SuggestsAtThreshold(t *testing.T) {
 	require.NotNil(t, lastResp)
 	assert.Contains(t, lastResp.Stderr, "/compact",
 		"should suggest /compact at threshold")
+}
+
+func TestSuggestCompactHandler_BelowThreshold(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "compact")
+
+	cfg := newTestConfig()
+	cfg.Compact.Threshold = 5
+	cfg.Compact.ReminderInterval = 10
+
+	h := handler.NewSuggestCompactHandler(cfg, handler.WithCompactStateDir(stateDir))
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventPreToolUse,
+		SessionID:     "below-threshold",
+	}
+
+	// Make 4 calls (threshold-1) — none should suggest.
+	for range 4 {
+		resp, err := h.Handle(context.Background(), input)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Empty(t, resp.Stderr, "no suggestion below threshold")
+	}
+}
+
+func TestSuggestCompactHandler_ReminderInterval(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "compact")
+
+	cfg := newTestConfig()
+	cfg.Compact.Threshold = 3
+	cfg.Compact.ReminderInterval = 2
+
+	h := handler.NewSuggestCompactHandler(cfg, handler.WithCompactStateDir(stateDir))
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventPreToolUse,
+		SessionID:     "reminder-interval",
+	}
+
+	var responses [5]*handler.Response
+	for i := range 5 {
+		resp, err := h.Handle(context.Background(), input)
+		require.NoError(t, err)
+		responses[i] = resp
+	}
+
+	// Calls 1 and 2: below threshold, no suggestion.
+	assert.Empty(t, responses[0].Stderr, "call 1: no suggestion")
+	assert.Empty(t, responses[1].Stderr, "call 2: no suggestion")
+
+	// Call 3: hits threshold, should suggest.
+	assert.NotEmpty(t, responses[2].Stderr, "call 3: suggestion at threshold")
+
+	// Call 4: 1 past threshold, interval=2, no suggestion.
+	assert.Empty(t, responses[3].Stderr, "call 4: no suggestion between intervals")
+
+	// Call 5: 2 past threshold, interval=2, should suggest.
+	assert.NotEmpty(t, responses[4].Stderr, "call 5: suggestion at reminder interval")
+}
+
+func TestSuggestCompactHandler_SeparateSessions(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "compact")
+
+	cfg := newTestConfig()
+	cfg.Compact.Threshold = 3
+	cfg.Compact.ReminderInterval = 10
+
+	h := handler.NewSuggestCompactHandler(cfg, handler.WithCompactStateDir(stateDir))
+
+	inputA := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventPreToolUse,
+		SessionID:     "session-a",
+	}
+	inputB := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventPreToolUse,
+		SessionID:     "session-b",
+	}
+
+	// 2 calls on session-a (below threshold).
+	for range 2 {
+		resp, err := h.Handle(context.Background(), inputA)
+		require.NoError(t, err)
+		assert.Empty(t, resp.Stderr, "session-a below threshold")
+	}
+
+	// 3 calls on session-b — independent counter hits threshold at call 3.
+	var lastB *handler.Response
+	for range 3 {
+		resp, err := h.Handle(context.Background(), inputB)
+		require.NoError(t, err)
+		lastB = resp
+	}
+	assert.NotEmpty(t, lastB.Stderr, "session-b should hit threshold independently")
+
+	// Verify session-a counter file contains "2".
+	counterA := filepath.Join(stateDir, "cc-tools-compact-session-a.count")
+	data, err := os.ReadFile(counterA)
+	require.NoError(t, err)
+	assert.Equal(t, "2", strings.TrimSpace(string(data)),
+		"session-a counter should be 2")
+}
+
+func TestSuggestCompactHandler_CounterFileIncrement(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "compact")
+
+	cfg := newTestConfig()
+	cfg.Compact.Threshold = 100
+	cfg.Compact.ReminderInterval = 100
+
+	h := handler.NewSuggestCompactHandler(cfg, handler.WithCompactStateDir(stateDir))
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventPreToolUse,
+		SessionID:     "counter-test",
+	}
+
+	for range 7 {
+		_, err := h.Handle(context.Background(), input)
+		require.NoError(t, err)
+	}
+
+	counterFile := filepath.Join(stateDir, "cc-tools-compact-counter-test.count")
+	data, err := os.ReadFile(counterFile)
+	require.NoError(t, err)
+	assert.Equal(t, "7", strings.TrimSpace(string(data)),
+		"counter file should contain 7 after 7 calls")
+}
+
+func TestSuggestCompactHandler_ZeroThreshold(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "compact")
+
+	cfg := newTestConfig()
+	cfg.Compact.Threshold = 0
+	cfg.Compact.ReminderInterval = 0
+
+	h := handler.NewSuggestCompactHandler(cfg, handler.WithCompactStateDir(stateDir))
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventPreToolUse,
+		SessionID:     "zero-threshold",
+	}
+
+	// Make 10 calls — none should ever suggest.
+	for range 10 {
+		resp, err := h.Handle(context.Background(), input)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Empty(t, resp.Stderr, "zero threshold should never suggest")
+	}
+}
+
+func TestSuggestCompactHandler_SuggestionMessage(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "compact")
+
+	cfg := newTestConfig()
+	cfg.Compact.Threshold = 2
+	cfg.Compact.ReminderInterval = 5
+
+	h := handler.NewSuggestCompactHandler(cfg, handler.WithCompactStateDir(stateDir))
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventPreToolUse,
+		SessionID:     "msg-test",
+	}
+
+	// Make 2 calls to hit threshold.
+	var lastResp *handler.Response
+	for range 2 {
+		resp, err := h.Handle(context.Background(), input)
+		require.NoError(t, err)
+		lastResp = resp
+	}
+
+	require.NotNil(t, lastResp)
+	assert.Contains(t, lastResp.Stderr, "2 tool calls",
+		"message should mention tool call count")
+	assert.Contains(t, lastResp.Stderr, "/compact",
+		"message should mention /compact")
 }
 
 func TestSuggestCompactHandler_ImplementsHandler(t *testing.T) {
