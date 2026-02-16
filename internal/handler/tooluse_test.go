@@ -549,6 +549,74 @@ func TestPreCommitReminderHandler_NoGitCommit(t *testing.T) {
 	assert.Empty(t, resp.Stderr, "no reminder for non-commit git commands")
 }
 
+func TestPreCommitReminderHandler_GitCommitAmFlag(t *testing.T) {
+	t.Parallel()
+	cfg := newTestConfig()
+	cfg.PreCommit.Enabled = true
+	cfg.PreCommit.Command = "task pre-commit"
+
+	h := handler.NewPreCommitReminderHandler(cfg)
+
+	toolInput, _ := json.Marshal(map[string]string{"command": "git commit -am 'quick fix'"})
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventPreToolUse,
+		ToolName:      "Bash",
+		ToolInput:     toolInput,
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Contains(t, resp.Stderr, "task pre-commit",
+		"should remind about pre-commit for git commit -am")
+}
+
+func TestPreCommitReminderHandler_ChainedGitCommit(t *testing.T) {
+	t.Parallel()
+	cfg := newTestConfig()
+	cfg.PreCommit.Enabled = true
+	cfg.PreCommit.Command = "task pre-commit"
+
+	h := handler.NewPreCommitReminderHandler(cfg)
+
+	toolInput, _ := json.Marshal(map[string]string{"command": "git add . && git commit -m 'fix: resolve race'"})
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventPreToolUse,
+		ToolName:      "Bash",
+		ToolInput:     toolInput,
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Contains(t, resp.Stderr, "task pre-commit",
+		"should remind about pre-commit for chained git commit")
+}
+
+func TestPreCommitReminderHandler_CustomCommand(t *testing.T) {
+	t.Parallel()
+	cfg := newTestConfig()
+	cfg.PreCommit.Enabled = true
+	cfg.PreCommit.Command = "make check"
+
+	h := handler.NewPreCommitReminderHandler(cfg)
+
+	toolInput, _ := json.Marshal(map[string]string{"command": "git commit -m 'test'"})
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventPreToolUse,
+		ToolName:      "Bash",
+		ToolInput:     toolInput,
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Contains(t, resp.Stderr, "make check",
+		"should use custom pre-commit command")
+	assert.NotContains(t, resp.Stderr, "task pre-commit",
+		"should not contain default command when custom is configured")
+}
+
 func TestPreCommitReminderHandler_ImplementsHandler(t *testing.T) {
 	t.Parallel()
 	var _ handler.Handler = handler.NewPreCommitReminderHandler(nil)
