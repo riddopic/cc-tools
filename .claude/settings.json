@@ -39,28 +39,13 @@
     "memory"
   ],
   "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/bin/cc-tools hook"
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/bin/cc-tools hook"
-          },
-          {
-            "type": "command",
-            "command": "${CLAUDE_PROJECT_DIR}/.claude/skills/continuous-learning-v2/hooks/observe.sh pre"
+            "command": "cc-tools hook"
           }
         ]
       }
@@ -71,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/bin/cc-tools-validate"
+            "command": "cc-tools validate"
           }
         ]
       },
@@ -80,11 +65,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/bin/cc-tools hook"
-          },
-          {
-            "type": "command",
-            "command": "${CLAUDE_PROJECT_DIR}/.claude/skills/continuous-learning-v2/hooks/observe.sh post"
+            "command": "cc-tools hook"
           }
         ]
       }
@@ -95,33 +76,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/bin/cc-tools hook"
+            "command": "cc-tools hook"
           }
         ]
       }
     ],
-    "Stop": [
+    "SessionStart": [
       {
         "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/sentinel"
-          }
-        ]
-      }
-    ],
-    "Notification": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/sentinel"
-          },
-          {
-            "type": "command",
-            "command": "~/.claude/bin/cc-tools hook"
+            "command": "cc-tools hook"
           }
         ]
       }
@@ -132,7 +98,29 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/bin/cc-tools hook"
+            "command": "cc-tools hook"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/skills/continuous-learning/evaluate-session.sh"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cc-tools hook"
           }
         ]
       }

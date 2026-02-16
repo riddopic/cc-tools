@@ -17,7 +17,7 @@ skills:
 
 # Verify Codebase
 
-Run comprehensive verification on current codebase state following Go and Quanta project standards.
+Run comprehensive verification on current codebase state following Go and project standards.
 
 ## Arguments
 
