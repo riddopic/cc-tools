@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 )
 
 // NtfyConfig configures the ntfy notification backend.
@@ -18,8 +19,9 @@ type NtfyConfig struct {
 
 // NtfyNotifier sends notifications via the ntfy.sh HTTP API.
 type NtfyNotifier struct {
-	config NtfyConfig
-	client *http.Client
+	config    NtfyConfig
+	client    *http.Client
+	serverURL string
 }
 
 // NewNtfyNotifier creates a new ntfy notifier with the given configuration.
@@ -32,9 +34,15 @@ func NewNtfyNotifier(cfg NtfyConfig) *NtfyNotifier {
 		cfg.Priority = 3
 	}
 
+	parsed, err := url.Parse(cfg.Server)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		parsed = &url.URL{Scheme: "https", Host: "ntfy.sh"}
+	}
+
 	return &NtfyNotifier{
-		config: cfg,
-		client: &http.Client{},
+		config:    cfg,
+		client:    &http.Client{},
+		serverURL: parsed.String(),
 	}
 }
 
@@ -52,7 +60,7 @@ func (n *NtfyNotifier) Send(ctx context.Context, title, message string) error {
 		return fmt.Errorf("marshal ntfy payload: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, n.config.Server, bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, n.serverURL, bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("create ntfy request: %w", err)
 	}
@@ -63,7 +71,7 @@ func (n *NtfyNotifier) Send(ctx context.Context, title, message string) error {
 		req.Header.Set("Authorization", "Bearer "+n.config.Token)
 	}
 
-	resp, err := n.client.Do(req)
+	resp, err := n.client.Do(req) //nolint:gosec // G704 -- server URL is intentionally user-configurable
 	if err != nil {
 		return fmt.Errorf("send ntfy notification: %w", err)
 	}

@@ -64,6 +64,7 @@ func writeDebugLog(args []string, stdinData []byte) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
 	_, _ = fmt.Fprintf(f, "\n========================================\n")
 	_, _ = fmt.Fprintf(f, "[%s] cc-tools invoked\n", timestamp)
+	//nolint:gosec // G705 -- CLI debug log, not a web response
 	_, _ = fmt.Fprintf(f, "Args: %v\n", args)
 	_, _ = fmt.Fprintf(f, "  CLAUDE_HOOKS_DEBUG: %s\n", os.Getenv("CLAUDE_HOOKS_DEBUG"))
 

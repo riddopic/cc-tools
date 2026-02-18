@@ -57,7 +57,7 @@ func loadConfig() *config.Values {
 
 func writeHookResponse(stdout, stderr io.Writer, resp *handler.Response) error {
 	if resp.Stderr != "" {
-		_, _ = fmt.Fprint(stderr, resp.Stderr)
+		_, _ = stderr.Write([]byte(resp.Stderr))
 	}
 
 	if resp.Stdout != nil {
@@ -65,7 +65,8 @@ func writeHookResponse(stdout, stderr io.Writer, resp *handler.Response) error {
 		if err != nil {
 			return fmt.Errorf("marshal hook output: %w", err)
 		}
-		_, _ = fmt.Fprintln(stdout, string(data))
+		_, _ = stdout.Write(data)
+		_, _ = io.WriteString(stdout, "\n")
 	}
 
 	if resp.ExitCode != 0 {
