@@ -77,9 +77,12 @@ tasks:
       - go.sum
     generates:
       - "{{.BINARY_PATH}}"
+    vars:
+      VERSION:
+        sh: git describe --tags --always --dirty 2>/dev/null || echo dev
     cmds:
       - mkdir -p {{.BIN_DIR}}
-      - go build -o {{.BINARY_PATH}} {{.MAIN_PATH}}
+      - go build -ldflags "-X main.version={{.VERSION}}" -o {{.BINARY_PATH}} {{.MAIN_PATH}}
 
   install:
     desc: Install binary to $GOPATH/bin
