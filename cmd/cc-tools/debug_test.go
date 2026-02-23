@@ -140,3 +140,52 @@ func TestShowDebugFilename(t *testing.T) {
 	assert.NotEmpty(t, outputStr)
 	assert.Contains(t, outputStr, "cc-tools")
 }
+
+// Command-execution tests exercise the Cobra RunE wrappers to cover
+// the newTerminal → newDebugManager → handler delegation path.
+
+func TestDebugEnableCmd(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	cmd := newDebugEnableCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}
+
+func TestDebugDisableCmd(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	// Enable first.
+	enableCmd := newDebugEnableCmd()
+	require.NoError(t, enableCmd.RunE(enableCmd, nil))
+
+	cmd := newDebugDisableCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}
+
+func TestDebugStatusCmd(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	cmd := newDebugStatusCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}
+
+func TestDebugListCmd(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	cmd := newDebugListCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}
+
+func TestDebugFilenameCmd(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	cmd := newDebugFilenameCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}

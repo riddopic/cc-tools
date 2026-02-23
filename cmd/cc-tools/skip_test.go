@@ -238,3 +238,74 @@ func TestShowStatus(t *testing.T) {
 		assert.Contains(t, outputStr, "Active")
 	})
 }
+
+// Command-execution tests exercise the Cobra RunE wrappers to cover
+// the newTerminal → newSkipRegistry → handler delegation path.
+
+func setupSkipEnv(t *testing.T) {
+	t.Helper()
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+}
+
+func TestSkipLintCmd(t *testing.T) {
+	setupSkipEnv(t)
+	cmd := newSkipLintCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}
+
+func TestSkipTestCmd(t *testing.T) {
+	setupSkipEnv(t)
+	cmd := newSkipTestCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}
+
+func TestSkipAllCmd(t *testing.T) {
+	setupSkipEnv(t)
+	cmd := newSkipAllCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}
+
+func TestSkipListCmd(t *testing.T) {
+	setupSkipEnv(t)
+	cmd := newSkipListCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}
+
+func TestSkipStatusCmd(t *testing.T) {
+	setupSkipEnv(t)
+	cmd := newSkipStatusCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}
+
+func TestUnskipLintCmd(t *testing.T) {
+	setupSkipEnv(t)
+	// Add a skip first so unskip has something to remove.
+	addCmd := newSkipLintCmd()
+	require.NoError(t, addCmd.RunE(addCmd, nil))
+
+	cmd := newUnskipLintCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}
+
+func TestUnskipTestCmd(t *testing.T) {
+	setupSkipEnv(t)
+	addCmd := newSkipTestCmd()
+	require.NoError(t, addCmd.RunE(addCmd, nil))
+
+	cmd := newUnskipTestCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}
+
+func TestUnskipAllCmd(t *testing.T) {
+	setupSkipEnv(t)
+	cmd := newUnskipAllCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}
+
+func TestUnskipCmd_Default(t *testing.T) {
+	setupSkipEnv(t)
+	cmd := newUnskipCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}

@@ -191,3 +191,36 @@ func TestHandleConfigReset(t *testing.T) {
 		})
 	}
 }
+
+// Command-execution tests exercise the Cobra RunE wrappers to cover
+// the newTerminal → newConfigManager → handler delegation path.
+
+func TestConfigGetCmd(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	cmd := newConfigGetCmd()
+	require.NoError(t, cmd.RunE(cmd, []string{"validate.timeout"}))
+}
+
+func TestConfigSetCmd(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	cmd := newConfigSetCmd()
+	require.NoError(t, cmd.RunE(cmd, []string{"validate.timeout", "90"}))
+}
+
+func TestConfigListCmd(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	cmd := newConfigListCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}
+
+func TestConfigResetCmd(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	cmd := newConfigResetCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}
+
+func TestConfigResetCmd_WithKey(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	cmd := newConfigResetCmd()
+	require.NoError(t, cmd.RunE(cmd, []string{"validate.timeout"}))
+}

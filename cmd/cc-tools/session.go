@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,23 +46,7 @@ func newSessionListCmd() *cobra.Command {
 				return fmt.Errorf("get home directory: %w", err)
 			}
 			store := session.NewStore(filepath.Join(homeDir, ".claude", "sessions"))
-
-			sessions, listErr := store.List(limit)
-			if listErr != nil {
-				return fmt.Errorf("list sessions: %w", listErr)
-			}
-
-			if len(sessions) == 0 {
-				fmt.Fprintln(os.Stdout, "No sessions found.")
-				return nil
-			}
-
-			fmt.Fprintf(os.Stdout, "%-12s  %-36s  %s\n", "DATE", "ID", "TITLE")
-			fmt.Fprintf(os.Stdout, "%-12s  %-36s  %s\n", "----", "--", "-----")
-			for _, s := range sessions {
-				fmt.Fprintf(os.Stdout, "%-12s  %-36s  %s\n", s.Date, s.ID, s.Title)
-			}
-			return nil
+			return listSessions(os.Stdout, store, limit)
 		},
 	}
 	cmd.Flags().IntVar(&limit, "limit", defaultSessionLimit, "maximum number of sessions to show")
@@ -81,26 +66,7 @@ func newSessionInfoCmd() *cobra.Command {
 			}
 			store := session.NewStore(filepath.Join(homeDir, ".claude", "sessions"))
 			aliases := session.NewAliasManager(filepath.Join(homeDir, ".claude", "session-aliases.json"))
-
-			idOrAlias := args[0]
-			if resolved, resolveErr := aliases.Resolve(idOrAlias); resolveErr == nil {
-				idOrAlias = resolved
-			}
-
-			sess, loadErr := store.Load(idOrAlias)
-			if loadErr != nil {
-				if errors.Is(loadErr, session.ErrNotFound) {
-					return fmt.Errorf("session not found: %s", idOrAlias)
-				}
-				return fmt.Errorf("load session: %w", loadErr)
-			}
-
-			data, marshalErr := json.MarshalIndent(sess, "", "  ")
-			if marshalErr != nil {
-				return fmt.Errorf("marshal session: %w", marshalErr)
-			}
-			fmt.Fprintln(os.Stdout, string(data))
-			return nil
+			return showSessionInfo(os.Stdout, store, aliases, args[0])
 		},
 	}
 }
@@ -130,11 +96,7 @@ func newSessionAliasSetCmd() *cobra.Command {
 				return fmt.Errorf("get home directory: %w", err)
 			}
 			aliases := session.NewAliasManager(filepath.Join(homeDir, ".claude", "session-aliases.json"))
-			if setErr := aliases.Set(args[0], args[1]); setErr != nil {
-				return fmt.Errorf("set alias: %w", setErr)
-			}
-			fmt.Fprintf(os.Stdout, "Alias %q set to session %s\n", args[0], args[1])
-			return nil
+			return setSessionAlias(os.Stdout, aliases, args[0], args[1])
 		},
 	}
 }
@@ -151,11 +113,7 @@ func newSessionAliasRemoveCmd() *cobra.Command {
 				return fmt.Errorf("get home directory: %w", err)
 			}
 			aliases := session.NewAliasManager(filepath.Join(homeDir, ".claude", "session-aliases.json"))
-			if rmErr := aliases.Remove(args[0]); rmErr != nil {
-				return fmt.Errorf("remove alias: %w", rmErr)
-			}
-			fmt.Fprintf(os.Stdout, "Alias %q removed\n", args[0])
-			return nil
+			return removeSessionAlias(os.Stdout, aliases, args[0])
 		},
 	}
 }
@@ -170,20 +128,7 @@ func newSessionAliasListCmd() *cobra.Command {
 				return fmt.Errorf("get home directory: %w", err)
 			}
 			aliases := session.NewAliasManager(filepath.Join(homeDir, ".claude", "session-aliases.json"))
-			aliasList, listErr := aliases.List()
-			if listErr != nil {
-				return fmt.Errorf("list aliases: %w", listErr)
-			}
-			if len(aliasList) == 0 {
-				fmt.Fprintln(os.Stdout, "No aliases defined.")
-				return nil
-			}
-			fmt.Fprintf(os.Stdout, "%-20s  %s\n", "ALIAS", "SESSION ID")
-			fmt.Fprintf(os.Stdout, "%-20s  %s\n", "-----", "----------")
-			for name, id := range aliasList {
-				fmt.Fprintf(os.Stdout, "%-20s  %s\n", name, id)
-			}
-			return nil
+			return listSessionAliases(os.Stdout, aliases)
 		},
 	}
 }
@@ -200,21 +145,103 @@ func newSessionSearchCmd() *cobra.Command {
 				return fmt.Errorf("get home directory: %w", err)
 			}
 			store := session.NewStore(filepath.Join(homeDir, ".claude", "sessions"))
-			query := strings.Join(args, " ")
-			sessions, searchErr := store.Search(query)
-			if searchErr != nil {
-				return fmt.Errorf("search sessions: %w", searchErr)
-			}
-			if len(sessions) == 0 {
-				fmt.Fprintln(os.Stdout, "No matching sessions found.")
-				return nil
-			}
-			fmt.Fprintf(os.Stdout, "%-12s  %-36s  %s\n", "DATE", "ID", "TITLE")
-			fmt.Fprintf(os.Stdout, "%-12s  %-36s  %s\n", "----", "--", "-----")
-			for _, s := range sessions {
-				fmt.Fprintf(os.Stdout, "%-12s  %-36s  %s\n", s.Date, s.ID, s.Title)
-			}
-			return nil
+			return searchSessions(os.Stdout, store, strings.Join(args, " "))
 		},
 	}
+}
+
+// listSessions writes a formatted table of recent sessions to w.
+func listSessions(w io.Writer, store *session.Store, limit int) error {
+	sessions, err := store.List(limit)
+	if err != nil {
+		return fmt.Errorf("list sessions: %w", err)
+	}
+
+	if len(sessions) == 0 {
+		fmt.Fprintln(w, "No sessions found.")
+		return nil
+	}
+
+	fmt.Fprintf(w, "%-12s  %-36s  %s\n", "DATE", "ID", "TITLE")
+	fmt.Fprintf(w, "%-12s  %-36s  %s\n", "----", "--", "-----")
+	for _, s := range sessions {
+		fmt.Fprintf(w, "%-12s  %-36s  %s\n", s.Date, s.ID, s.Title)
+	}
+	return nil
+}
+
+// showSessionInfo resolves an ID or alias and writes session details as JSON to w.
+func showSessionInfo(w io.Writer, store *session.Store, aliases *session.AliasManager, idOrAlias string) error {
+	if resolved, resolveErr := aliases.Resolve(idOrAlias); resolveErr == nil {
+		idOrAlias = resolved
+	}
+
+	sess, err := store.Load(idOrAlias)
+	if err != nil {
+		if errors.Is(err, session.ErrNotFound) {
+			return fmt.Errorf("session not found: %s", idOrAlias)
+		}
+		return fmt.Errorf("load session: %w", err)
+	}
+
+	data, marshalErr := json.MarshalIndent(sess, "", "  ")
+	if marshalErr != nil {
+		return fmt.Errorf("marshal session: %w", marshalErr)
+	}
+	fmt.Fprintln(w, string(data))
+	return nil
+}
+
+// setSessionAlias creates or overwrites a named alias for a session ID.
+func setSessionAlias(w io.Writer, aliases *session.AliasManager, name, sessionID string) error {
+	if err := aliases.Set(name, sessionID); err != nil {
+		return fmt.Errorf("set alias: %w", err)
+	}
+	fmt.Fprintf(w, "Alias %q set to session %s\n", name, sessionID)
+	return nil
+}
+
+// removeSessionAlias deletes a named alias.
+func removeSessionAlias(w io.Writer, aliases *session.AliasManager, name string) error {
+	if err := aliases.Remove(name); err != nil {
+		return fmt.Errorf("remove alias: %w", err)
+	}
+	fmt.Fprintf(w, "Alias %q removed\n", name)
+	return nil
+}
+
+// listSessionAliases writes all aliases as a formatted table to w.
+func listSessionAliases(w io.Writer, aliases *session.AliasManager) error {
+	aliasList, err := aliases.List()
+	if err != nil {
+		return fmt.Errorf("list aliases: %w", err)
+	}
+	if len(aliasList) == 0 {
+		fmt.Fprintln(w, "No aliases defined.")
+		return nil
+	}
+	fmt.Fprintf(w, "%-20s  %s\n", "ALIAS", "SESSION ID")
+	fmt.Fprintf(w, "%-20s  %s\n", "-----", "----------")
+	for name, id := range aliasList {
+		fmt.Fprintf(w, "%-20s  %s\n", name, id)
+	}
+	return nil
+}
+
+// searchSessions searches sessions by query and writes matches as a formatted table to w.
+func searchSessions(w io.Writer, store *session.Store, query string) error {
+	sessions, err := store.Search(query)
+	if err != nil {
+		return fmt.Errorf("search sessions: %w", err)
+	}
+	if len(sessions) == 0 {
+		fmt.Fprintln(w, "No matching sessions found.")
+		return nil
+	}
+	fmt.Fprintf(w, "%-12s  %-36s  %s\n", "DATE", "ID", "TITLE")
+	fmt.Fprintf(w, "%-12s  %-36s  %s\n", "----", "--", "-----")
+	for _, s := range sessions {
+		fmt.Fprintf(w, "%-12s  %-36s  %s\n", s.Date, s.ID, s.Title)
+	}
+	return nil
 }

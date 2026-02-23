@@ -3,6 +3,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,4 +50,47 @@ func TestNewRootCmd_VersionFlag(t *testing.T) {
 
 	err := cmd.Execute()
 	require.NoError(t, err)
+}
+
+func TestWriteDebugLog(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	// writeDebugLog uses getDebugLogPath() which derives the path from cwd.
+	writeDebugLog([]string{"cc-tools", "hook"}, nil)
+
+	logPath := getDebugLogPath()
+	data, err := os.ReadFile(logPath)
+	require.NoError(t, err)
+
+	content := string(data)
+	assert.Contains(t, content, "cc-tools invoked")
+	assert.Contains(t, content, "cc-tools hook")
+	assert.Contains(t, content, "Stdin: (no data)")
+}
+
+func TestWriteDebugLog_WithStdin(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	writeDebugLog([]string{"cc-tools", "validate"}, []byte(`{"tool_input":{}}`))
+
+	logPath := getDebugLogPath()
+	data, err := os.ReadFile(logPath)
+	require.NoError(t, err)
+
+	content := string(data)
+	assert.Contains(t, content, "cc-tools validate")
+	assert.Contains(t, content, `{"tool_input":{}}`)
+}
+
+func TestGetDebugLogPath(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	path := getDebugLogPath()
+	assert.NotEmpty(t, path)
+	assert.Contains(t, path, "cc-tools")
+	// The path should be based on the current working directory.
+	assert.True(t, filepath.IsAbs(path))
 }

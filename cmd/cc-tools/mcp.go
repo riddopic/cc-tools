@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/riddopic/cc-tools/internal/mcp"
 )
 
 const mcpTimeout = 30 * time.Second
@@ -33,7 +35,7 @@ func newMCPListCmd() *cobra.Command {
 			out := newTerminal()
 			ctx, cancel := context.WithTimeout(context.Background(), mcpTimeout)
 			defer cancel()
-			return newMCPManager(out).List(ctx)
+			return listMCPServers(ctx, newMCPManager(out))
 		},
 	}
 }
@@ -48,7 +50,7 @@ func newMCPEnableCmd() *cobra.Command {
 			out := newTerminal()
 			ctx, cancel := context.WithTimeout(context.Background(), mcpTimeout)
 			defer cancel()
-			return newMCPManager(out).Enable(ctx, args[0])
+			return enableMCPServer(ctx, newMCPManager(out), args[0])
 		},
 	}
 }
@@ -63,7 +65,7 @@ func newMCPDisableCmd() *cobra.Command {
 			out := newTerminal()
 			ctx, cancel := context.WithTimeout(context.Background(), mcpTimeout)
 			defer cancel()
-			return newMCPManager(out).Disable(ctx, args[0])
+			return disableMCPServer(ctx, newMCPManager(out), args[0])
 		},
 	}
 }
@@ -77,7 +79,7 @@ func newMCPEnableAllCmd() *cobra.Command {
 			out := newTerminal()
 			ctx, cancel := context.WithTimeout(context.Background(), mcpTimeout)
 			defer cancel()
-			return newMCPManager(out).EnableAll(ctx)
+			return enableAllMCPServers(ctx, newMCPManager(out))
 		},
 	}
 }
@@ -91,7 +93,32 @@ func newMCPDisableAllCmd() *cobra.Command {
 			out := newTerminal()
 			ctx, cancel := context.WithTimeout(context.Background(), mcpTimeout)
 			defer cancel()
-			return newMCPManager(out).DisableAll(ctx)
+			return disableAllMCPServers(ctx, newMCPManager(out))
 		},
 	}
+}
+
+// listMCPServers shows all available MCP servers and their status.
+func listMCPServers(ctx context.Context, mgr *mcp.Manager) error {
+	return mgr.List(ctx)
+}
+
+// enableMCPServer enables a single MCP server by name.
+func enableMCPServer(ctx context.Context, mgr *mcp.Manager, name string) error {
+	return mgr.Enable(ctx, name)
+}
+
+// disableMCPServer disables a single MCP server by name.
+func disableMCPServer(ctx context.Context, mgr *mcp.Manager, name string) error {
+	return mgr.Disable(ctx, name)
+}
+
+// enableAllMCPServers enables all MCP servers from settings.
+func enableAllMCPServers(ctx context.Context, mgr *mcp.Manager) error {
+	return mgr.EnableAll(ctx)
+}
+
+// disableAllMCPServers disables all MCP servers.
+func disableAllMCPServers(ctx context.Context, mgr *mcp.Manager) error {
+	return mgr.DisableAll(ctx)
 }
