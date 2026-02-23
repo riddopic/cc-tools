@@ -222,6 +222,107 @@ func TestDriftHandler_PivotResetsState(t *testing.T) {
 	assert.Equal(t, 0, state.Edits)
 }
 
+func TestDriftHandler_IntentTruncation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		prompt       string
+		wantContains string
+		wantMaxLen   int
+	}{
+		{
+			name:         "sentence ending with period",
+			prompt:       "Fix the login bug. Then refactor the auth module.",
+			wantContains: "Fix the login bug.",
+			wantMaxLen:   18,
+		},
+		{
+			name:         "sentence ending with exclamation",
+			prompt:       "Fix this now! It is broken badly.",
+			wantContains: "Fix this now!",
+			wantMaxLen:   13,
+		},
+		{
+			name:         "sentence ending with question mark",
+			prompt:       "Can you fix the bug? I think it is in auth.",
+			wantContains: "Can you fix the bug?",
+			wantMaxLen:   20,
+		},
+		{
+			name:         "newline truncates intent",
+			prompt:       "Fix the auth module\nAlso update the tests",
+			wantContains: "Fix the auth module",
+			wantMaxLen:   19,
+		},
+		{
+			name:         "short text without sentence enders",
+			prompt:       "fix auth",
+			wantContains: "fix auth",
+			wantMaxLen:   8,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			stateDir := t.TempDir()
+			sessionID := "truncation-test"
+			cfg := driftConfig(true, 6, 0.2)
+			h := handler.NewDriftHandler(cfg, handler.WithDriftStateDir(stateDir))
+
+			_, err := h.Handle(context.Background(), &hookcmd.HookInput{
+				SessionID: sessionID,
+				Prompt:    tt.prompt,
+			})
+			require.NoError(t, err)
+
+			statePath := filepath.Join(stateDir, "drift-"+sessionID+".json")
+			data, readErr := os.ReadFile(statePath)
+			require.NoError(t, readErr)
+
+			var state driftTestState
+			require.NoError(t, json.Unmarshal(data, &state))
+			assert.Equal(t, tt.wantContains, state.Intent)
+			assert.LessOrEqual(t, len(state.Intent), tt.wantMaxLen)
+		})
+	}
+}
+
+func TestDriftHandler_CorruptStateFile(t *testing.T) {
+	t.Parallel()
+
+	stateDir := t.TempDir()
+	sessionID := "corrupt-test"
+	cfg := driftConfig(true, 6, 0.2)
+
+	// Write corrupt JSON to state file.
+	err := os.WriteFile(
+		filepath.Join(stateDir, "drift-"+sessionID+".json"),
+		[]byte("not valid json{{{"),
+		0o600,
+	)
+	require.NoError(t, err)
+
+	h := handler.NewDriftHandler(cfg, handler.WithDriftStateDir(stateDir))
+	resp, handleErr := h.Handle(context.Background(), &hookcmd.HookInput{
+		SessionID: sessionID,
+		Prompt:    "start fresh after corrupt state",
+	})
+	require.NoError(t, handleErr)
+	assert.Empty(t, resp.Stderr)
+
+	// Verify state was re-initialized (corrupt state treated as empty).
+	data, readErr := os.ReadFile(filepath.Join(stateDir, "drift-"+sessionID+".json"))
+	require.NoError(t, readErr)
+
+	var state driftTestState
+	require.NoError(t, json.Unmarshal(data, &state))
+	assert.NotEmpty(t, state.Intent)
+	assert.Equal(t, 0, state.Edits)
+}
+
 // driftTestState mirrors the internal driftState struct for test seeding.
 type driftTestState struct {
 	Intent   string   `json:"intent"`

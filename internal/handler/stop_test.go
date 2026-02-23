@@ -153,6 +153,51 @@ func TestStopReminderHandler_CounterPersistence(t *testing.T) {
 	assert.Equal(t, "3", string(data))
 }
 
+func TestStopReminderHandler_CorruptCounterFile(t *testing.T) {
+	t.Parallel()
+
+	stateDir := t.TempDir()
+	sessionID := "corrupt-test"
+	cfg := stopConfig(true, 100, 200)
+
+	// Write corrupt counter value.
+	err := os.WriteFile(
+		filepath.Join(stateDir, "stop-"+sessionID+".count"),
+		[]byte("not-a-number"),
+		0o600,
+	)
+	require.NoError(t, err)
+
+	h := handler.NewStopReminderHandler(cfg, handler.WithStopStateDir(stateDir))
+	resp, handleErr := h.Handle(context.Background(), &hookcmd.HookInput{
+		SessionID: sessionID,
+	})
+	require.NoError(t, handleErr)
+	assert.Empty(t, resp.Stderr)
+
+	// Verify counter was reset to 1 (corrupt treated as 0, then incremented).
+	data, readErr := os.ReadFile(filepath.Join(stateDir, "stop-"+sessionID+".count"))
+	require.NoError(t, readErr)
+	assert.Equal(t, "1", string(data))
+}
+
+func TestStopReminderHandler_IntervalZeroNoReminder(t *testing.T) {
+	t.Parallel()
+
+	stateDir := t.TempDir()
+	sessionID := "zero-interval"
+	cfg := stopConfig(true, 0, 0)
+	h := handler.NewStopReminderHandler(cfg, handler.WithStopStateDir(stateDir))
+
+	// Even at high counts, interval=0 and warnAt=0 should never emit.
+	seedStopCount(t, stateDir, sessionID, 99)
+	resp, err := h.Handle(context.Background(), &hookcmd.HookInput{
+		SessionID: sessionID,
+	})
+	require.NoError(t, err)
+	assert.Empty(t, resp.Stderr)
+}
+
 func stopConfig(enabled bool, interval, warnAt int) *config.Values {
 	cfg := newTestConfig()
 	cfg.StopReminder.Enabled = enabled

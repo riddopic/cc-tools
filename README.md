@@ -61,6 +61,12 @@ Add to your Claude Code settings (`~/.claude/settings.json`):
     "SessionEnd": [
       { "matcher": "*", "command": "cc-tools hook" }
     ],
+    "UserPromptSubmit": [
+      { "matcher": "*", "command": "cc-tools hook" }
+    ],
+    "Stop": [
+      { "matcher": "*", "command": "cc-tools hook" }
+    ],
     "Notification": [
       { "matcher": "*", "command": "cc-tools hook" }
     ],
@@ -81,6 +87,8 @@ The `hook` command reads event JSON from stdin, dispatches to registered handler
 | SessionEnd | Session metadata persistence |
 | PreToolUse | Compact suggestion, observation logging, pre-commit reminder |
 | PostToolUse | Observation logging |
+| UserPromptSubmit | Drift detection (warns when session diverges from original intent) |
+| Stop | Response count tracking with rotating session reminders |
 | PreCompact | Log compaction |
 | Notification | Audio playback, desktop alert, ntfy push |
 
@@ -138,6 +146,12 @@ Settings are stored at `~/.config/cc-tools/config.json`.
 | `pre_commit_reminder.enabled` | `true` | Remind to run checks before git commit |
 | `pre_commit_reminder.command` | `"task pre-commit"` | Command to suggest before commits |
 | `package_manager.preferred` | `""` | Preferred package manager (overrides auto-detection) |
+| `drift.enabled` | `true` | Enable drift detection on prompts |
+| `drift.min_edits` | `6` | Minimum edits before checking for drift |
+| `drift.threshold` | `0.2` | Keyword overlap ratio below which drift is flagged |
+| `stop_reminder.enabled` | `true` | Enable periodic session reminders |
+| `stop_reminder.interval` | `20` | Responses between reminders |
+| `stop_reminder.warn_at` | `50` | Response count for strong wrap-up warning |
 
 Debug logs are written to `~/.cache/cc-tools/debug/`.
 
