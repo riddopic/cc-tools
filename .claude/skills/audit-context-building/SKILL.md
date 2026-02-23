@@ -11,6 +11,7 @@ context: fork
 This skill governs **how Claude thinks** during the context-building phase of an audit.
 
 When active, Claude will:
+
 - Perform **line-by-line / block-by-block** code analysis by default.
 - Apply **First Principles**, **5 Whys**, and **5 Hows** at micro scale.
 - Continuously link insights → functions → modules → entire system.
@@ -24,12 +25,14 @@ This skill defines a structured analysis format (see Example: Function Micro-Ana
 ## 2. When to Use This Skill
 
 Use when:
+
 - Deep comprehension is needed before bug or vulnerability discovery.
 - You want bottom-up understanding instead of high-level guessing.
 - Reducing hallucinations, contradictions, and context loss is critical.
 - Preparing for security auditing, architecture review, or threat modeling.
 
 Do **not** use for:
+
 - Vulnerability findings
 - Fix recommendations
 - Exploit reasoning
@@ -40,6 +43,7 @@ Do **not** use for:
 ## 3. How This Skill Behaves
 
 When active, Claude will:
+
 - Default to **ultra-granular analysis** of each block and line.
 - Apply micro-level First Principles, 5 Whys, and 5 Hows.
 - Build and refine a persistent global mental model.
@@ -53,14 +57,14 @@ Goal: **deep, accurate understanding**, not conclusions.
 
 ## 3.1 Rationalizations (Do Not Skip)
 
-| Rationalization | Why It's Wrong | Required Action |
-|-----------------|----------------|-----------------|
-| "I get the gist" | Gist-level understanding misses edge cases | Line-by-line analysis required |
-| "This function is simple" | Simple functions compose into complex bugs | Apply 5 Whys anyway |
-| "I'll remember this invariant" | You won't. Context degrades. | Write it down explicitly |
-| "External call is probably fine" | External = adversarial until proven otherwise | Jump into code or model as hostile |
-| "I can skip this helper" | Helpers contain assumptions that propagate | Trace the full call chain |
-| "This is taking too long" | Rushed context = hallucinated vulnerabilities later | Slow is fast |
+| Rationalization                  | Why It's Wrong                                      | Required Action                    |
+| -------------------------------- | --------------------------------------------------- | ---------------------------------- |
+| "I get the gist"                 | Gist-level understanding misses edge cases          | Line-by-line analysis required     |
+| "This function is simple"        | Simple functions compose into complex bugs          | Apply 5 Whys anyway                |
+| "I'll remember this invariant"   | You won't. Context degrades.                        | Write it down explicitly           |
+| "External call is probably fine" | External = adversarial until proven otherwise       | Jump into code or model as hostile |
+| "I can skip this helper"         | Helpers contain assumptions that propagate          | Trace the full call chain          |
+| "This is taking too long"        | Rushed context = hallucinated vulnerabilities later | Slow is fast                       |
 
 ---
 
@@ -115,11 +119,13 @@ For each function:
 ---
 
 ### 5.2 Cross-Function & External Flow Analysis
-*(Full Integration of Jump-Into-External-Code Rule)*
+
+_(Full Integration of Jump-Into-External-Code Rule)_
 
 When encountering calls, **continue the same micro-first analysis across boundaries.**
 
 #### Internal Calls
+
 - Jump into the callee immediately.
 - Perform block-by-block analysis of relevant code.
 - Track flow of data, assumptions, and invariants:
@@ -130,13 +136,15 @@ When encountering calls, **continue the same micro-first analysis across boundar
 
 **Case A — External Call to a Contract Whose Code Exists in the Codebase**
 Treat as an internal call:
+
 - Jump into the target contract/function.
 - Continue block-by-block micro-analysis.
 - Propagate invariants and assumptions seamlessly.
-- Consider edge cases based on the *actual* code, not a black-box guess.
+- Consider edge cases based on the _actual_ code, not a black-box guess.
 
 **Case B — External Call Without Available Code (True External / Black Box)**
 Analyze as adversarial:
+
 - Describe payload/value/gas or parameters sent.
 - Identify assumptions about the target.
 - Consider all outcomes:
@@ -147,6 +155,7 @@ Analyze as adversarial:
   - reentrancy (if applicable)
 
 #### Continuity Rule
+
 Treat the entire call chain as **one continuous execution flow**.
 Never reset context.
 All invariants, assumptions, and data dependencies must propagate across calls.
@@ -156,6 +165,7 @@ All invariants, assumptions, and data dependencies must propagate across calls.
 ### 5.3 Complete Analysis Example
 
 See [FUNCTION_MICRO_ANALYSIS_EXAMPLE.md](resources/FUNCTION_MICRO_ANALYSIS_EXAMPLE.md) for a complete walkthrough demonstrating:
+
 - Full micro-analysis of a DEX swap function
 - Application of First Principles, 5 Whys, and 5 Hows
 - Block-by-block analysis with invariants and assumptions
@@ -171,6 +181,7 @@ This example demonstrates the level of depth and structure required for all anal
 When performing ultra-granular analysis, Claude MUST structure output following the format defined in [OUTPUT_REQUIREMENTS.md](resources/OUTPUT_REQUIREMENTS.md).
 
 Key requirements:
+
 - **Purpose** (2-3 sentences minimum)
 - **Inputs & Assumptions** (all parameters, preconditions, trust assumptions)
 - **Outputs & Effects** (returns, state writes, external calls, events, postconditions)
@@ -178,6 +189,7 @@ Key requirements:
 - **Cross-Function Dependencies** (internal calls, external calls with risk analysis, shared state)
 
 Quality thresholds:
+
 - Minimum 3 invariants per function
 - Minimum 5 assumptions documented
 - Minimum 3 risk considerations for external interactions
@@ -228,7 +240,8 @@ These clusters help guide the vulnerability-hunting phase.
 ---
 
 ## 7. Stability & Consistency Rules
-*(Anti-Hallucination, Anti-Contradiction)*
+
+_(Anti-Hallucination, Anti-Contradiction)_
 
 Claude must:
 
@@ -247,7 +260,7 @@ Claude must:
 - **Avoid vague guesses**
   Use:
   - "Unclear; need to inspect X."
-  instead of:
+    instead of:
   - "It probably…"
 
 - **Cross-reference constantly**
@@ -258,13 +271,20 @@ Claude must:
 ## 8. Subagent Usage
 
 Claude may spawn subagents for:
+
 - Dense or complex functions.
 - Long data-flow or control-flow chains.
 - Cryptographic / mathematical logic.
 - Complex state machines.
 - Multi-module workflow reconstruction.
 
+Use the **`function-analyzer`** agent for per-function deep analysis.
+It follows the full microstructure checklist, cross-function flow
+rules, and quality thresholds defined in this skill, and enforces
+the pure-context-building constraint.
+
 Subagents must:
+
 - Follow the same micro-first rules.
 - Return summaries that Claude integrates into its global model.
 
@@ -275,6 +295,7 @@ For codebases with many files, apply `recursive-decomposition` strategies to par
 ## 9. Relationship to Other Phases
 
 This skill runs **before**:
+
 - Vulnerability discovery
 - Classification / triage
 - Report writing
@@ -282,6 +303,7 @@ This skill runs **before**:
 - Exploit reasoning
 
 It exists solely to build:
+
 - Deep understanding
 - Stable context
 - System-level clarity
@@ -291,6 +313,7 @@ It exists solely to build:
 ## 10. Non-Goals
 
 While active, Claude should NOT:
+
 - Identify vulnerabilities
 - Propose fixes
 - Generate proofs-of-concept

@@ -93,6 +93,7 @@ git commit -m "feat: add specific feature"
 - Exact commands with expected output
 - Reference skills by name with requirement markers
 - DRY, YAGNI, TDD, frequent commits
+- Invoke `search-first` skill before proposing architecture or new dependencies
 
 ## Execution Handoff
 

@@ -24,6 +24,7 @@ R - Reduce complexity (simplest solution wins)
 Before writing new code:
 
 1. **Leverage**: Does the standard library solve this? Does an existing internal package?
+   > **Tip:** The `search-first` skill provides a systematic workflow for the Leverage step.
 2. **Extend**: Can we extend existing code rather than create new?
 3. **Verify**: Will this be self-validating through reactive patterns?
 4. **Eliminate**: Am I duplicating business knowledge?

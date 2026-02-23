@@ -38,7 +38,7 @@ Skills in `.claude/skills/` auto-trigger based on context. Organized by category
 | `reference-docs` | API and symbol reference documentation |
 | `writing-clearly-and-concisely` | Any prose humans will read |
 
-### Workflow (13)
+### Workflow (14)
 
 | Skill | Triggers On |
 | ----- | ----------- |
@@ -55,8 +55,9 @@ Skills in `.claude/skills/` auto-trigger based on context. Organized by category
 | `using-superpowers` | Start of conversation, finding skills |
 | `writing-skills` | Creating or editing skill files |
 | `prp-workflow` | Working with PRP workflow patterns |
+| `search-first` | Before writing new code, adding dependencies |
 
-### Analysis & Patterns (5)
+### Analysis & Patterns (6)
 
 | Skill | Triggers On |
 | ----- | ----------- |
@@ -65,6 +66,7 @@ Skills in `.claude/skills/` auto-trigger based on context. Organized by category
 | `continuous-learning` | Extracting reusable patterns from sessions |
 | `recursive-decomposition` | Breaking complex problems into sub-problems |
 | `coding-philosophy` | LEVER decisions + Karpathy execution guidelines |
+| `continuous-learning-v2` | Instinct-based learning with confidence scoring |
 
 ### Specialized (1)
 
@@ -82,6 +84,7 @@ No user prompt needed — invoke proactively:
 4. **Architectural decision** → Use `systems-architect` agent
 5. **Security-sensitive code** → Use `security-threat-analyst` agent
 6. **Build failures** → Use `code-analyzer-debugger` agent
+7. **Security audit / deep code analysis** → Use `function-analyzer` agent (with `audit-context-building` skill)
 
 ## Parallel Task Execution
 
@@ -122,6 +125,7 @@ For complex problems, use multiple perspectives:
 | Debugging bugs | `systematic-debugging` skill → `code-analyzer-debugger` agent |
 | Large-scale analysis | `recursive-decomposition` skill |
 | Code refactoring | `code-refactoring-expert` agent |
+| Security audit preparation | `audit-context-building` skill → `function-analyzer` agent |
 
 ## Quick Reference
 
