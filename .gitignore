@@ -81,3 +81,7 @@ docs/code-reviews/
 # Python cache
 __pycache__/
 *.py[cod]
+
+# Codex
+.codex/
+AGENTS.md
