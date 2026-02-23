@@ -22,6 +22,8 @@ func TestNewDefaultRegistry_RegistersAllEvents(t *testing.T) {
 	assert.True(t, r.HasHandlers(hookcmd.EventPreToolUse))
 	assert.True(t, r.HasHandlers(hookcmd.EventPostToolUse))
 	assert.True(t, r.HasHandlers(hookcmd.EventPreCompact))
+	assert.True(t, r.HasHandlers(hookcmd.EventUserPromptSubmit))
+	assert.True(t, r.HasHandlers(hookcmd.EventStop))
 	assert.True(t, r.HasHandlers(hookcmd.EventNotification))
 }
 

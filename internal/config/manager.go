@@ -83,6 +83,12 @@ func (m *Manager) GetInt(_ context.Context, key string) (int, bool, error) {
 		return m.config.Observe.MaxFileSizeMB, true, nil
 	case keyLearningMinSessionLength:
 		return m.config.Learning.MinSessionLength, true, nil
+	case keyDriftMinEdits:
+		return m.config.Drift.MinEdits, true, nil
+	case keyStopReminderInterval:
+		return m.config.StopReminder.Interval, true, nil
+	case keyStopReminderWarnAt:
+		return m.config.StopReminder.WarnAt, true, nil
 	default:
 		return 0, false, nil
 	}
@@ -163,7 +169,7 @@ func (m *Manager) GetValue(_ context.Context, key string) (string, bool, error) 
 	case keyPackageManagerPreferred:
 		return m.config.PackageManager.Preferred, true, nil
 	default:
-		return "", false, nil
+		return m.config.getExtendedValue(key)
 	}
 }
 
@@ -227,8 +233,21 @@ func (m *Manager) setField(key string, value string) error {
 	case keyPackageManagerPreferred:
 		m.config.PackageManager.Preferred = value
 	default:
+		if handled, err := m.config.setExtendedField(key, value); handled {
+			return err
+		}
 		return fmt.Errorf("unknown configuration key: %s", key)
 	}
+	return nil
+}
+
+// setFloatField parses and assigns a float64 value to the given field.
+func setFloatField(field *float64, value string) error {
+	floatVal, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return fmt.Errorf("value must be a number: %w", err)
+	}
+	*field = floatVal
 	return nil
 }
 
@@ -335,7 +354,9 @@ func (m *Manager) Reset(_ context.Context, key string) error {
 	case keyPackageManagerPreferred:
 		m.config.PackageManager.Preferred = defaults.PackageManager.Preferred
 	default:
-		return fmt.Errorf("unknown configuration key: %s", key)
+		if !m.config.resetExtended(key, defaults) {
+			return fmt.Errorf("unknown configuration key: %s", key)
+		}
 	}
 
 	// Save to file
@@ -476,6 +497,18 @@ func (m *Manager) ensureDefaults() {
 	if m.config.PreCommit.Command == "" {
 		m.config.PreCommit.Command = defaults.PreCommit.Command
 	}
+	if m.config.Drift.MinEdits == 0 {
+		m.config.Drift.MinEdits = defaults.Drift.MinEdits
+	}
+	if m.config.Drift.Threshold == 0 {
+		m.config.Drift.Threshold = defaults.Drift.Threshold
+	}
+	if m.config.StopReminder.Interval == 0 {
+		m.config.StopReminder.Interval = defaults.StopReminder.Interval
+	}
+	if m.config.StopReminder.WarnAt == 0 {
+		m.config.StopReminder.WarnAt = defaults.StopReminder.WarnAt
+	}
 }
 
 // convertFromMap converts the old map-based config to the new structured format.
@@ -490,6 +523,8 @@ func (m *Manager) convertFromMap(mapConfig map[string]any) {
 	convertLearningFromMap(&m.config.Learning, mapConfig)
 	convertPreCommitFromMap(&m.config.PreCommit, mapConfig)
 	convertPackageManagerFromMap(&m.config.PackageManager, mapConfig)
+	convertDriftFromMap(&m.config.Drift, mapConfig)
+	convertStopReminderFromMap(&m.config.StopReminder, mapConfig)
 
 	if notifyMap, notifyOk := mapConfig["notify"].(map[string]any); notifyOk {
 		convertNotifyFromMap(&m.config.Notify, notifyMap)

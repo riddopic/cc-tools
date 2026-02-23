@@ -107,6 +107,42 @@ func ExportKeyPackageManagerPreferred() string { return keyPackageManagerPreferr
 // ExportDefaultPackageManagerPreferred returns the unexported default constant.
 func ExportDefaultPackageManagerPreferred() string { return defaultPackageManagerPreferred }
 
+// ExportKeyDriftEnabled returns the unexported key constant.
+func ExportKeyDriftEnabled() string { return keyDriftEnabled }
+
+// ExportKeyDriftMinEdits returns the unexported key constant.
+func ExportKeyDriftMinEdits() string { return keyDriftMinEdits }
+
+// ExportKeyDriftThreshold returns the unexported key constant.
+func ExportKeyDriftThreshold() string { return keyDriftThreshold }
+
+// ExportDefaultDriftEnabled returns the unexported default constant.
+func ExportDefaultDriftEnabled() bool { return defaultDriftEnabled }
+
+// ExportDefaultDriftMinEdits returns the unexported default constant.
+func ExportDefaultDriftMinEdits() int { return defaultDriftMinEdits }
+
+// ExportDefaultDriftThreshold returns the unexported default constant.
+func ExportDefaultDriftThreshold() float64 { return defaultDriftThreshold }
+
+// ExportKeyStopReminderEnabled returns the unexported key constant.
+func ExportKeyStopReminderEnabled() string { return keyStopReminderEnabled }
+
+// ExportKeyStopReminderInterval returns the unexported key constant.
+func ExportKeyStopReminderInterval() string { return keyStopReminderInterval }
+
+// ExportKeyStopReminderWarnAt returns the unexported key constant.
+func ExportKeyStopReminderWarnAt() string { return keyStopReminderWarnAt }
+
+// ExportDefaultStopReminderEnabled returns the unexported default constant.
+func ExportDefaultStopReminderEnabled() bool { return defaultStopReminderEnabled }
+
+// ExportDefaultStopReminderInterval returns the unexported default constant.
+func ExportDefaultStopReminderInterval() int { return defaultStopReminderInterval }
+
+// ExportDefaultStopReminderWarnAt returns the unexported default constant.
+func ExportDefaultStopReminderWarnAt() int { return defaultStopReminderWarnAt }
+
 // ExportGetDefaultConfig exposes GetDefaultConfig for testing.
 func ExportGetDefaultConfig() *Values { return GetDefaultConfig() }
 

@@ -38,6 +38,14 @@ func NewDefaultRegistry(cfg *config.Values) *Registry {
 		NewLogCompactionHandler(),
 	)
 
+	r.Register(hookcmd.EventUserPromptSubmit,
+		NewDriftHandler(cfg),
+	)
+
+	r.Register(hookcmd.EventStop,
+		NewStopReminderHandler(cfg),
+	)
+
 	r.Register(hookcmd.EventNotification,
 		NewNotifyAudioHandler(cfg, WithAudioPlayer(&notify.AFPlayer{})),
 		NewNotifyDesktopHandler(cfg, WithCmdRunner(&notify.OSRunner{})),

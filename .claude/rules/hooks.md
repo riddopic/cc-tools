@@ -8,7 +8,8 @@ Claude Code hooks automate actions before/after tool execution.
 | ------ | --------- | ---------- |
 | **PreToolUse** | Before tool execution | Validation, parameter modification |
 | **PostToolUse** | After tool execution | Auto-formatting, checks |
-| **Stop** | Session ends | Final verification |
+| **UserPromptSubmit** | User sends a prompt | Drift detection, prompt analysis |
+| **Stop** | Session ends | Response counting, verification |
 
 ## Current Hooks
 
@@ -27,8 +28,13 @@ Configured in `~/.claude/settings.json`:
 - **TypeScript check**: Runs tsc after editing .ts/.tsx files
 - **console.log warning**: Warns about console.log in edited files
 
-### Stop Hooks
+### UserPromptSubmit Handlers
 
+- **drift detection** (`DriftHandler`): Tracks session intent from the first prompt, extracts keywords, and warns when subsequent prompts diverge significantly. Configurable via `drift.enabled`, `drift.min_edits` (default 6), `drift.threshold` (default 0.2). Recognizes pivot phrases ("now let's", "switch to", etc.) to reset intent.
+
+### Stop Handlers
+
+- **stop reminder** (`StopReminderHandler`): Tracks response count per session and emits rotating reminders at configurable intervals. Configurable via `stop_reminder.enabled`, `stop_reminder.interval` (default 20), `stop_reminder.warn_at` (default 50).
 - **console.log audit**: Checks all modified files for console.log before session ends
 
 ## Hook Configuration

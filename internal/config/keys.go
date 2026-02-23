@@ -28,6 +28,14 @@ const (
 	keyPreCommitCommand = "pre_commit_reminder.command"
 
 	keyPackageManagerPreferred = "package_manager.preferred"
+
+	keyDriftEnabled   = "drift.enabled"
+	keyDriftMinEdits  = "drift.min_edits"
+	keyDriftThreshold = "drift.threshold"
+
+	keyStopReminderEnabled  = "stop_reminder.enabled"
+	keyStopReminderInterval = "stop_reminder.interval"
+	keyStopReminderWarnAt   = "stop_reminder.warn_at"
 )
 
 const (
@@ -54,6 +62,14 @@ const (
 	defaultPreCommitCommand = "task pre-commit"
 
 	defaultPackageManagerPreferred = ""
+
+	defaultDriftEnabled   = true
+	defaultDriftMinEdits  = 6
+	defaultDriftThreshold = 0.2
+
+	defaultStopReminderEnabled  = true
+	defaultStopReminderInterval = 20
+	defaultStopReminderWarnAt   = 50
 )
 
 // GetDefaultConfig returns the default configuration values.
@@ -99,6 +115,16 @@ func GetDefaultConfig() *Values {
 		PackageManager: PackageManagerValues{
 			Preferred: defaultPackageManagerPreferred,
 		},
+		Drift: DriftValues{
+			Enabled:   defaultDriftEnabled,
+			MinEdits:  defaultDriftMinEdits,
+			Threshold: defaultDriftThreshold,
+		},
+		StopReminder: StopReminderValues{
+			Enabled:  defaultStopReminderEnabled,
+			Interval: defaultStopReminderInterval,
+			WarnAt:   defaultStopReminderWarnAt,
+		},
 	}
 }
 
@@ -142,6 +168,10 @@ func getDefaultValue(defaults *Values, key string) string {
 	case keyPackageManagerPreferred:
 		return defaults.PackageManager.Preferred
 	default:
+		v, found, _ := defaults.getExtendedValue(key)
+		if found {
+			return v
+		}
 		return ""
 	}
 }
@@ -167,5 +197,11 @@ func allKeys() []string {
 		keyPreCommitEnabled,
 		keyPreCommitCommand,
 		keyPackageManagerPreferred,
+		keyDriftEnabled,
+		keyDriftMinEdits,
+		keyDriftThreshold,
+		keyStopReminderEnabled,
+		keyStopReminderInterval,
+		keyStopReminderWarnAt,
 	}
 }

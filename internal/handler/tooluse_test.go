@@ -57,6 +57,19 @@ func newTestConfig() *config.Values {
 			Enabled: false,
 			Command: "",
 		},
+		PackageManager: config.PackageManagerValues{
+			Preferred: "",
+		},
+		Drift: config.DriftValues{
+			Enabled:   false,
+			MinEdits:  0,
+			Threshold: 0,
+		},
+		StopReminder: config.StopReminderValues{
+			Enabled:  false,
+			Interval: 0,
+			WarnAt:   0,
+		},
 	}
 }
 

@@ -1,5 +1,7 @@
 package config
 
+import "strconv"
+
 // Values represents the concrete configuration structure.
 type Values struct {
 	Validate       ValidateValues       `json:"validate"`
@@ -10,6 +12,8 @@ type Values struct {
 	Learning       LearningValues       `json:"learning"`
 	PreCommit      PreCommitValues      `json:"pre_commit_reminder"`
 	PackageManager PackageManagerValues `json:"package_manager"`
+	Drift          DriftValues          `json:"drift"`
+	StopReminder   StopReminderValues   `json:"stop_reminder"`
 }
 
 // NotificationsValues represents notification-related settings.
@@ -75,6 +79,20 @@ type PreCommitValues struct {
 // PackageManagerValues represents package manager preference settings.
 type PackageManagerValues struct {
 	Preferred string `json:"preferred"`
+}
+
+// DriftValues represents drift detection settings.
+type DriftValues struct {
+	Enabled   bool    `json:"enabled"`
+	MinEdits  int     `json:"min_edits"`
+	Threshold float64 `json:"threshold"`
+}
+
+// StopReminderValues represents stop event reminder settings.
+type StopReminderValues struct {
+	Enabled  bool `json:"enabled"`
+	Interval int  `json:"interval"`
+	WarnAt   int  `json:"warn_at"`
 }
 
 // convertValidateFromMap extracts validate settings from a map config.
@@ -194,5 +212,100 @@ func convertPackageManagerFromMap(pm *PackageManagerValues, mapConfig map[string
 	}
 	if preferred, preferredOk := section["preferred"].(string); preferredOk {
 		pm.Preferred = preferred
+	}
+}
+
+// getExtendedValue returns a drift or stop_reminder value as a string.
+func (v *Values) getExtendedValue(key string) (string, bool, error) {
+	switch key {
+	case keyDriftEnabled:
+		return strconv.FormatBool(v.Drift.Enabled), true, nil
+	case keyDriftMinEdits:
+		return strconv.Itoa(v.Drift.MinEdits), true, nil
+	case keyDriftThreshold:
+		return strconv.FormatFloat(v.Drift.Threshold, 'f', -1, 64), true, nil
+	case keyStopReminderEnabled:
+		return strconv.FormatBool(v.StopReminder.Enabled), true, nil
+	case keyStopReminderInterval:
+		return strconv.Itoa(v.StopReminder.Interval), true, nil
+	case keyStopReminderWarnAt:
+		return strconv.Itoa(v.StopReminder.WarnAt), true, nil
+	default:
+		return "", false, nil
+	}
+}
+
+// setExtendedField sets a drift or stop_reminder field from a string value.
+func (v *Values) setExtendedField(key, value string) (bool, error) {
+	switch key {
+	case keyDriftEnabled:
+		return true, setBoolField(&v.Drift.Enabled, value)
+	case keyDriftMinEdits:
+		return true, setIntField(&v.Drift.MinEdits, value)
+	case keyDriftThreshold:
+		return true, setFloatField(&v.Drift.Threshold, value)
+	case keyStopReminderEnabled:
+		return true, setBoolField(&v.StopReminder.Enabled, value)
+	case keyStopReminderInterval:
+		return true, setIntField(&v.StopReminder.Interval, value)
+	case keyStopReminderWarnAt:
+		return true, setIntField(&v.StopReminder.WarnAt, value)
+	default:
+		return false, nil
+	}
+}
+
+// resetExtended resets drift or stop_reminder fields to their defaults.
+func (v *Values) resetExtended(key string, defaults *Values) bool {
+	switch key {
+	case keyDriftEnabled:
+		v.Drift.Enabled = defaults.Drift.Enabled
+	case keyDriftMinEdits:
+		v.Drift.MinEdits = defaults.Drift.MinEdits
+	case keyDriftThreshold:
+		v.Drift.Threshold = defaults.Drift.Threshold
+	case keyStopReminderEnabled:
+		v.StopReminder.Enabled = defaults.StopReminder.Enabled
+	case keyStopReminderInterval:
+		v.StopReminder.Interval = defaults.StopReminder.Interval
+	case keyStopReminderWarnAt:
+		v.StopReminder.WarnAt = defaults.StopReminder.WarnAt
+	default:
+		return false
+	}
+	return true
+}
+
+// convertDriftFromMap extracts drift detection settings from a map config.
+func convertDriftFromMap(d *DriftValues, mapConfig map[string]any) {
+	section, sectionOk := mapConfig["drift"].(map[string]any)
+	if !sectionOk {
+		return
+	}
+	if enabled, enabledOk := section["enabled"].(bool); enabledOk {
+		d.Enabled = enabled
+	}
+	if minEdits, minEditsOk := section["min_edits"].(float64); minEditsOk {
+		d.MinEdits = int(minEdits)
+	}
+	if threshold, thresholdOk := section["threshold"].(float64); thresholdOk {
+		d.Threshold = threshold
+	}
+}
+
+// convertStopReminderFromMap extracts stop reminder settings from a map config.
+func convertStopReminderFromMap(sr *StopReminderValues, mapConfig map[string]any) {
+	section, sectionOk := mapConfig["stop_reminder"].(map[string]any)
+	if !sectionOk {
+		return
+	}
+	if enabled, enabledOk := section["enabled"].(bool); enabledOk {
+		sr.Enabled = enabled
+	}
+	if interval, intervalOk := section["interval"].(float64); intervalOk {
+		sr.Interval = int(interval)
+	}
+	if warnAt, warnAtOk := section["warn_at"].(float64); warnAtOk {
+		sr.WarnAt = int(warnAt)
 	}
 }

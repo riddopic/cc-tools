@@ -124,6 +124,16 @@ func newTestValues(timeout, cooldown int) *config.Values {
 		PackageManager: config.PackageManagerValues{
 			Preferred: config.ExportDefaultPackageManagerPreferred(),
 		},
+		Drift: config.DriftValues{
+			Enabled:   config.ExportDefaultDriftEnabled(),
+			MinEdits:  config.ExportDefaultDriftMinEdits(),
+			Threshold: config.ExportDefaultDriftThreshold(),
+		},
+		StopReminder: config.StopReminderValues{
+			Enabled:  config.ExportDefaultStopReminderEnabled(),
+			Interval: config.ExportDefaultStopReminderInterval(),
+			WarnAt:   config.ExportDefaultStopReminderWarnAt(),
+		},
 	}
 }
 

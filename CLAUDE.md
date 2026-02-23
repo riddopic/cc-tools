@@ -46,7 +46,7 @@ Two separate execution paths:
 
 | Package | Purpose |
 |---------|---------|
-| `internal/handler` | Handler registry and event dispatch; all hook handlers (notification, session, observation, compaction, superpowers, pre-commit) |
+| `internal/handler` | Handler registry and event dispatch; all hook handlers (notification, session, observation, compaction, superpowers, pre-commit, drift detection, stop reminder) |
 | `internal/hookcmd` | Hook event constants, JSON input parsing, `HookInput` struct |
 | `internal/hooks` | Core validation: discovers lint/test commands, runs them in parallel with `sync.WaitGroup`, manages cooldown locks |
 | `internal/notify` | Notification backends: `NtfyNotifier` (HTTP push), `Audio` (afplay), `Desktop` (osascript), `QuietHours`, `MultiNotifier` |
@@ -73,6 +73,8 @@ Two separate execution paths:
 | PreToolUse | `SuggestCompactHandler`, `ObserveHandler(pre)`, `PreCommitReminderHandler` |
 | PostToolUse | `ObserveHandler(post)` |
 | PostToolUseFailure | `ObserveHandler(failure)` |
+| UserPromptSubmit | `DriftHandler` |
+| Stop | `StopReminderHandler` |
 | PreCompact | `LogCompactionHandler` |
 | Notification | `NotifyAudioHandler`, `NotifyDesktopHandler`, `NotifyNtfyHandler` |
 
