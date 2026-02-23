@@ -49,29 +49,56 @@ Add to your Claude Code settings (`~/.claude/settings.json`):
 {
   "hooks": {
     "PreToolUse": [
-      { "matcher": "*", "command": "cc-tools hook" }
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "cc-tools hook" }]
+      }
     ],
     "PostToolUse": [
-      { "matcher": "Write|Edit|MultiEdit", "command": "cc-tools validate" },
-      { "matcher": "*", "command": "cc-tools hook" }
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [{ "type": "command", "command": "cc-tools validate" }]
+      },
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "cc-tools hook" }]
+      }
     ],
     "SessionStart": [
-      { "matcher": "*", "command": "cc-tools hook" }
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "cc-tools hook" }]
+      }
     ],
     "SessionEnd": [
-      { "matcher": "*", "command": "cc-tools hook" }
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "cc-tools hook" }]
+      }
     ],
     "UserPromptSubmit": [
-      { "matcher": "*", "command": "cc-tools hook" }
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "cc-tools hook" }]
+      }
     ],
     "Stop": [
-      { "matcher": "*", "command": "cc-tools hook" }
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "cc-tools hook" }]
+      }
     ],
     "Notification": [
-      { "matcher": "*", "command": "cc-tools hook" }
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "cc-tools hook" }]
+      }
     ],
     "PreCompact": [
-      { "matcher": "*", "command": "cc-tools hook" }
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "cc-tools hook" }]
+      }
     ]
   }
 }
