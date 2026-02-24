@@ -65,6 +65,26 @@ func TestFileStore(t *testing.T) {
 			name: "inherited instincts appear in list but not deletable from personal",
 			fn:   testInheritedInstincts,
 		},
+		{
+			name: "get rejects path traversal ID",
+			fn:   testGetRejectsPathTraversal,
+		},
+		{
+			name: "get rejects empty ID",
+			fn:   testGetRejectsEmptyID,
+		},
+		{
+			name: "delete rejects path traversal ID",
+			fn:   testDeleteRejectsPathTraversal,
+		},
+		{
+			name: "delete rejects empty ID",
+			fn:   testDeleteRejectsEmptyID,
+		},
+		{
+			name: "get with valid ID works after save",
+			fn:   testGetValidIDAfterSave,
+		},
 	}
 
 	for _, tt := range tests {
@@ -237,4 +257,57 @@ func testInheritedInstincts(t *testing.T) {
 	// Delete from personal should fail since it only exists in inherited.
 	err = store.Delete("inherited-inst")
 	assert.Error(t, err)
+}
+
+func testGetRejectsPathTraversal(t *testing.T) {
+	t.Helper()
+
+	store := instinct.NewFileStore(t.TempDir(), "")
+
+	_, err := store.Get("../traversal")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "get instinct")
+}
+
+func testGetRejectsEmptyID(t *testing.T) {
+	t.Helper()
+
+	store := instinct.NewFileStore(t.TempDir(), "")
+
+	_, err := store.Get("")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "get instinct")
+}
+
+func testDeleteRejectsPathTraversal(t *testing.T) {
+	t.Helper()
+
+	store := instinct.NewFileStore(t.TempDir(), "")
+
+	err := store.Delete("../traversal")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "path traversal")
+}
+
+func testDeleteRejectsEmptyID(t *testing.T) {
+	t.Helper()
+
+	store := instinct.NewFileStore(t.TempDir(), "")
+
+	err := store.Delete("")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must not be empty")
+}
+
+func testGetValidIDAfterSave(t *testing.T) {
+	t.Helper()
+
+	store := instinct.NewFileStore(t.TempDir(), "")
+	inst := newTestInstinct("valid-id", "go", 0.8)
+
+	require.NoError(t, store.Save(inst))
+
+	got, err := store.Get("valid-id")
+	require.NoError(t, err)
+	assert.Equal(t, "valid-id", got.ID)
 }

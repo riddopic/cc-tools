@@ -53,6 +53,10 @@ func (s *FileStore) Save(inst Instinct) error {
 // inheritedDir. Returns ErrNotFound if the instinct does not exist in
 // either directory.
 func (s *FileStore) Get(id string) (*Instinct, error) {
+	if err := validateID(id); err != nil {
+		return nil, fmt.Errorf("get instinct: %w", err)
+	}
+
 	inst, err := s.loadFromDir(s.personalDir, id)
 	if err == nil {
 		return inst, nil
@@ -110,6 +114,10 @@ func (s *FileStore) List(opts ListOptions) ([]Instinct, error) {
 // Delete removes an instinct from personalDir. It does not remove
 // inherited instincts.
 func (s *FileStore) Delete(id string) error {
+	if err := validateID(id); err != nil {
+		return fmt.Errorf("delete instinct: %w", err)
+	}
+
 	path := filepath.Join(s.personalDir, id+".yaml")
 
 	if _, err := os.Stat(path); err != nil {
