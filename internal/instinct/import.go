@@ -84,22 +84,27 @@ func (r *ImportResult) Verb(dryRun bool) string {
 }
 
 // ClassifyImport determines whether an instinct should be imported, skipped,
-// or overwritten based on existing store state and options.
-func ClassifyImport(store *FileStore, inst Instinct, force bool, minConf float64) ImportAction {
+// or overwritten based on existing store state and options. It returns an
+// error when the store lookup fails for reasons other than "not found".
+func ClassifyImport(store *FileStore, inst Instinct, force bool, minConf float64) (ImportAction, error) {
 	if minConf > 0 && inst.Confidence < minConf {
-		return ImportSkip
+		return ImportSkip, nil
 	}
 
 	_, err := store.Get(inst.ID)
 	if err == nil && !force {
-		return ImportSkip
+		return ImportSkip, nil
 	}
 
 	if err == nil {
-		return ImportOverwrite
+		return ImportOverwrite, nil
 	}
 
-	return ImportNew
+	if errors.Is(err, ErrNotFound) {
+		return ImportNew, nil
+	}
+
+	return ImportSkip, fmt.Errorf("classify import %s: %w", inst.ID, err)
 }
 
 // Import processes instincts and saves eligible ones to writeStore.
@@ -112,7 +117,11 @@ func Import(
 	result := &ImportResult{Items: nil}
 
 	for _, inst := range instincts {
-		action := ClassifyImport(readStore, inst, opts.Force, opts.MinConfidence)
+		action, classErr := ClassifyImport(readStore, inst, opts.Force, opts.MinConfidence)
+		if classErr != nil {
+			return nil, fmt.Errorf("classify instinct %s: %w", inst.ID, classErr)
+		}
+
 		result.Items = append(result.Items, ImportItem{Instinct: inst, Action: action})
 
 		if action == ImportSkip || opts.DryRun {

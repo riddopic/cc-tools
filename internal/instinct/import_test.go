@@ -36,13 +36,16 @@ func TestClassifyImport(t *testing.T) {
 		force   bool
 		minConf float64
 		want    instinct.ImportAction
+		wantErr bool
 	}{
 		{
-			name:  "new instinct",
-			setup: func(_ *testing.T, _ *instinct.FileStore) {},
-			inst:  makeInst("brand-new", 0.8),
-			force: false, minConf: 0,
-			want: instinct.ImportNew,
+			name:    "new instinct returns ImportNew with nil error",
+			setup:   func(_ *testing.T, _ *instinct.FileStore) {},
+			inst:    makeInst("brand-new", 0.8),
+			force:   false,
+			minConf: 0,
+			want:    instinct.ImportNew,
+			wantErr: false,
 		},
 		{
 			name: "existing without force skips",
@@ -50,26 +53,32 @@ func TestClassifyImport(t *testing.T) {
 				t.Helper()
 				require.NoError(t, store.Save(makeInst("exists", 0.5)))
 			},
-			inst:  makeInst("exists", 0.9),
-			force: false, minConf: 0,
-			want: instinct.ImportSkip,
+			inst:    makeInst("exists", 0.9),
+			force:   false,
+			minConf: 0,
+			want:    instinct.ImportSkip,
+			wantErr: false,
 		},
 		{
-			name: "existing with force overwrites",
+			name: "existing with force overwrites with nil error",
 			setup: func(t *testing.T, store *instinct.FileStore) {
 				t.Helper()
 				require.NoError(t, store.Save(makeInst("exists", 0.5)))
 			},
-			inst:  makeInst("exists", 0.9),
-			force: true, minConf: 0,
-			want: instinct.ImportOverwrite,
+			inst:    makeInst("exists", 0.9),
+			force:   true,
+			minConf: 0,
+			want:    instinct.ImportOverwrite,
+			wantErr: false,
 		},
 		{
-			name:  "below min confidence skips",
-			setup: func(_ *testing.T, _ *instinct.FileStore) {},
-			inst:  makeInst("low-conf", 0.3),
-			force: false, minConf: 0.5,
-			want: instinct.ImportSkip,
+			name:    "below min confidence skips with nil error",
+			setup:   func(_ *testing.T, _ *instinct.FileStore) {},
+			inst:    makeInst("low-conf", 0.3),
+			force:   false,
+			minConf: 0.5,
+			want:    instinct.ImportSkip,
+			wantErr: false,
 		},
 	}
 
@@ -79,10 +88,26 @@ func TestClassifyImport(t *testing.T) {
 			store := instinct.NewFileStore(dir, "")
 			tt.setup(t, store)
 
-			got := instinct.ClassifyImport(store, tt.inst, tt.force, tt.minConf)
+			got, err := instinct.ClassifyImport(store, tt.inst, tt.force, tt.minConf)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
 	}
+
+	t.Run("operational error from store returns error", func(t *testing.T) {
+		// Use an instinct with an invalid ID that triggers a
+		// validateID error (not ErrNotFound) from store.Get.
+		store := instinct.NewFileStore(t.TempDir(), "")
+
+		_, err := instinct.ClassifyImport(store, makeInst("../traversal", 0.8), false, 0)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "classify import")
+	})
 }
 
 func TestImport(t *testing.T) {
@@ -170,6 +195,23 @@ func TestImport(t *testing.T) {
 		}
 		_, err := instinct.Import(readStore, writeStore, input, opts)
 		require.Error(t, err)
+	})
+
+	t.Run("classify operational error propagated", func(t *testing.T) {
+		// Use an instinct with an invalid ID that triggers a
+		// non-ErrNotFound error from store.Get via validateID.
+		readStore := instinct.NewFileStore(t.TempDir(), "")
+		writeStore := instinct.NewFileStore(t.TempDir(), "")
+
+		input := []instinct.Instinct{newTestInstinct("../traversal", "go", 0.8)}
+		opts := instinct.ImportOptions{
+			DryRun:        false,
+			Force:         false,
+			MinConfidence: 0,
+		}
+		_, err := instinct.Import(readStore, writeStore, input, opts)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "classify instinct")
 	})
 }
 
