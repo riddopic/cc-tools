@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -47,8 +48,9 @@ func newInstinctStatusCmd() *cobra.Command {
 		Short:   "List instincts grouped by domain with confidence bars",
 		Example: "  cc-tools instinct status --domain testing --min-confidence 0.5",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			store := newInstinctStore()
-			return runInstinctStatus(os.Stdout, store, domain, minConfidence)
+			cfg := loadInstinctConfig()
+			store := newInstinctStoreFromConfig(cfg)
+			return runInstinctStatus(os.Stdout, store, domain, minConfidence, cfg.Instinct.DecayRate)
 		},
 	}
 	cmd.Flags().StringVar(&domain, "domain", "", "filter by domain")
@@ -69,8 +71,9 @@ func newInstinctExportCmd() *cobra.Command {
 		Short:   "Export instincts to YAML or JSON",
 		Example: "  cc-tools instinct export --format json --output instincts.json",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			store := newInstinctStore()
-			return runInstinctExport(os.Stdout, store, output, domain, minConfidence, format)
+			cfg := loadInstinctConfig()
+			store := newInstinctStoreFromConfig(cfg)
+			return runInstinctExport(os.Stdout, store, output, domain, minConfidence, format, cfg.Instinct.DecayRate)
 		},
 	}
 	cmd.Flags().StringVar(&output, "output", "", "output file path (default: stdout)")
@@ -93,8 +96,9 @@ func newInstinctImportCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  cc-tools instinct import instincts.yaml --dry-run",
 		RunE: func(_ *cobra.Command, args []string) error {
-			store := newInstinctStore()
-			return runInstinctImport(os.Stdout, store, args[0], dryRun, force, minConfidence)
+			cfg := loadInstinctConfig()
+			store := newInstinctStoreFromConfig(cfg)
+			return runInstinctImport(os.Stdout, store, args[0], dryRun, force, minConfidence, cfg.Instinct.DecayRate)
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be imported without saving")
@@ -111,7 +115,7 @@ func newInstinctEvolveCmd() *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg := loadInstinctConfig()
 			store := newInstinctStoreFromConfig(cfg)
-			return runInstinctEvolve(os.Stdout, store, cfg.Instinct.ClusterThreshold)
+			return runInstinctEvolve(os.Stdout, store, cfg.Instinct.ClusterThreshold, cfg.Instinct.DecayRate)
 		},
 	}
 }
@@ -136,12 +140,6 @@ func newInstinctStoreFromConfig(cfg *config.Values) *instinct.FileStore {
 	return instinct.NewFileStore(personalPath, inheritedPath)
 }
 
-// newInstinctStore creates a FileStore using configured paths.
-func newInstinctStore() *instinct.FileStore {
-	cfg := loadInstinctConfig()
-	return newInstinctStoreFromConfig(cfg)
-}
-
 // newInheritedStore creates a FileStore that writes to the inherited directory.
 func newInheritedStore() *instinct.FileStore {
 	cfg := loadInstinctConfig()
@@ -150,7 +148,8 @@ func newInheritedStore() *instinct.FileStore {
 }
 
 // runInstinctStatus lists instincts grouped by domain with confidence bars.
-func runInstinctStatus(w io.Writer, store *instinct.FileStore, domain string, minConf float64) error {
+// Decay is applied at display time without mutating stored files.
+func runInstinctStatus(w io.Writer, store *instinct.FileStore, domain string, minConf, decayRate float64) error {
 	opts := instinct.ListOptions{Domain: domain, MinConfidence: minConf, Source: ""}
 
 	listed, err := store.List(opts)
@@ -163,6 +162,8 @@ func runInstinctStatus(w io.Writer, store *instinct.FileStore, domain string, mi
 		return nil
 	}
 
+	listed = instinct.ApplyDecayToSlice(listed, time.Now(), decayRate)
+
 	groups := instinct.GroupByDomain(listed)
 	domains := instinct.SortedKeys(groups)
 
@@ -174,12 +175,14 @@ func runInstinctStatus(w io.Writer, store *instinct.FileStore, domain string, mi
 }
 
 // runInstinctExport exports filtered instincts to a file or stdout.
+// Decay is applied before export without mutating stored files.
 func runInstinctExport(
 	w io.Writer,
 	store *instinct.FileStore,
 	outputPath, domain string,
 	minConf float64,
 	format string,
+	decayRate float64,
 ) error {
 	opts := instinct.ListOptions{Domain: domain, MinConfidence: minConf, Source: ""}
 
@@ -193,6 +196,8 @@ func runInstinctExport(
 		return nil
 	}
 
+	listed = instinct.ApplyDecayToSlice(listed, time.Now(), decayRate)
+
 	dest, err := resolveExportDest(w, outputPath)
 	if err != nil {
 		return err
@@ -205,13 +210,15 @@ func runInstinctExport(
 	return instinct.Export(dest, listed, format)
 }
 
-// runInstinctImport reads instincts from a file and saves them to the inherited directory.
+// runInstinctImport reads instincts from a file and saves them to the inherited
+// directory. Decay is applied to parsed instincts before classification and
+// the decayed values are persisted on write.
 func runInstinctImport(
 	w io.Writer,
 	store *instinct.FileStore,
 	source string,
 	dryRun, force bool,
-	minConf float64,
+	minConf, decayRate float64,
 ) error {
 	parsed, err := instinct.ReadAndParseSource(source)
 	if err != nil {
@@ -222,6 +229,8 @@ func runInstinctImport(
 		fmt.Fprintln(w, "No instincts found in source file.")
 		return nil
 	}
+
+	parsed = instinct.ApplyDecayToSlice(parsed, time.Now(), decayRate)
 
 	inherited := newInheritedStore()
 	opts := instinct.ImportOptions{
@@ -250,7 +259,8 @@ func runInstinctImport(
 }
 
 // runInstinctEvolve analyzes instinct clusters and suggests candidates.
-func runInstinctEvolve(w io.Writer, store *instinct.FileStore, clusterThreshold int) error {
+// Decay is applied before analysis without mutating stored files.
+func runInstinctEvolve(w io.Writer, store *instinct.FileStore, clusterThreshold int, decayRate float64) error {
 	allInstincts, err := store.List(instinct.ListOptions{Domain: "", MinConfidence: 0, Source: ""})
 	if err != nil {
 		return fmt.Errorf("list instincts: %w", err)
@@ -261,6 +271,8 @@ func runInstinctEvolve(w io.Writer, store *instinct.FileStore, clusterThreshold 
 			clusterThreshold, len(allInstincts))
 		return nil
 	}
+
+	allInstincts = instinct.ApplyDecayToSlice(allInstincts, time.Now(), decayRate)
 
 	opts := instinct.EvolveOptions{
 		ClusterThreshold:   clusterThreshold,
