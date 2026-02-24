@@ -140,7 +140,7 @@ func TestParseInput(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, got)
 			assert.Equal(t, tt.wantHookEvent, got.HookEventName)
-			assert.Equal(t, tt.wantSessionID, got.SessionID)
+			assert.Equal(t, hookcmd.SessionID(tt.wantSessionID), got.SessionID)
 
 			if tt.wantToolName != "" {
 				assert.Equal(t, tt.wantToolName, got.ToolName)
@@ -284,7 +284,7 @@ func TestHookInput_GetFilePath(t *testing.T) {
 	}
 }
 
-func TestFileSafeSessionKey(t *testing.T) {
+func TestSessionID_FileKey(t *testing.T) {
 	// hashPrefix returns the first 16 hex chars of SHA-256 for a given input.
 	hashPrefix := func(s string) string {
 		h := sha256.Sum256([]byte(s))
@@ -293,7 +293,7 @@ func TestFileSafeSessionKey(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		input string
+		input hookcmd.SessionID
 		want  string
 	}{
 		{
@@ -307,9 +307,14 @@ func TestFileSafeSessionKey(t *testing.T) {
 			want:  "abc-123-def",
 		},
 		{
-			name:  "ID with dots and underscores passes through",
+			name:  "ID with dots gets hashed (stricter pattern)",
 			input: "session_01.v2",
-			want:  "session_01.v2",
+			want:  hashPrefix("session_01.v2"),
+		},
+		{
+			name:  "ID with underscores gets hashed (stricter pattern)",
+			input: "session_01",
+			want:  hashPrefix("session_01"),
 		},
 		{
 			name:  "empty string returns empty",
@@ -343,20 +348,30 @@ func TestFileSafeSessionKey(t *testing.T) {
 		},
 		{
 			name:  "ID with null byte gets hashed",
-			input: "hello\x00world",
+			input: hookcmd.SessionID("hello\x00world"),
 			want:  hashPrefix("hello\x00world"),
 		},
 		{
 			name:  "very long valid ID still passes through",
-			input: strings.Repeat("a", 500),
+			input: hookcmd.SessionID(strings.Repeat("a", 500)),
 			want:  strings.Repeat("a", 500),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := hookcmd.FileSafeSessionKey(tt.input)
+			got := tt.input.FileKey()
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestSessionID_String(t *testing.T) {
+	id := hookcmd.SessionID("test-123")
+	assert.Equal(t, "test-123", id.String())
+}
+
+func TestSessionID_IsEmpty(t *testing.T) {
+	assert.True(t, hookcmd.SessionID("").IsEmpty())
+	assert.False(t, hookcmd.SessionID("abc").IsEmpty())
 }

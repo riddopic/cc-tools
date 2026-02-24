@@ -10,14 +10,40 @@ import (
 	"regexp"
 )
 
+// SessionID is a typed wrapper for Claude Code session identifiers.
+type SessionID string
+
+// String returns the raw session ID value.
+func (id SessionID) String() string { return string(id) }
+
+// IsEmpty reports whether the session ID is empty.
+func (id SessionID) IsEmpty() bool { return id == "" }
+
+// FileKey returns a filesystem-safe key derived from the session ID.
+// IDs matching ^[a-zA-Z0-9-]+$ pass through unchanged.
+// All other IDs are hashed to a 16-character hex string.
+func (id SessionID) FileKey() string {
+	if id == "" {
+		return ""
+	}
+
+	if safeIDPattern.MatchString(string(id)) {
+		return string(id)
+	}
+
+	h := sha256.Sum256([]byte(id))
+
+	return hex.EncodeToString(h[:])[:16]
+}
+
 // HookInput represents the JSON input from Claude Code hooks.
 type HookInput struct {
 	// Common fields (present on ALL events).
-	SessionID      string `json:"session_id"`
-	TranscriptPath string `json:"transcript_path"`
-	Cwd            string `json:"cwd"`
-	PermissionMode string `json:"permission_mode"`
-	HookEventName  string `json:"hook_event_name"`
+	SessionID      SessionID `json:"session_id"`
+	TranscriptPath string    `json:"transcript_path"`
+	Cwd            string    `json:"cwd"`
+	PermissionMode string    `json:"permission_mode"`
+	HookEventName  string    `json:"hook_event_name"`
 
 	// Tool events (PreToolUse, PostToolUse, PostToolUseFailure).
 	ToolName   string          `json:"tool_name,omitempty"`
@@ -111,23 +137,8 @@ func (h *HookInput) GetToolInputString(key string) string {
 	return ""
 }
 
-// safeIDPattern matches session IDs that contain only filesystem-safe characters.
-var safeIDPattern = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
-
-// FileSafeSessionKey converts a session ID into a filesystem-safe key.
-// If the ID contains only alphanumeric characters, dots, underscores, and
-// hyphens it is returned as-is. Otherwise, a truncated SHA-256 hex hash
-// (first 16 characters) is returned. An empty ID returns an empty string.
-func FileSafeSessionKey(id string) string {
-	if id == "" {
-		return ""
-	}
-
-	if safeIDPattern.MatchString(id) {
-		return id
-	}
-
-	h := sha256.Sum256([]byte(id))
-
-	return hex.EncodeToString(h[:])[:16]
-}
+// safeIDPattern matches session IDs that contain only alphanumeric characters
+// and hyphens. Claude Code produces UUID-format session IDs, so this covers
+// all legitimate values while rejecting dots, underscores, glob metacharacters,
+// and path separators.
+var safeIDPattern = regexp.MustCompile(`^[a-zA-Z0-9-]+$`)
