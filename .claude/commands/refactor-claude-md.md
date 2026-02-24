@@ -79,10 +79,8 @@ Check for content that duplicates these skills:
 | `go-coding-standards` | Go idioms, error handling, interfaces, zero values |
 | `tdd-workflow` | TDD checklist, Red-Green-Refactor cycle |
 | `testing-patterns` | Table-driven tests, mockery, security in tests |
-| `cli-development` | Cobra/Viper patterns, flag validation |
-| `coding-philosophy` | LEVER principles, Karpathy execution guidelines |
-| `interface-design` | Interface segregation, composition |
-| `concurrency-patterns` | Goroutines, channels, context |
+| `coding-philosophy` | LEVER decision framework |
+| `code-review` | Go idioms, testing patterns, project standards |
 
 **Action**: Content covered by skills should be REMOVED from CLAUDE.md.
 
@@ -207,10 +205,8 @@ Verified skills are up-to-date:
 - [ ] go-coding-standards
 - [ ] tdd-workflow
 - [ ] testing-patterns
-- [ ] cli-development
 - [ ] coding-philosophy
-- [ ] interface-design
-- [ ] concurrency-patterns
+- [ ] code-review
 
 ## Recommendations
 

@@ -236,7 +236,7 @@ Done!
 - **finishing-a-development-branch** - Complete development after all tasks
 
 **Subagents should use:**
-- **test-driven-development** - Subagents follow TDD for each task
+- **tdd-workflow** - Subagents follow TDD for each task
 
 **Alternative workflow:**
 - **executing-plans** - Use for parallel session instead of same-session execution

@@ -13,7 +13,7 @@ allowed-tools:
 
 This command uses the following skills (auto-loaded based on context):
 
-- `continuous-learning` - For pattern extraction and skill creation
+- `continuous-learning-v2` - For pattern extraction and skill creation
 
 Analyze the current session and extract any patterns worth saving as skills.
 

@@ -42,7 +42,6 @@ This command uses the following skills (auto-loaded based on context):
 - `go-coding-standards` - For Go idioms and patterns
 - `tdd-workflow` - For test-first development
 - `testing-patterns` - For table-driven tests and mocking
-- `interface-design` - For interface-first design
 - `code-review` - For reviewing code quality
 
 Systematically fix critical and major issues identified in a PRP evaluation report, following strict TDD practices and Quanta's Go coding standards.

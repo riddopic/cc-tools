@@ -27,9 +27,8 @@ Previous review report: $ARGUMENTS
 
 Before beginning review, load these skills for comprehensive Go code review:
 
-1. **go-code-review** - Go idioms, error handling, concurrency patterns
-2. **go-testing-code-review** - Table-driven tests, assertions, coverage patterns
-3. **review-verification-protocol** - MANDATORY before reporting ANY findings
+1. **code-review** - Go idioms, error handling, testing patterns, project standards
+2. **review-verification-protocol** - MANDATORY before reporting ANY findings
 
 These skills contain detailed checklists and patterns. Reference them instead of duplicating content here.
 

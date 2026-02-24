@@ -113,9 +113,6 @@ The PRP workflow leverages these skills:
 - `go-coding-standards` - Go idioms and patterns
 - `tdd-workflow` - Test-first development
 - `testing-patterns` - Table-driven tests, mocking
-- `interface-design` - Interface-first design
-- `cli-development` - Cobra/Viper patterns
-- `concurrency-patterns` - Goroutines, channels
 - `code-review` - Quality review standards
 
 ## Common Issues

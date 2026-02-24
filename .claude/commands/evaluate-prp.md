@@ -42,7 +42,6 @@ This command uses the following skills (auto-loaded based on context):
 - `go-coding-standards` - For Go idioms and patterns
 - `tdd-workflow` - For test-first development
 - `testing-patterns` - For table-driven tests and mocking
-- `interface-design` - For interface-first design
 - `code-review` - For reviewing code quality
 
 ## PRP File: docs/PRPs/$ARGUMENTS.md

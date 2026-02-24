@@ -38,9 +38,7 @@ This command uses the following skills (auto-loaded based on context):
 |-------|------|------|
 | `prp-workflow` | Evaluation framework, scoring rubric (1-10), quality gates | Always |
 | `review-verification-protocol` | MANDATORY before reporting ANY findings - reduces false positives | Always |
-| `code-review` | Quanta project review standards, red flags, pre-commit checklist | Always |
-| `go-code-review` | Go idiomatic patterns, error handling, concurrency, interfaces | Always |
-| `go-testing-code-review` | Table-driven tests, assertions, coverage patterns | Always |
+| `code-review` | Project review standards, Go idioms, testing patterns, pre-commit checklist | Always |
 | `go-coding-standards` | Reference for Go idioms and project conventions | Always |
 | `verification-before-completion` | Ensure verification evidence exists before claims | Always |
 | `recursive-decomposition` | Large task decomposition | If PRP spans 10+ files |
@@ -93,7 +91,7 @@ For each PRP objective/task:
 1. **Locate implementation**: Find the code that implements this objective
 2. **Read the code**: Examine the actual implementation for correctness
 3. **Check tests**: Verify tests exist and cover the objective
-4. **Assess quality**: Apply `go-code-review` and `go-coding-standards` checks
+4. **Assess quality**: Apply `code-review` and `go-coding-standards` checks
 5. **Verdict**: Mark as Complete, Partial, or Missing
 
 ### Step 4: Run Quality Checks (Read-Only)

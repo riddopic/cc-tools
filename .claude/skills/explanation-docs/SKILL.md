@@ -513,8 +513,6 @@ Each detector implements a common interface, allowing:
 - Mock-based testing
 - Strategy pattern for different analysis modes
 
-See [interface-design skill](../interface-design/) for patterns used.
-
 ## Related Concepts
 
 - [A1-ASCEG PRD](/docs/research/a1-asceg-prd/) - Product requirements

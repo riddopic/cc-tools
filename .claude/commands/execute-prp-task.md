@@ -51,9 +51,6 @@ This command uses the following skills (auto-loaded based on context):
 - `go-coding-standards` - For Go idioms and patterns
 - `tdd-workflow` - For test-first development
 - `testing-patterns` - For table-driven tests and mocking
-- `interface-design` - For interface-first design
-- `cli-development` - For Cobra/Viper CLI patterns
-- `concurrency-patterns` - For goroutines and channels
 
 **Objective**: Implement a **single task** from a PRP file using intelligent sub-agent orchestration with strict adherence to quanta's Go coding standards and idiomatic patterns.
 

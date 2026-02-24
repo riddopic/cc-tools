@@ -16,8 +16,6 @@ skills:
   - tdd-workflow
   - verification-before-completion
   - code-review
-  - go-code-review
-  - go-testing-code-review
   - go-coding-standards
   - coding-philosophy
   - dispatching-parallel-agents
@@ -59,9 +57,7 @@ Parse the input:
 | ------- | ------ | ------ |
 | `tdd-workflow` | MANDATORY - every code fix follows Red-Green-Refactor | Always |
 | `verification-before-completion` | MANDATORY - run `task lint`/`task test` before claiming done | Always |
-| `code-review` | Project review standards, validate fixes meet quality bar | Always |
-| `go-code-review` | Go-specific validation of fixes | Always |
-| `go-testing-code-review` | Validate test fixes follow patterns | When feedback involves tests |
+| `code-review` | Project review standards, Go idioms, testing patterns, validate fixes meet quality bar | Always |
 | `go-coding-standards` | Reference during fix implementation | Always |
 | `coding-philosophy` | Decision framework (LEVER) + behavioral guardrails (Karpathy) | Always |
 | `dispatching-parallel-agents` | Scope each agent to one independent failure domain | When 2+ independent items |

@@ -11,7 +11,6 @@ allowed-tools:
   - TaskList
 skills:
   - go-coding-standards
-  - interface-design
 ---
 
 # Update Codemaps
