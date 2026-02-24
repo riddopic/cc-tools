@@ -1,6 +1,6 @@
 package instinct
 
-import "strings"
+import "sort"
 
 // EvolveOptions controls how instincts are analyzed for promotion candidates.
 type EvolveOptions struct {
@@ -107,7 +107,7 @@ func DominantDomain(members []Instinct) string {
 	var bestCount int
 
 	for d, count := range counts {
-		if count > bestCount {
+		if count > bestCount || (count == bestCount && (best == "" || d < best)) {
 			best = d
 			bestCount = count
 		}
@@ -140,16 +140,7 @@ func SortedKeys(m map[string][]Instinct) []string {
 		keys = append(keys, k)
 	}
 
-	sortStrings(keys)
+	sort.Strings(keys)
 
 	return keys
-}
-
-// sortStrings sorts a string slice in place.
-func sortStrings(s []string) {
-	for i := 1; i < len(s); i++ {
-		for j := i; j > 0 && strings.Compare(s[j-1], s[j]) > 0; j-- {
-			s[j-1], s[j] = s[j], s[j-1]
-		}
-	}
 }

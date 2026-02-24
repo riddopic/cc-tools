@@ -114,6 +114,35 @@ func TestDominantDomain(t *testing.T) {
 	}
 }
 
+func TestDominantDomain_DeterministicTiebreak(t *testing.T) {
+	// Two domains with equal counts: "beta" and "alpha" each have 2 members.
+	// The lexicographically first domain ("alpha") should always win.
+	members := []instinct.Instinct{
+		makeEvolveInstinct("a", "trigger", "beta", 0.5),
+		makeEvolveInstinct("b", "trigger", "alpha", 0.5),
+		makeEvolveInstinct("c", "trigger", "beta", 0.5),
+		makeEvolveInstinct("d", "trigger", "alpha", 0.5),
+	}
+
+	// Run multiple times to verify determinism despite map iteration order.
+	for range 100 {
+		got := instinct.DominantDomain(members)
+		assert.Equal(t, "alpha", got, "tie-breaking must pick lexicographically first domain")
+	}
+}
+
+func TestSortedKeys(t *testing.T) {
+	groups := map[string][]instinct.Instinct{
+		"zebra":  {makeEvolveInstinct("z", "trigger", "zebra", 0.5)},
+		"alpha":  {makeEvolveInstinct("a", "trigger", "alpha", 0.5)},
+		"middle": {makeEvolveInstinct("m", "trigger", "middle", 0.5)},
+		"beta":   {makeEvolveInstinct("b", "trigger", "beta", 0.5)},
+	}
+
+	keys := instinct.SortedKeys(groups)
+	assert.Equal(t, []string{"alpha", "beta", "middle", "zebra"}, keys)
+}
+
 func TestGroupByDomain(t *testing.T) {
 	instincts := []instinct.Instinct{
 		makeEvolveInstinct("a", "trigger", "go", 0.5),
