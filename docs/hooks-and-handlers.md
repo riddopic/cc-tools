@@ -74,6 +74,8 @@ The stdout JSON (`HookOutput` in `internal/handler/handler.go`) can include thes
 
 The registry (`internal/handler/registry.go`) is a map from event names to ordered slices of handlers. Each handler implements the `Handler` interface: a `Name()` method for identification and a `Handle()` method that receives context and a `HookInput`, then returns a `Response`.
 
+Each handler call is wrapped in a panic recovery closure. If a handler panics, the registry logs the panic to stderr and continues executing remaining handlers. This ensures one misbehaving handler cannot prevent others from running.
+
 `NewDefaultRegistry()` in `internal/handler/defaults.go` wires all built-in handlers. The following sections describe each handler grouped by event.
 
 ### SessionStart Handlers

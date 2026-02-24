@@ -142,11 +142,11 @@ Controls the instinct learning system that captures, evolves, and applies behavi
 | `instinct.inherited_path` | string | `"~/.config/cc-tools/instincts/inherited"` | Directory for imported instincts |
 | `instinct.min_confidence` | float | `0.3` | Minimum confidence for instinct activation |
 | `instinct.auto_approve` | float | `0.7` | Confidence threshold for automatic approval |
-| `instinct.decay_rate` | float | `0.02` | Confidence decay rate per session without reinforcement |
+| `instinct.decay_rate` | float | `0.02` | Confidence decay per week without reinforcement |
 | `instinct.max_instincts` | int | `100` | Maximum number of instincts to retain |
 | `instinct.cluster_threshold` | int | `3` | Minimum instincts in a cluster for evolve analysis |
 
-Instincts below `min_confidence` are not activated. Those above `auto_approve` are applied without prompting. The `decay_rate` gradually reduces confidence for instincts that are not reinforced, and instincts that fall below `min_confidence` through decay become candidates for pruning.
+Instincts below `min_confidence` are not activated. Those above `auto_approve` are applied without prompting. The `decay_rate` reduces confidence by the configured amount for each full week since the instinct's `updated_at` timestamp. Decay is evaluated at read time (during `status`, `export`, `evolve`, and `import`) without mutating stored files. Instincts that fall below `min_confidence` through decay become candidates for pruning.
 
 ## File Paths
 

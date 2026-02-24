@@ -60,7 +60,7 @@ Confidence determines how strongly an instinct influences behavior. It is bounde
 **How confidence changes:**
 
 - **Reinforcement** -- when the system observes the pattern again, confidence increases. The base confidence depends on observation count: 3+ observations yield 0.5, 6+ yield 0.7, 11+ yield 0.85.
-- **Decay** -- confidence decreases by `instinct.decay_rate` (default 0.02) for each week without reinforcement. This ensures stale instincts gradually lose influence.
+- **Decay** -- confidence decreases by `instinct.decay_rate` (default 0.02) for each full week since the instinct's `updated_at` timestamp. Decay is evaluated at read time --- during `status`, `export`, `evolve`, and `import` --- without mutating stored files. This ensures stale instincts gradually lose influence while preserving the original data on disk.
 - **Pruning** -- the system retains at most `instinct.max_instincts` (default 100) instincts. When the limit is reached, the lowest-confidence instincts are removed first.
 
 ### 4. Storage
@@ -149,7 +149,7 @@ All instinct-related configuration keys, their types, defaults, and descriptions
 | `instinct.inherited_path` | string | `~/.config/cc-tools/instincts/inherited` | Inherited instinct storage directory |
 | `instinct.min_confidence` | float | `0.3` | Minimum confidence for activation |
 | `instinct.auto_approve` | float | `0.7` | Auto-approve threshold |
-| `instinct.decay_rate` | float | `0.02` | Confidence decay per week without reinforcement |
+| `instinct.decay_rate` | float | `0.02` | Confidence decay per full week since `updated_at` |
 | `instinct.max_instincts` | int | `100` | Maximum instincts retained |
 | `instinct.cluster_threshold` | int | `3` | Minimum cluster size for evolve candidates |
 
