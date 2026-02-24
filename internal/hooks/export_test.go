@@ -286,3 +286,8 @@ func (l *LockManager) SetCleanupOnExit(v bool) {
 func (l *LockManager) LockFileForTest() string {
 	return l.lockFile
 }
+
+// NewRealCommandRunner creates a real CommandRunner for integration testing.
+func NewRealCommandRunner() CommandRunner {
+	return &realCommandRunner{}
+}

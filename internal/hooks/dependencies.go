@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sync"
 	"syscall"
 	"time"
 
@@ -80,9 +81,21 @@ func (r *realCommandRunner) RunContext(ctx context.Context, dir, name string, ar
 		return nil, fmt.Errorf("start command %s: %w", name, startErr)
 	}
 
-	// Read outputs
-	stdout, _ = io.ReadAll(stdoutPipe)
-	stderr, _ = io.ReadAll(stderrPipe)
+	// Read outputs concurrently to avoid pipe buffer deadlock
+	var wg sync.WaitGroup
+	wg.Add(2) //nolint:mnd // two goroutines for stdout and stderr
+
+	go func() {
+		defer wg.Done()
+		stdout, _ = io.ReadAll(stdoutPipe)
+	}()
+
+	go func() {
+		defer wg.Done()
+		stderr, _ = io.ReadAll(stderrPipe)
+	}()
+
+	wg.Wait()
 
 	// Wait for completion
 	err = cmd.Wait()
