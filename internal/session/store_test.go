@@ -117,6 +117,47 @@ func TestStore_SaveReturnsErrorForEmptyID(t *testing.T) {
 	assert.ErrorIs(t, err, session.ErrEmptyID)
 }
 
+func TestStore_SaveRejectsInvalidIDs(t *testing.T) {
+	dir := t.TempDir()
+	store := session.NewStore(dir)
+
+	tests := []struct {
+		name string
+		id   string
+	}{
+		{name: "dot-dot traversal", id: ".."},
+		{name: "path traversal", id: "../etc/passwd"},
+		{name: "forward slash", id: "foo/bar"},
+		{name: "backslash", id: `foo\bar`},
+		{name: "asterisk", id: "*"},
+		{name: "question mark", id: "?"},
+		{name: "open bracket", id: "["},
+		{name: "bracket pattern", id: "[a-z]"},
+		{name: "asterisk in middle", id: "abc*def"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sess := &session.Session{
+				Version:       "1",
+				ID:            tt.id,
+				Date:          "2026-02-14",
+				Started:       time.Date(2026, 2, 14, 10, 0, 0, 0, time.UTC),
+				Ended:         time.Time{},
+				Title:         "Invalid ID test",
+				Summary:       "",
+				ToolsUsed:     nil,
+				FilesModified: nil,
+				MessageCount:  0,
+			}
+
+			err := store.Save(sess)
+			require.Error(t, err)
+			assert.ErrorIs(t, err, session.ErrInvalidID)
+		})
+	}
+}
+
 func TestStore_List(t *testing.T) {
 	dir := t.TempDir()
 	store := session.NewStore(dir)

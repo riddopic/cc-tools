@@ -61,6 +61,10 @@ func (s *Store) Save(session *Session) error {
 		return ErrEmptyID
 	}
 
+	if !validSessionID.MatchString(session.ID) {
+		return fmt.Errorf("%w: %s", ErrInvalidID, session.ID)
+	}
+
 	if session.Version == "" {
 		session.Version = sessionFileVersion
 	}
