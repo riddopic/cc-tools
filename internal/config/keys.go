@@ -36,6 +36,14 @@ const (
 	keyStopReminderEnabled  = "stop_reminder.enabled"
 	keyStopReminderInterval = "stop_reminder.interval"
 	keyStopReminderWarnAt   = "stop_reminder.warn_at"
+
+	keyInstinctPersonalPath     = "instinct.personal_path"
+	keyInstinctInheritedPath    = "instinct.inherited_path"
+	keyInstinctMinConfidence    = "instinct.min_confidence"
+	keyInstinctAutoApprove      = "instinct.auto_approve"
+	keyInstinctDecayRate        = "instinct.decay_rate"
+	keyInstinctMaxInstincts     = "instinct.max_instincts"
+	keyInstinctClusterThreshold = "instinct.cluster_threshold"
 )
 
 const (
@@ -70,6 +78,14 @@ const (
 	defaultStopReminderEnabled  = true
 	defaultStopReminderInterval = 20
 	defaultStopReminderWarnAt   = 50
+
+	defaultInstinctPersonalPath     = "~/.config/cc-tools/instincts/personal"
+	defaultInstinctInheritedPath    = "~/.config/cc-tools/instincts/inherited"
+	defaultInstinctMinConfidence    = 0.3
+	defaultInstinctAutoApprove      = 0.7
+	defaultInstinctDecayRate        = 0.02
+	defaultInstinctMaxInstincts     = 100
+	defaultInstinctClusterThreshold = 3
 )
 
 // GetDefaultConfig returns the default configuration values.
@@ -124,6 +140,15 @@ func GetDefaultConfig() *Values {
 			Enabled:  defaultStopReminderEnabled,
 			Interval: defaultStopReminderInterval,
 			WarnAt:   defaultStopReminderWarnAt,
+		},
+		Instinct: InstinctValues{
+			PersonalPath:     defaultInstinctPersonalPath,
+			InheritedPath:    defaultInstinctInheritedPath,
+			MinConfidence:    defaultInstinctMinConfidence,
+			AutoApprove:      defaultInstinctAutoApprove,
+			DecayRate:        defaultInstinctDecayRate,
+			MaxInstincts:     defaultInstinctMaxInstincts,
+			ClusterThreshold: defaultInstinctClusterThreshold,
 		},
 	}
 }
@@ -203,5 +228,12 @@ func allKeys() []string {
 		keyStopReminderEnabled,
 		keyStopReminderInterval,
 		keyStopReminderWarnAt,
+		keyInstinctPersonalPath,
+		keyInstinctInheritedPath,
+		keyInstinctMinConfidence,
+		keyInstinctAutoApprove,
+		keyInstinctDecayRate,
+		keyInstinctMaxInstincts,
+		keyInstinctClusterThreshold,
 	}
 }

@@ -14,6 +14,7 @@ type Values struct {
 	PackageManager PackageManagerValues `json:"package_manager"`
 	Drift          DriftValues          `json:"drift"`
 	StopReminder   StopReminderValues   `json:"stop_reminder"`
+	Instinct       InstinctValues       `json:"instinct"`
 }
 
 // NotificationsValues represents notification-related settings.
@@ -93,6 +94,17 @@ type StopReminderValues struct {
 	Enabled  bool `json:"enabled"`
 	Interval int  `json:"interval"`
 	WarnAt   int  `json:"warn_at"`
+}
+
+// InstinctValues represents instinct management settings.
+type InstinctValues struct {
+	PersonalPath     string  `json:"personal_path"`
+	InheritedPath    string  `json:"inherited_path"`
+	MinConfidence    float64 `json:"min_confidence"`
+	AutoApprove      float64 `json:"auto_approve"`
+	DecayRate        float64 `json:"decay_rate"`
+	MaxInstincts     int     `json:"max_instincts"`
+	ClusterThreshold int     `json:"cluster_threshold"`
 }
 
 // convertValidateFromMap extracts validate settings from a map config.
@@ -230,6 +242,20 @@ func (v *Values) getExtendedValue(key string) (string, bool, error) {
 		return strconv.Itoa(v.StopReminder.Interval), true, nil
 	case keyStopReminderWarnAt:
 		return strconv.Itoa(v.StopReminder.WarnAt), true, nil
+	case keyInstinctPersonalPath:
+		return v.Instinct.PersonalPath, true, nil
+	case keyInstinctInheritedPath:
+		return v.Instinct.InheritedPath, true, nil
+	case keyInstinctMinConfidence:
+		return strconv.FormatFloat(v.Instinct.MinConfidence, 'f', -1, 64), true, nil
+	case keyInstinctAutoApprove:
+		return strconv.FormatFloat(v.Instinct.AutoApprove, 'f', -1, 64), true, nil
+	case keyInstinctDecayRate:
+		return strconv.FormatFloat(v.Instinct.DecayRate, 'f', -1, 64), true, nil
+	case keyInstinctMaxInstincts:
+		return strconv.Itoa(v.Instinct.MaxInstincts), true, nil
+	case keyInstinctClusterThreshold:
+		return strconv.Itoa(v.Instinct.ClusterThreshold), true, nil
 	default:
 		return "", false, nil
 	}
@@ -250,6 +276,22 @@ func (v *Values) setExtendedField(key, value string) (bool, error) {
 		return true, setIntField(&v.StopReminder.Interval, value)
 	case keyStopReminderWarnAt:
 		return true, setIntField(&v.StopReminder.WarnAt, value)
+	case keyInstinctPersonalPath:
+		v.Instinct.PersonalPath = value
+		return true, nil
+	case keyInstinctInheritedPath:
+		v.Instinct.InheritedPath = value
+		return true, nil
+	case keyInstinctMinConfidence:
+		return true, setFloatField(&v.Instinct.MinConfidence, value)
+	case keyInstinctAutoApprove:
+		return true, setFloatField(&v.Instinct.AutoApprove, value)
+	case keyInstinctDecayRate:
+		return true, setFloatField(&v.Instinct.DecayRate, value)
+	case keyInstinctMaxInstincts:
+		return true, setIntField(&v.Instinct.MaxInstincts, value)
+	case keyInstinctClusterThreshold:
+		return true, setIntField(&v.Instinct.ClusterThreshold, value)
 	default:
 		return false, nil
 	}
@@ -270,6 +312,20 @@ func (v *Values) resetExtended(key string, defaults *Values) bool {
 		v.StopReminder.Interval = defaults.StopReminder.Interval
 	case keyStopReminderWarnAt:
 		v.StopReminder.WarnAt = defaults.StopReminder.WarnAt
+	case keyInstinctPersonalPath:
+		v.Instinct.PersonalPath = defaults.Instinct.PersonalPath
+	case keyInstinctInheritedPath:
+		v.Instinct.InheritedPath = defaults.Instinct.InheritedPath
+	case keyInstinctMinConfidence:
+		v.Instinct.MinConfidence = defaults.Instinct.MinConfidence
+	case keyInstinctAutoApprove:
+		v.Instinct.AutoApprove = defaults.Instinct.AutoApprove
+	case keyInstinctDecayRate:
+		v.Instinct.DecayRate = defaults.Instinct.DecayRate
+	case keyInstinctMaxInstincts:
+		v.Instinct.MaxInstincts = defaults.Instinct.MaxInstincts
+	case keyInstinctClusterThreshold:
+		v.Instinct.ClusterThreshold = defaults.Instinct.ClusterThreshold
 	default:
 		return false
 	}
@@ -307,5 +363,34 @@ func convertStopReminderFromMap(sr *StopReminderValues, mapConfig map[string]any
 	}
 	if warnAt, warnAtOk := section["warn_at"].(float64); warnAtOk {
 		sr.WarnAt = int(warnAt)
+	}
+}
+
+// convertInstinctFromMap extracts instinct settings from a map config.
+func convertInstinctFromMap(i *InstinctValues, mapConfig map[string]any) {
+	section, sectionOk := mapConfig["instinct"].(map[string]any)
+	if !sectionOk {
+		return
+	}
+	if personalPath, ok := section["personal_path"].(string); ok {
+		i.PersonalPath = personalPath
+	}
+	if inheritedPath, ok := section["inherited_path"].(string); ok {
+		i.InheritedPath = inheritedPath
+	}
+	if minConf, ok := section["min_confidence"].(float64); ok {
+		i.MinConfidence = minConf
+	}
+	if autoApprove, ok := section["auto_approve"].(float64); ok {
+		i.AutoApprove = autoApprove
+	}
+	if decayRate, ok := section["decay_rate"].(float64); ok {
+		i.DecayRate = decayRate
+	}
+	if maxInstincts, ok := section["max_instincts"].(float64); ok {
+		i.MaxInstincts = int(maxInstincts)
+	}
+	if clusterThreshold, ok := section["cluster_threshold"].(float64); ok {
+		i.ClusterThreshold = int(clusterThreshold)
 	}
 }

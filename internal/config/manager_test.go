@@ -2391,3 +2391,103 @@ func TestConvertFromMap_AllSections(t *testing.T) {
 		assert.Equal(t, "bun", cfg.PackageManager.Preferred)
 	})
 }
+
+func TestInstinctConfigDefaults(t *testing.T) {
+	ctx := context.Background()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.json")
+	m := config.NewManagerWithPath(configPath)
+
+	require.NoError(t, m.EnsureConfig(ctx))
+
+	cfg, err := m.GetConfig(ctx)
+	require.NoError(t, err)
+
+	assert.Equal(t, config.ExportDefaultInstinctPersonalPath(), cfg.Instinct.PersonalPath)
+	assert.Equal(t, config.ExportDefaultInstinctInheritedPath(), cfg.Instinct.InheritedPath)
+	assert.InDelta(t, config.ExportDefaultInstinctMinConfidence(), cfg.Instinct.MinConfidence, 0.001)
+	assert.InDelta(t, config.ExportDefaultInstinctAutoApprove(), cfg.Instinct.AutoApprove, 0.001)
+	assert.InDelta(t, config.ExportDefaultInstinctDecayRate(), cfg.Instinct.DecayRate, 0.001)
+	assert.Equal(t, config.ExportDefaultInstinctMaxInstincts(), cfg.Instinct.MaxInstincts)
+	assert.Equal(t, config.ExportDefaultInstinctClusterThreshold(), cfg.Instinct.ClusterThreshold)
+}
+
+func TestInstinctConfigSetGet(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name      string
+		key       string
+		setValue  string
+		wantValue string
+	}{
+		{
+			name:      "set and get personal path",
+			key:       config.ExportKeyInstinctPersonalPath(),
+			setValue:   "/custom/personal",
+			wantValue: "/custom/personal",
+		},
+		{
+			name:      "set and get inherited path",
+			key:       config.ExportKeyInstinctInheritedPath(),
+			setValue:   "/custom/inherited",
+			wantValue: "/custom/inherited",
+		},
+		{
+			name:      "set and get min confidence",
+			key:       config.ExportKeyInstinctMinConfidence(),
+			setValue:   "0.5",
+			wantValue: "0.5",
+		},
+		{
+			name:      "set and get auto approve",
+			key:       config.ExportKeyInstinctAutoApprove(),
+			setValue:   "0.9",
+			wantValue: "0.9",
+		},
+		{
+			name:      "set and get decay rate",
+			key:       config.ExportKeyInstinctDecayRate(),
+			setValue:   "0.05",
+			wantValue: "0.05",
+		},
+		{
+			name:      "set and get max instincts",
+			key:       config.ExportKeyInstinctMaxInstincts(),
+			setValue:   "200",
+			wantValue: "200",
+		},
+		{
+			name:      "set and get cluster threshold",
+			key:       config.ExportKeyInstinctClusterThreshold(),
+			setValue:   "5",
+			wantValue: "5",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.json")
+			m := config.NewManagerWithPath(configPath)
+			require.NoError(t, m.EnsureConfig(ctx))
+
+			require.NoError(t, m.Set(ctx, tt.key, tt.setValue))
+
+			value, found, err := m.GetValue(ctx, tt.key)
+			require.NoError(t, err)
+			assert.True(t, found)
+			assert.Equal(t, tt.wantValue, value)
+
+			// Verify persistence by reloading
+			m2 := config.NewManagerWithPath(configPath)
+			require.NoError(t, m2.EnsureConfig(ctx))
+
+			value2, found2, err2 := m2.GetValue(ctx, tt.key)
+			require.NoError(t, err2)
+			assert.True(t, found2)
+			assert.Equal(t, tt.wantValue, value2)
+		})
+	}
+}

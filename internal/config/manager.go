@@ -89,6 +89,10 @@ func (m *Manager) GetInt(_ context.Context, key string) (int, bool, error) {
 		return m.config.StopReminder.Interval, true, nil
 	case keyStopReminderWarnAt:
 		return m.config.StopReminder.WarnAt, true, nil
+	case keyInstinctMaxInstincts:
+		return m.config.Instinct.MaxInstincts, true, nil
+	case keyInstinctClusterThreshold:
+		return m.config.Instinct.ClusterThreshold, true, nil
 	default:
 		return 0, false, nil
 	}
@@ -117,6 +121,10 @@ func (m *Manager) GetString(_ context.Context, key string) (string, bool, error)
 		return m.config.PreCommit.Command, true, nil
 	case keyPackageManagerPreferred:
 		return m.config.PackageManager.Preferred, true, nil
+	case keyInstinctPersonalPath:
+		return m.config.Instinct.PersonalPath, true, nil
+	case keyInstinctInheritedPath:
+		return m.config.Instinct.InheritedPath, true, nil
 	default:
 		return "", false, nil
 	}
@@ -509,6 +517,27 @@ func (m *Manager) ensureDefaults() {
 	if m.config.StopReminder.WarnAt == 0 {
 		m.config.StopReminder.WarnAt = defaults.StopReminder.WarnAt
 	}
+	if m.config.Instinct.PersonalPath == "" {
+		m.config.Instinct.PersonalPath = defaults.Instinct.PersonalPath
+	}
+	if m.config.Instinct.InheritedPath == "" {
+		m.config.Instinct.InheritedPath = defaults.Instinct.InheritedPath
+	}
+	if m.config.Instinct.MinConfidence == 0 {
+		m.config.Instinct.MinConfidence = defaults.Instinct.MinConfidence
+	}
+	if m.config.Instinct.AutoApprove == 0 {
+		m.config.Instinct.AutoApprove = defaults.Instinct.AutoApprove
+	}
+	if m.config.Instinct.DecayRate == 0 {
+		m.config.Instinct.DecayRate = defaults.Instinct.DecayRate
+	}
+	if m.config.Instinct.MaxInstincts == 0 {
+		m.config.Instinct.MaxInstincts = defaults.Instinct.MaxInstincts
+	}
+	if m.config.Instinct.ClusterThreshold == 0 {
+		m.config.Instinct.ClusterThreshold = defaults.Instinct.ClusterThreshold
+	}
 }
 
 // convertFromMap converts the old map-based config to the new structured format.
@@ -525,6 +554,7 @@ func (m *Manager) convertFromMap(mapConfig map[string]any) {
 	convertPackageManagerFromMap(&m.config.PackageManager, mapConfig)
 	convertDriftFromMap(&m.config.Drift, mapConfig)
 	convertStopReminderFromMap(&m.config.StopReminder, mapConfig)
+	convertInstinctFromMap(&m.config.Instinct, mapConfig)
 
 	if notifyMap, notifyOk := mapConfig["notify"].(map[string]any); notifyOk {
 		convertNotifyFromMap(&m.config.Notify, notifyMap)

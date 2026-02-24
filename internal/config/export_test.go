@@ -143,6 +143,48 @@ func ExportDefaultStopReminderInterval() int { return defaultStopReminderInterva
 // ExportDefaultStopReminderWarnAt returns the unexported default constant.
 func ExportDefaultStopReminderWarnAt() int { return defaultStopReminderWarnAt }
 
+// ExportKeyInstinctPersonalPath returns the unexported key constant.
+func ExportKeyInstinctPersonalPath() string { return keyInstinctPersonalPath }
+
+// ExportKeyInstinctInheritedPath returns the unexported key constant.
+func ExportKeyInstinctInheritedPath() string { return keyInstinctInheritedPath }
+
+// ExportKeyInstinctMinConfidence returns the unexported key constant.
+func ExportKeyInstinctMinConfidence() string { return keyInstinctMinConfidence }
+
+// ExportKeyInstinctAutoApprove returns the unexported key constant.
+func ExportKeyInstinctAutoApprove() string { return keyInstinctAutoApprove }
+
+// ExportKeyInstinctDecayRate returns the unexported key constant.
+func ExportKeyInstinctDecayRate() string { return keyInstinctDecayRate }
+
+// ExportKeyInstinctMaxInstincts returns the unexported key constant.
+func ExportKeyInstinctMaxInstincts() string { return keyInstinctMaxInstincts }
+
+// ExportKeyInstinctClusterThreshold returns the unexported key constant.
+func ExportKeyInstinctClusterThreshold() string { return keyInstinctClusterThreshold }
+
+// ExportDefaultInstinctPersonalPath returns the unexported default constant.
+func ExportDefaultInstinctPersonalPath() string { return defaultInstinctPersonalPath }
+
+// ExportDefaultInstinctInheritedPath returns the unexported default constant.
+func ExportDefaultInstinctInheritedPath() string { return defaultInstinctInheritedPath }
+
+// ExportDefaultInstinctMinConfidence returns the unexported default constant.
+func ExportDefaultInstinctMinConfidence() float64 { return defaultInstinctMinConfidence }
+
+// ExportDefaultInstinctAutoApprove returns the unexported default constant.
+func ExportDefaultInstinctAutoApprove() float64 { return defaultInstinctAutoApprove }
+
+// ExportDefaultInstinctDecayRate returns the unexported default constant.
+func ExportDefaultInstinctDecayRate() float64 { return defaultInstinctDecayRate }
+
+// ExportDefaultInstinctMaxInstincts returns the unexported default constant.
+func ExportDefaultInstinctMaxInstincts() int { return defaultInstinctMaxInstincts }
+
+// ExportDefaultInstinctClusterThreshold returns the unexported default constant.
+func ExportDefaultInstinctClusterThreshold() int { return defaultInstinctClusterThreshold }
+
 // ExportGetDefaultConfig exposes GetDefaultConfig for testing.
 func ExportGetDefaultConfig() *Values { return GetDefaultConfig() }
 
