@@ -69,8 +69,10 @@ analyze.json
 .version
 __debug_*
 
-# Code Reviews
+# Code Reviews, Audits and Plans
 docs/code-reviews/
+docs/audits/
+docs/plans/
 
 # Generated reports
 .reports/
