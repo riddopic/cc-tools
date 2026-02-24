@@ -2,9 +2,12 @@
 package hookcmd
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
 )
 
 // HookInput represents the JSON input from Claude Code hooks.
@@ -106,4 +109,25 @@ func (h *HookInput) GetToolInputString(key string) string {
 	}
 
 	return ""
+}
+
+// safeIDPattern matches session IDs that contain only filesystem-safe characters.
+var safeIDPattern = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
+
+// FileSafeSessionKey converts a session ID into a filesystem-safe key.
+// If the ID contains only alphanumeric characters, dots, underscores, and
+// hyphens it is returned as-is. Otherwise, a truncated SHA-256 hex hash
+// (first 16 characters) is returned. An empty ID returns an empty string.
+func FileSafeSessionKey(id string) string {
+	if id == "" {
+		return ""
+	}
+
+	if safeIDPattern.MatchString(id) {
+		return id
+	}
+
+	h := sha256.Sum256([]byte(id))
+
+	return hex.EncodeToString(h[:])[:16]
 }

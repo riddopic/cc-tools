@@ -1,6 +1,8 @@
 package hookcmd_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -278,6 +280,83 @@ func TestHookInput_GetFilePath(t *testing.T) {
 				ToolInput: tt.toolInput,
 			}
 			assert.Equal(t, tt.want, input.GetFilePath())
+		})
+	}
+}
+
+func TestFileSafeSessionKey(t *testing.T) {
+	// hashPrefix returns the first 16 hex chars of SHA-256 for a given input.
+	hashPrefix := func(s string) string {
+		h := sha256.Sum256([]byte(s))
+		return hex.EncodeToString(h[:])[:16]
+	}
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "valid alphanumeric ID passes through",
+			input: "abc123",
+			want:  "abc123",
+		},
+		{
+			name:  "valid UUID-like ID with hyphens passes through",
+			input: "abc-123-def",
+			want:  "abc-123-def",
+		},
+		{
+			name:  "ID with dots and underscores passes through",
+			input: "session_01.v2",
+			want:  "session_01.v2",
+		},
+		{
+			name:  "empty string returns empty",
+			input: "",
+			want:  "",
+		},
+		{
+			name:  "ID with slash gets hashed",
+			input: "sess/123",
+			want:  hashPrefix("sess/123"),
+		},
+		{
+			name:  "ID with path traversal gets hashed",
+			input: "../etc/passwd",
+			want:  hashPrefix("../etc/passwd"),
+		},
+		{
+			name:  "ID with asterisk glob gets hashed",
+			input: "hello*world",
+			want:  hashPrefix("hello*world"),
+		},
+		{
+			name:  "ID with question mark glob gets hashed",
+			input: "what?",
+			want:  hashPrefix("what?"),
+		},
+		{
+			name:  "ID with bracket glob gets hashed",
+			input: "foo[bar",
+			want:  hashPrefix("foo[bar"),
+		},
+		{
+			name:  "ID with null byte gets hashed",
+			input: "hello\x00world",
+			want:  hashPrefix("hello\x00world"),
+		},
+		{
+			name:  "very long valid ID still passes through",
+			input: strings.Repeat("a", 500),
+			want:  strings.Repeat("a", 500),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := hookcmd.FileSafeSessionKey(tt.input)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
