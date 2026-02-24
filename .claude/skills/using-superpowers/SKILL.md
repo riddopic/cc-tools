@@ -3,92 +3,63 @@ name: using-superpowers
 description: Use when starting any conversation - establishes how to find and use skills, requiring Skill tool invocation before ANY response including clarifying questions
 ---
 
-<EXTREMELY-IMPORTANT>
-If you think there is even a 1% chance a skill might apply to what you are doing, you ABSOLUTELY MUST invoke the skill.
+# Using Skills
 
-IF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST USE IT.
+## The Rule
 
-This is not negotiable. This is not optional. You cannot rationalize your way out of this.
-</EXTREMELY-IMPORTANT>
+**Invoke relevant skills BEFORE any response or action.** Load the **2-3 most relevant** skills for the current task. Prioritize project-specific procedural skills over general knowledge.
 
 ## How to Access Skills
 
 **In Claude Code:** Use the `Skill` tool. When you invoke a skill, its content is loaded and presented to you—follow it directly. Never use the Read tool on skill files.
 
-**In other environments:** Check your platform's documentation for how skills are loaded.
+## Skill Selection Criteria
 
-# Using Skills
+When multiple skills could apply, select the **3 strongest procedural fits**:
 
-## The Rule
+1. **Load first**: Process skills that determine HOW to approach the task
+   - `brainstorming` — before creative work or feature design
+   - `systematic-debugging` — before investigating bugs
+   - `tdd-workflow` — before writing implementation code
 
-**Invoke relevant or requested skills BEFORE any response or action.** Even a 1% chance a skill might apply means that you should invoke the skill to check. If an invoked skill turns out to be wrong for the situation, you don't need to use it.
+2. **Load second**: Project-specific procedural skills matching the task domain
+   - `code-review` — when reviewing code or before commits
+   - `verification-before-completion` — before claiming work is done
+   - `search-first` — before writing new code or adding dependencies
+
+3. **Skip**: General knowledge skills unless the task involves an unusual pattern
+   - Standard Go patterns, error handling, concurrency — already in model pretraining
+   - Well-documented library usage (Cobra, Viper, testify)
+
+**If more than 3 skills seem relevant, select the 3 with the strongest procedural fit.** General Go knowledge is already in the model's pretraining.
+
+## Skill Types
+
+**Rigid** (TDD, debugging, verification): Follow exactly. Don't adapt away discipline.
+
+**Flexible** (patterns, philosophy): Adapt principles to context.
+
+The skill itself tells you which.
+
+## Skill Priority
 
 ```dot
 digraph skill_flow {
     "User message received" [shape=doublecircle];
-    "About to EnterPlanMode?" [shape=doublecircle];
-    "Already brainstormed?" [shape=diamond];
-    "Invoke brainstorming skill" [shape=box];
-    "Might any skill apply?" [shape=diamond];
+    "Might a skill apply?" [shape=diamond];
+    "Select 2-3 most relevant" [shape=box];
     "Invoke Skill tool" [shape=box];
-    "Announce: 'Using [skill] to [purpose]'" [shape=box];
-    "Has checklist?" [shape=diamond];
-    "Create TodoWrite todo per item" [shape=box];
     "Follow skill exactly" [shape=box];
-    "Respond (including clarifications)" [shape=doublecircle];
+    "Respond" [shape=doublecircle];
 
-    "About to EnterPlanMode?" -> "Already brainstormed?";
-    "Already brainstormed?" -> "Invoke brainstorming skill" [label="no"];
-    "Already brainstormed?" -> "Might any skill apply?" [label="yes"];
-    "Invoke brainstorming skill" -> "Might any skill apply?";
-
-    "User message received" -> "Might any skill apply?";
-    "Might any skill apply?" -> "Invoke Skill tool" [label="yes, even 1%"];
-    "Might any skill apply?" -> "Respond (including clarifications)" [label="definitely not"];
-    "Invoke Skill tool" -> "Announce: 'Using [skill] to [purpose]'";
-    "Announce: 'Using [skill] to [purpose]'" -> "Has checklist?";
-    "Has checklist?" -> "Create TodoWrite todo per item" [label="yes"];
-    "Has checklist?" -> "Follow skill exactly" [label="no"];
-    "Create TodoWrite todo per item" -> "Follow skill exactly";
+    "User message received" -> "Might a skill apply?";
+    "Might a skill apply?" -> "Select 2-3 most relevant" [label="yes"];
+    "Might a skill apply?" -> "Respond" [label="no"];
+    "Select 2-3 most relevant" -> "Invoke Skill tool";
+    "Invoke Skill tool" -> "Follow skill exactly";
+    "Follow skill exactly" -> "Respond";
 }
 ```
-
-## Red Flags
-
-These thoughts mean STOP—you're rationalizing:
-
-| Thought | Reality |
-|---------|---------|
-| "This is just a simple question" | Questions are tasks. Check for skills. |
-| "I need more context first" | Skill check comes BEFORE clarifying questions. |
-| "Let me explore the codebase first" | Skills tell you HOW to explore. Check first. |
-| "I can check git/files quickly" | Files lack conversation context. Check for skills. |
-| "Let me gather information first" | Skills tell you HOW to gather information. |
-| "This doesn't need a formal skill" | If a skill exists, use it. |
-| "I remember this skill" | Skills evolve. Read current version. |
-| "This doesn't count as a task" | Action = task. Check for skills. |
-| "The skill is overkill" | Simple things become complex. Use it. |
-| "I'll just do this one thing first" | Check BEFORE doing anything. |
-| "This feels productive" | Undisciplined action wastes time. Skills prevent this. |
-| "I know what that means" | Knowing the concept ≠ using the skill. Invoke it. |
-
-## Skill Priority
-
-When multiple skills could apply, use this order:
-
-1. **Process skills first** (brainstorming, debugging) - these determine HOW to approach the task
-2. **Implementation skills second** (frontend-design, mcp-builder) - these guide execution
-
-"Let's build X" → brainstorming first, then implementation skills.
-"Fix this bug" → debugging first, then domain-specific skills.
-
-## Skill Types
-
-**Rigid** (TDD, debugging): Follow exactly. Don't adapt away discipline.
-
-**Flexible** (patterns): Adapt principles to context.
-
-The skill itself tells you which.
 
 ## User Instructions
 

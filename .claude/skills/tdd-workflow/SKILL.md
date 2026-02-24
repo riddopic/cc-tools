@@ -5,81 +5,93 @@ description: Apply Test-Driven Development workflow. Use when implementing new f
 
 # Test-Driven Development Workflow
 
-**TDD IS MANDATORY** - Every line of production code must be written in response to a failing test.
+**TDD IS MANDATORY** — Every line of production code must be written in response to a failing test.
 
-## The Sacred Cycle: Red-Green-Refactor
+## The Iron Law
 
 ```
-RED     -> Write a failing test that describes desired behavior
-GREEN   -> Write MINIMUM code to make the test pass
-REFACTOR -> Assess if code can be improved (only if it adds value)
-COMMIT  -> Save working code before moving on
+NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
 ```
 
-## TDD Checklist Before Writing Code
+Write code before the test? Delete it. Start over. No exceptions.
 
-- [ ] Do I have a failing test that demands this code?
-- [ ] Have I run the test and seen it FAIL?
-- [ ] Am I writing the minimum code to make the test pass?
-- [ ] Have I committed my working code before refactoring?
+## Red-Green-Refactor Cycle
 
-## Critical Rules
+```
+RED     → Write a failing test that describes desired behavior
+GREEN   → Write MINIMUM code to make the test pass
+REFACTOR → Clean up (only if it adds value), keep tests green
+COMMIT  → Save working code before moving on
+```
 
-### 1. No Production Code Without a Failing Test
+### RED — Write Failing Test
+
+Write one minimal test showing what should happen. One behavior, clear name, real code.
 
 ```go
-// WRONG: Writing implementation first
-func CalculateDiscount(price float64, tier string) float64 {
-    // implementation
-}
+func TestRetryOperation_RetriesFailedOperations3Times(t *testing.T) {
+    attempts := 0
+    operation := func() (string, error) {
+        attempts++
+        if attempts < 3 {
+            return "", errors.New("fail")
+        }
+        return "success", nil
+    }
 
-// RIGHT: Start with test
-func TestCalculateDiscount(t *testing.T) {
-    t.Run("should apply 20% discount for premium tier", func(t *testing.T) {
-        result := CalculateDiscount(100.0, "premium")
-        assert.Equal(t, 80.0, result)
-    })
-}
-// NOW write the minimum code to pass
-```
+    result, err := RetryOperation(operation)
 
-### 2. Write the Minimum Code to Pass
-
-```go
-// Test demands: return user by id
-func TestFindUserByID(t *testing.T) {
-    user, err := FindUserByID("123")
-    assert.NoError(t, err)
-    assert.Equal(t, "123", user.ID)
-}
-
-// MINIMUM implementation - don't add extras!
-func FindUserByID(id string) (*User, error) {
-    return &User{ID: id}, nil
+    require.NoError(t, err)
+    assert.Equal(t, "success", result)
+    assert.Equal(t, 3, attempts)
 }
 ```
 
-### 3. Small Steps Win
+### Verify RED — Watch It Fail (MANDATORY)
 
-```go
-// WRONG: Too much at once
-t.Run("should process order with discounts, tax, shipping", ...)
-
-// RIGHT: One step at a time
-t.Run("should calculate subtotal", ...)
-// Make it pass, commit
-
-t.Run("should apply discount", ...)
-// Make it pass, commit
+```bash
+gotestsum --format pkgname -- -tags=testmode -run TestName ./path/to/package/...
 ```
 
-## Common Violations to Avoid
+Confirm: test fails (not errors), failure is expected, fails because feature is missing.
 
-1. **Writing code "while you're there"** - Don't add untested features
-2. **Writing multiple tests before going green** - One test at a time
-3. **Skipping refactor assessment** - Always evaluate after green
+### GREEN — Minimal Code
 
-## Detailed TDD Principles
+Write the simplest code to pass. Don't add features, options, or "improvements" beyond the test.
 
-For core TDD principles, see [tdd-principles.md](../../../docs/examples/philosophy/tdd-principles.md)
-For TDD workflow examples, see [tdd-workflow.md](../../../docs/examples/philosophy/tdd-workflow.md)
+### Verify GREEN (MANDATORY)
+
+Run test again. Confirm it passes and other tests still pass.
+
+### REFACTOR — Clean Up
+
+After green only: remove duplication, improve names, extract helpers. Keep tests green. Don't add behavior.
+
+### Repeat
+
+Next failing test for next behavior.
+
+## Bug Fix Flow
+
+Bug found → write failing test reproducing it → follow TDD cycle. Test proves fix and prevents regression. Never fix bugs without a test.
+
+## Common Rationalizations (All Mean: Start Over with TDD)
+
+| Excuse | Reality |
+|--------|---------|
+| "Too simple to test" | Simple code breaks. Test takes 30 seconds. |
+| "I'll test after" | Tests passing immediately prove nothing. |
+| "Need to explore first" | Fine. Throw away exploration, start with TDD. |
+| "Test hard = design unclear" | Hard to test = hard to use. Simplify interface. |
+| "Already manually tested" | Ad-hoc ≠ systematic. No record, can't re-run. |
+
+## Verification Checklist
+
+- [ ] Every new function/method has a test
+- [ ] Watched each test fail before implementing
+- [ ] Wrote minimal code to pass each test
+- [ ] All tests pass
+- [ ] Tests use real code (mocks only if unavoidable)
+- [ ] Edge cases and errors covered
+
+Can't check all boxes? You skipped TDD. Start over.

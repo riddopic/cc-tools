@@ -4,27 +4,22 @@ Guidelines for using specialized agents and skills.
 
 ## Available Skills (Auto-Triggered)
 
-Skills in `.claude/skills/` auto-trigger based on context. Organized by category:
+Skills in `.claude/skills/` auto-trigger based on context. Load **2-3 most relevant** per task. Organized by category:
 
-### Core Development (7)
+### Core Development (4)
 
 | Skill | Triggers On |
 | ----- | ----------- |
 | `go-coding-standards` | Writing Go code, reviewing implementations |
-| `tdd-workflow` | Implementing features (TDD is mandatory) |
-| `test-driven-development` | Before writing implementation code |
+| `tdd-workflow` | Implementing features, fixing bugs (TDD is mandatory) |
 | `testing-patterns` | Writing tests, Mockery v3.5 patterns |
-| `interface-design` | Defining interfaces, composition |
-| `cli-development` | Cobra/Viper CLI commands |
-| `concurrency-patterns` | Goroutines, channels, context |
+| `coding-philosophy` | LEVER decisions, build-vs-reuse choices |
 
-### Code Review (4)
+### Code Review (2)
 
 | Skill | Triggers On |
 | ----- | ----------- |
-| `code-review` | Reviewing code, pre-commit checks |
-| `go-code-review` | Reviewing .go files for idiomatic patterns |
-| `go-testing-code-review` | Reviewing *_test.go files |
+| `code-review` | Reviewing code, pre-commit checks, Go idioms, test quality |
 | `review-verification-protocol` | Before reporting ANY code review findings |
 
 ### Documentation (6)
@@ -57,16 +52,15 @@ Skills in `.claude/skills/` auto-trigger based on context. Organized by category
 | `prp-workflow` | Working with PRP workflow patterns |
 | `search-first` | Before writing new code, adding dependencies |
 
-### Analysis & Patterns (6)
+### Analysis & Patterns (5)
 
 | Skill | Triggers On |
 | ----- | ----------- |
 | `systematic-debugging` | Bugs, test failures, root cause investigation |
 | `audit-context-building` | Line-by-line code analysis for deep context |
-| `continuous-learning` | Extracting reusable patterns from sessions |
-| `recursive-decomposition` | Breaking complex problems into sub-problems |
-| `coding-philosophy` | LEVER decisions + Karpathy execution guidelines |
 | `continuous-learning-v2` | Instinct-based learning with confidence scoring |
+| `recursive-decomposition` | Breaking complex problems into sub-problems |
+| `reviewing-with-codex` | Second opinion on plans from Codex |
 
 ### Specialized (1)
 
@@ -90,33 +84,12 @@ No user prompt needed — invoke proactively:
 
 Always use parallel execution for independent operations. See the `dispatching-parallel-agents` skill for detailed patterns on when and how to dispatch.
 
-```markdown
-# ✅ DO: Launch in parallel
-Launch 3 agents in parallel:
-1. Agent 1: Security analysis of auth.go
-2. Agent 2: Performance review of cache.go
-3. Agent 3: Code review of handler.go
-
-# ❌ DON'T: Run sequentially when unnecessary
-First agent 1, then agent 2, then agent 3
-```
-
-## Multi-Perspective Analysis
-
-For complex problems, use multiple perspectives:
-
-- Factual reviewer
-- Senior engineer
-- Security expert
-- Performance specialist
-- Consistency checker
-
 ## Agent Selection Guidelines
 
 | Task Type | Recommended |
 | --------- | ----------- |
 | New Go feature | `test-strategy-designer` → `code-review-specialist` |
-| CLI command | `cli-development` skill → `cli-design-architect` agent |
+| CLI command | `cli-design-architect` agent |
 | Performance issue | `performance-optimizer` agent |
 | Security review | `security-threat-analyst` agent |
 | Test failures | `systematic-debugging` skill → `code-analyzer-debugger` agent |

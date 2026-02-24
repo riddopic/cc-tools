@@ -1,82 +1,67 @@
 ---
 name: code-review
-description: Apply code review standards. Use when reviewing code, evaluating pull requests, or checking code quality before commits. Ensures Go idioms, security, and project standards are followed.
+description: Apply code review standards. Use when reviewing code, evaluating pull requests, or checking code quality before commits. Covers Go idioms, testing patterns, security, and project standards.
 ---
 
 # Code Review Standards
 
 ## Pre-Commit Checklist
 
-Before committing, ensure:
+```bash
+task pre-commit         # Or: task check (fmt + lint + test-race)
+```
 
 - [ ] Code passes formatting: `task fmt`
 - [ ] No linter warnings: `task lint`
 - [ ] All tests pass: `task test`
 - [ ] Race detector passes: `task test-race`
-- [ ] New code has test coverage: `task coverage`
-- [ ] Error messages are clear and actionable
-- [ ] No commented-out code
-- [ ] No TODO without issue references
 
-**Quick check**: `task pre-commit`
+## Go Code Review Checklist
 
-## Code Quality Focus Areas
-
-### 1. Go Idioms
-
-- [ ] Errors are handled explicitly (no ignored errors)
-- [ ] Context is passed as first parameter
-- [ ] Interfaces are small (1-2 methods)
-- [ ] Zero values are useful
+- [ ] All errors checked and wrapped with context (`fmt.Errorf("...: %w", err)`)
+- [ ] Resources closed with `defer` immediately after creation
+- [ ] No goroutine leaks (channels closed, contexts canceled)
+- [ ] Interfaces defined by consumers, small (1-2 methods)
+- [ ] Context passed as first parameter
+- [ ] Mutexes protect shared state
+- [ ] Functions under 50 lines, single responsibility
 - [ ] Early returns reduce nesting
+- [ ] No commented-out code, no TODO without issue reference
 
-### 2. Error Handling
+## Go Test Review Checklist
 
-```go
-// GOOD: Wrapped with context
-return fmt.Errorf("loading config %s: %w", path, err)
-
-// BAD: Lost context
-return err
-```
-
-### 3. Function Design
-
-- [ ] Functions under 50 lines
-- [ ] Single responsibility
-- [ ] Clear naming (verbs for functions, nouns for types)
-
-### 4. Testing
-
-- [ ] Tests focus on behavior, not implementation
-- [ ] Table-driven tests for multiple scenarios
-- [ ] No hardcoded secrets in tests
+- [ ] Tests are table-driven with clear case names
+- [ ] Test names describe behavior, not implementation
+- [ ] Error messages include input, got, and want
+- [ ] Parallel tests don't share mutable state
+- [ ] Cleanup registered with `t.Cleanup`
+- [ ] Tests verify behavior, not implementation details
+- [ ] Coverage includes edge cases and error paths
 - [ ] Coverage ≥80% for new code
 
-### 5. Security
+## Valid Patterns (Do NOT Flag)
 
-- [ ] No hardcoded secrets
-- [ ] Input validation at boundaries
-- [ ] Proper error messages (no stack traces to users)
-- [ ] Secure file permissions (0600/0750)
+- `_ = err` with reason comment — intentionally ignored errors
+- `//nolint` directives with explanation
+- Channel without close when consumer stops via context cancellation
+- Naked returns in functions < 5 lines with named returns
 
-### 6. Concurrency
+## Context-Sensitive Rules
 
-- [ ] Context used for cancellation
-- [ ] No goroutine leaks
-- [ ] Channels closed by sender
-- [ ] Race detector passes
+| Issue | Flag ONLY IF |
+|-------|--------------|
+| Missing error check | Error return is actionable |
+| Goroutine leak | No context cancellation path exists |
+| Missing defer | Resource isn't explicitly closed before next acquisition or return |
+| Interface pollution | Interface has > 1 method AND only one consumer |
 
-## Red Flags
+## Red Flags — Stop and Address
 
-**Stop and address these immediately:**
-
-- `_ = someFunc()` - Ignored error
+- `_ = someFunc()` — Ignored error without reason
 - `panic()` for normal error handling
 - Magic numbers without constants
 - Deeply nested code (>3 levels)
 - Functions over 50 lines
-- Missing godoc on exported items
 
 ## Review Questions
 
@@ -86,19 +71,6 @@ return err
 4. **Is it testable?** (TDD requirement)
 5. **Would I understand this in 6 months?**
 
-## Validation Commands
+## Before Submitting Findings
 
-```bash
-task fmt           # Format code
-task lint          # Lint check
-task test          # Run tests
-task test-race     # Race detection
-task coverage      # Coverage report
-task check         # All checks
-```
-
-## Project References
-
-- [CODING_GUIDELINES.md](../../../docs/CODING_GUIDELINES.md)
-- [go-specific.md](../../../docs/examples/standards/go-specific.md)
-- [testing.md](../../../docs/examples/patterns/testing.md)
+Load and follow `review-verification-protocol` before reporting any issue.
