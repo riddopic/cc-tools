@@ -47,6 +47,7 @@ func newRootCmd() *cobra.Command {
 		newDebugCmd(),
 		newMCPCmd(),
 		newValidateCmd(),
+		newInstinctCmd(),
 	)
 
 	return root
