@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-02-24
+
+### Added
+
+- Confidence decay evaluation primitives with NaN guard and weekly rate calculation
+- Decay integration into instinct status, export, evolve, and import workflows
+
+### Fixed
+
+- Session `Store.Save()` now validates IDs to prevent path traversal (matching `Load()` hardening)
+- Instinct CLI runtime config loaded via manager instead of bypassing config pipeline
+- NaN guard in confidence clamping prevents invalid floating-point propagation
+- Lock manager uses dependency tempdir abstraction instead of hardcoded `/tmp`
+- Debug path hashing normalizes paths before hashing and uses OS temp directory
+- Evolve tie-breaking made deterministic with stable stdlib sort
+- Command runner reads stdout and stderr concurrently to prevent pipe deadlock
+- `ClassifyImport` differentiates `ErrNotFound` from operational errors
+- Instinct store validates IDs in Get and Delete paths (closing traversal gap)
+- Handler registry dispatch wrapped with panic recovery for resilience
+- Session store `Load` hardened against glob pattern injection
+- Drift, stop, and compact handlers use safe session keys for state file paths
+- Filesystem-safe session key helper prevents path traversal via session ID injection
+- AFPlayer bounded with 30-second timeout via context cancellation
+- AppleScript escaping hardens desktop notifications against injection attacks
+- ntfy HTTP client configured with 30-second timeout to prevent indefinite hangs
+
+### Changed
+
+- Typed `SessionID` wrapper replaces raw strings in hook input and handler paths
+- Safe ID pattern tightened from `^[a-zA-Z0-9._-]+$` to `^[a-zA-Z0-9-]+$`
+
+### Other
+
+- Documentation updated to clarify import persists decayed confidence values
+- Instincts and configuration docs updated for active decay behavior
+- Excluded ireturn linter from test files
+- 1296 tests with race detector coverage
+
 ## [0.1.2] - 2026-02-24
 
 ### Added
@@ -114,7 +152,8 @@ Initial release of cc-tools, a CLI companion for Claude Code.
 - Mockery v3.5 mock generation for all interfaces
 - Architecture design docs and implementation plans
 
-[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/riddopic/cc-tools/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/riddopic/cc-tools/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/riddopic/cc-tools/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/riddopic/cc-tools/commits/v0.1.0
