@@ -7,7 +7,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 )
+
+// ntfyHTTPTimeout is the maximum time to wait for an ntfy HTTP response.
+const ntfyHTTPTimeout = 30 * time.Second
 
 // NtfyConfig configures the ntfy notification backend.
 type NtfyConfig struct {
@@ -41,7 +45,7 @@ func NewNtfyNotifier(cfg NtfyConfig) *NtfyNotifier {
 
 	return &NtfyNotifier{
 		config:    cfg,
-		client:    &http.Client{},
+		client:    &http.Client{Timeout: ntfyHTTPTimeout},
 		serverURL: parsed.String(),
 	}
 }
