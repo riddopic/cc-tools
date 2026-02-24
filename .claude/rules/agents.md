@@ -58,7 +58,7 @@ Skills in `.claude/skills/` auto-trigger based on context. Load **2-3 most relev
 | ----- | ----------- |
 | `systematic-debugging` | Bugs, test failures, root cause investigation |
 | `audit-context-building` | Line-by-line code analysis for deep context |
-| `continuous-learning-v2` | Instinct-based learning with confidence scoring |
+| `continuous-learning-v2` | Instinct management via `cc-tools instinct` commands |
 | `recursive-decomposition` | Breaking complex problems into sub-problems |
 | `reviewing-with-codex` | Second opinion on plans from Codex |
 

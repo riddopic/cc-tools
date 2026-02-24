@@ -37,6 +37,10 @@ Configured in `~/.claude/settings.json`:
 - **stop reminder** (`StopReminderHandler`): Tracks response count per session and emits rotating reminders at configurable intervals. Configurable via `stop_reminder.enabled`, `stop_reminder.interval` (default 20), `stop_reminder.warn_at` (default 50).
 - **console.log audit**: Checks all modified files for console.log before session ends
 
+### Built-in Handlers (cc-tools hook)
+
+- **observe** (`ObserveHandler`): Captures tool usage events (tool name, input, output, errors) to `~/.cache/cc-tools/observations/observations.jsonl`. Feeds the instinct learning system. No manual hook configuration needed — dispatched automatically by `cc-tools hook`.
+
 ## Hook Configuration
 
 ```json

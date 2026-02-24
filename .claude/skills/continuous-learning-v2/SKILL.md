@@ -11,25 +11,13 @@ An advanced learning system that turns your Claude Code sessions into reusable k
 ## When to Activate
 
 - Setting up automatic learning from Claude Code sessions
-- Configuring instinct-based behavior extraction via hooks
-- Tuning confidence thresholds for learned behaviors
 - Reviewing, exporting, or importing instinct libraries
+- Tuning confidence thresholds for learned behaviors
 - Evolving instincts into full skills, commands, or agents
-
-## What's New in v2
-
-| Feature | v1 | v2 |
-|---------|----|----|
-| Observation | Stop hook (session end) | PreToolUse/PostToolUse (100% reliable) |
-| Analysis | Main context | Background agent (Haiku) |
-| Granularity | Full skills | Atomic "instincts" |
-| Confidence | None | 0.3-0.9 weighted |
-| Evolution | Direct to skill | Instincts → cluster → skill/command/agent |
-| Sharing | None | Export/import instincts |
 
 ## The Instinct Model
 
-An instinct is a small learned behavior:
+An instinct is a small learned behavior stored as a YAML frontmatter file:
 
 ```yaml
 ---
@@ -61,181 +49,107 @@ Use functional patterns over classes when appropriate.
 ```
 Session Activity
       │
-      │ Hooks capture prompts + tool use (100% reliable)
+      │ cc-tools hook dispatches ObserveHandler
       ▼
-┌─────────────────────────────────────────┐
-│         observations.jsonl              │
-│   (prompts, tool calls, outcomes)       │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────┐
+│    ~/.cache/cc-tools/observations/  │
+│    observations.jsonl               │
+│  (prompts, tool calls, outcomes)    │
+└─────────────────────────────────────┘
       │
-      │ Observer agent reads (background, Haiku)
+      │ /learn extracts patterns
       ▼
-┌─────────────────────────────────────────┐
-│          PATTERN DETECTION              │
-│   • User corrections → instinct         │
-│   • Error resolutions → instinct        │
-│   • Repeated workflows → instinct       │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────┐
+│         PATTERN DETECTION           │
+│   • User corrections → instinct    │
+│   • Error resolutions → instinct   │
+│   • Repeated workflows → instinct  │
+└─────────────────────────────────────┘
       │
       │ Creates/updates
       ▼
-┌─────────────────────────────────────────┐
-│         instincts/personal/             │
-│   • prefer-functional.md (0.7)          │
-│   • always-test-first.md (0.9)          │
-│   • use-zod-validation.md (0.6)         │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────┐
+│ ~/.config/cc-tools/instincts/      │
+│   personal/                         │
+│   • prefer-functional.md (0.7)     │
+│   • always-test-first.md (0.9)     │
+│   • use-zod-validation.md (0.6)    │
+└─────────────────────────────────────┘
       │
-      │ /evolve clusters
+      │ cc-tools instinct evolve
       ▼
-┌─────────────────────────────────────────┐
-│              evolved/                   │
-│   • commands/new-feature.md             │
-│   • skills/testing-workflow.md          │
-│   • agents/refactor-specialist.md       │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────┐
+│   Cluster analysis suggests:       │
+│   • skills from 3+ related         │
+│   • commands from high-confidence  │
+│   • agents from large clusters     │
+└─────────────────────────────────────┘
 ```
 
 ## Quick Start
 
-### 1. Enable Observation Hooks
+### 1. Observation
 
-Add to your `~/.claude/settings.json`.
+Observation is handled automatically by `cc-tools hook`. The ObserveHandler captures tool usage events (tool name, input, output, errors) to `~/.cache/cc-tools/observations/observations.jsonl`.
 
-**If installed as a plugin** (recommended):
+No manual hook configuration is needed — `cc-tools hook` dispatches to the ObserveHandler as part of its standard handler registry.
 
-```json
-{
-  "hooks": {
-    "PreToolUse": [{
-      "matcher": "*",
-      "hooks": [{
-        "type": "command",
-        "command": "${CLAUDE_PLUGIN_ROOT}/skills/continuous-learning-v2/hooks/observe.sh pre"
-      }]
-    }],
-    "PostToolUse": [{
-      "matcher": "*",
-      "hooks": [{
-        "type": "command",
-        "command": "${CLAUDE_PLUGIN_ROOT}/skills/continuous-learning-v2/hooks/observe.sh post"
-      }]
-    }]
-  }
-}
-```
-
-**If installed manually** to `.claude/skills/` (project-local):
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [{
-      "matcher": "*",
-      "hooks": [{
-        "type": "command",
-        "command": ".claude/skills/continuous-learning-v2/hooks/observe.sh pre"
-      }]
-    }],
-    "PostToolUse": [{
-      "matcher": "*",
-      "hooks": [{
-        "type": "command",
-        "command": ".claude/skills/continuous-learning-v2/hooks/observe.sh post"
-      }]
-    }]
-  }
-}
-```
-
-### 2. Initialize Directory Structure
-
-The Python CLI will create these automatically, but you can also create them manually:
+### 2. Use the Instinct Commands
 
 ```bash
-mkdir -p .claude/homunculus/{instincts/{personal,inherited},evolved/{agents,skills,commands}}
-touch .claude/homunculus/observations.jsonl
+cc-tools instinct status               # Show learned instincts with confidence scores
+cc-tools instinct evolve               # Cluster related instincts into skills/commands
+cc-tools instinct export               # Export instincts as YAML to stdout
+cc-tools instinct import <file>        # Import instincts from others
 ```
 
-### 3. Use the Instinct Commands
+Or via slash commands:
 
-```bash
-/instinct-status     # Show learned instincts with confidence scores
-/evolve              # Cluster related instincts into skills/commands
-/instinct-export     # Export instincts for sharing
-/instinct-import     # Import instincts from others
+```
+/instinct-status                       # Show instincts with confidence bars
+/evolve                                # Cluster and suggest evolutions
+/instinct-export                       # Export for sharing
+/instinct-import <file>                # Import from file
 ```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/instinct-status` | Show all learned instincts with confidence |
-| `/evolve` | Cluster related instincts into skills/commands |
-| `/instinct-export` | Export instincts for sharing |
-| `/instinct-import <file>` | Import instincts from others |
+| `/instinct-status` | Show all learned instincts grouped by domain with confidence bars |
+| `/evolve` | Cluster related instincts, suggest skill/command/agent candidates |
+| `/instinct-export` | Export instincts as YAML or JSON for sharing |
+| `/instinct-import <file>` | Import instincts with dedup, dry-run, force options |
+| `/learn` | Extract patterns from current session into instinct files |
+| `/learn-eval` | Extract with quality gate (scoring rubric) before saving |
 
 ## Configuration
 
-Edit `config.json`:
+Managed through `cc-tools config`:
 
-```json
-{
-  "version": "2.0",
-  "observation": {
-    "enabled": true,
-    "store_path": ".claude/homunculus/observations.jsonl",
-    "max_file_size_mb": 10,
-    "archive_after_days": 7
-  },
-  "instincts": {
-    "personal_path": ".claude/homunculus/instincts/personal/",
-    "inherited_path": ".claude/homunculus/instincts/inherited/",
-    "min_confidence": 0.3,
-    "auto_approve_threshold": 0.7,
-    "confidence_decay_rate": 0.05
-  },
-  "observer": {
-    "enabled": true,
-    "model": "haiku",
-    "run_interval_minutes": 5,
-    "patterns_to_detect": [
-      "user_corrections",
-      "error_resolutions",
-      "repeated_workflows",
-      "tool_preferences"
-    ]
-  },
-  "evolution": {
-    "cluster_threshold": 3,
-    "evolved_path": ".claude/homunculus/evolved/"
-  }
-}
-```
+| Key | Default | Description |
+|-----|---------|-------------|
+| `instinct.personal_path` | `~/.config/cc-tools/instincts/personal` | Personal instincts directory |
+| `instinct.inherited_path` | `~/.config/cc-tools/instincts/inherited` | Imported instincts directory |
+| `instinct.min_confidence` | `0.3` | Minimum confidence threshold |
+| `instinct.auto_approve` | `0.7` | Auto-approve threshold |
+| `instinct.decay_rate` | `0.02` | Weekly confidence decay rate |
+| `instinct.max_instincts` | `100` | Maximum stored instincts |
+| `instinct.cluster_threshold` | `3` | Minimum instincts to form a cluster |
 
 ## File Structure
 
 ```
-.claude/homunculus/
-├── identity.json           # Your profile, technical level
-├── observations.jsonl      # Current session observations
-├── observations.archive/   # Processed observations
-├── instincts/
-│   ├── personal/           # Auto-learned instincts
-│   └── inherited/          # Imported from others
-└── evolved/
-    ├── agents/             # Generated specialist agents
-    ├── skills/             # Generated skills
-    └── commands/           # Generated commands
+~/.config/cc-tools/instincts/
+├── personal/              # Auto-learned instincts
+│   ├── prefer-functional.md
+│   └── always-test-first.md
+└── inherited/             # Imported from others
+    └── team-conventions.md
+
+~/.cache/cc-tools/observations/
+└── observations.jsonl     # Raw session observations
 ```
-
-## Integration with Skill Creator
-
-When you use the [Skill Creator GitHub App](https://skill-creator.app), it now generates **both**:
-- Traditional SKILL.md files (for backward compatibility)
-- Instinct collections (for v2 learning system)
-
-Instincts from repo analysis have `source: "repo-analysis"` and include the source repository URL.
 
 ## Confidence Scoring
 
@@ -248,45 +162,11 @@ Confidence evolves over time:
 | 0.7 | Strong | Auto-approved for application |
 | 0.9 | Near-certain | Core behavior |
 
-**Confidence increases** when:
-- Pattern is repeatedly observed
-- User doesn't correct the suggested behavior
-- Similar instincts from other sources agree
-
-**Confidence decreases** when:
-- User explicitly corrects the behavior
-- Pattern isn't observed for extended periods
-- Contradicting evidence appears
-
-## Why Hooks vs Skills for Observation?
-
-> "v1 relied on skills to observe. Skills are probabilistic—they fire ~50-80% of the time based on Claude's judgment."
-
-Hooks fire **100% of the time**, deterministically. This means:
-- Every tool call is observed
-- No patterns are missed
-- Learning is comprehensive
-
-## Backward Compatibility
-
-v2 is fully compatible with v1:
-- Existing `.claude/skills/learned/` skills still work
-- Stop hook still runs (but now also feeds into v2)
-- Gradual migration path: run both in parallel
+**Confidence increases** when patterns are repeatedly observed. **Confidence decreases** via time-based decay (configurable rate, default 0.02/week) and is clamped to the [0.3, 0.9] range.
 
 ## Privacy
 
 - Observations stay **local** on your machine
 - Only **instincts** (patterns) can be exported
-- No actual code or conversation content is shared
-- You control what gets exported
-
-## Related
-
-- [Skill Creator](https://skill-creator.app) - Generate instincts from repo history
-- [Homunculus](https://github.com/humanplane/homunculus) - Inspiration for v2 architecture
-- [The Longform Guide](https://x.com/affaanmustafa/status/2014040193557471352) - Continuous learning section
-
----
-
-*Instinct-based learning: teaching Claude your patterns, one observation at a time.*
+- Exports include triggers, actions, confidence scores, and domains
+- No actual code, file paths, or conversation content is shared
