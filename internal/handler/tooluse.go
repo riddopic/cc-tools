@@ -148,11 +148,13 @@ func (h *ObserveHandler) Handle(_ context.Context, input *hookcmd.HookInput) (*R
 	obs := observe.NewObserver(dir, h.cfg.Observe.MaxFileSizeMB)
 
 	if err := obs.Record(observe.Event{
-		Timestamp: time.Now(),
-		Phase:     h.phase,
-		ToolName:  input.ToolName,
-		ToolInput: input.ToolInput,
-		SessionID: input.SessionID,
+		Timestamp:  time.Now(),
+		Phase:      h.phase,
+		ToolName:   input.ToolName,
+		ToolInput:  input.ToolInput,
+		ToolOutput: nil,
+		Error:      "",
+		SessionID:  input.SessionID,
 	}); err != nil {
 		return nil, fmt.Errorf("record observation: %w", err)
 	}

@@ -17,11 +17,13 @@ const disabledFile = ".disabled"
 
 // Event represents a single tool usage observation.
 type Event struct {
-	Timestamp time.Time       `json:"timestamp"`
-	Phase     string          `json:"phase"` // "pre" or "post".
-	ToolName  string          `json:"tool_name"`
-	ToolInput json.RawMessage `json:"tool_input,omitempty"`
-	SessionID string          `json:"session_id"`
+	Timestamp  time.Time       `json:"timestamp"`
+	Phase      string          `json:"phase"` // "pre", "post", or "failure".
+	ToolName   string          `json:"tool_name"`
+	ToolInput  json.RawMessage `json:"tool_input,omitempty"`
+	ToolOutput json.RawMessage `json:"tool_output,omitempty"`
+	Error      string          `json:"error,omitempty"`
+	SessionID  string          `json:"session_id"`
 }
 
 // Observer records tool events to a JSONL file.
