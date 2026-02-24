@@ -599,6 +599,8 @@ func TestManagerGetEnabledDirs(t *testing.T) {
 }
 
 func TestGetLogFilePath(t *testing.T) {
+	tempPrefix := filepath.Join(os.TempDir(), "cc-tools-") //nolint:usetesting // verifying production os.TempDir usage
+
 	tests := []struct {
 		name       string
 		inputDir   string
@@ -608,25 +610,25 @@ func TestGetLogFilePath(t *testing.T) {
 		{
 			name:       "generates path for normal directory",
 			inputDir:   "/home/user/project",
-			wantPrefix: "/tmp/cc-tools-user-project-",
+			wantPrefix: tempPrefix + "user-project-",
 			wantSuffix: ".debug",
 		},
 		{
 			name:       "handles root directory",
 			inputDir:   "/",
-			wantPrefix: "/tmp/cc-tools-root-",
+			wantPrefix: tempPrefix + "root-",
 			wantSuffix: ".debug",
 		},
 		{
 			name:       "handles relative path",
 			inputDir:   ".",
-			wantPrefix: "/tmp/cc-tools-",
+			wantPrefix: tempPrefix,
 			wantSuffix: ".debug",
 		},
 		{
 			name:       "sanitizes directory name",
 			inputDir:   "/path/with/many/levels",
-			wantPrefix: "/tmp/cc-tools-many-levels-",
+			wantPrefix: tempPrefix + "many-levels-",
 			wantSuffix: ".debug",
 		},
 	}

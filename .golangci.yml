@@ -472,5 +472,6 @@ linters:
           - funlen
           - goconst
           - gosec
+          - ireturn
           - noctx
           - wrapcheck
