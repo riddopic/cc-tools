@@ -3,6 +3,7 @@ package hooks_test
 import (
 	"errors"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -250,6 +251,21 @@ func TestLockManagerWithMocks(t *testing.T) {
 		requireAcquireSuccess(t, lm)
 		assertTwoCreateExclusiveCalls(t, createExclusiveCallCount)
 	})
+}
+
+func TestLockManagerUsesDepsTempDir(t *testing.T) {
+	testDeps := hooks.CreateTestDependencies()
+	customTempDir := "/custom/temp/dir"
+	testDeps.MockFS.TempDirFunc = func() string { return customTempDir }
+	testDeps.MockProcess.GetPIDFunc = func() int { return 99999 }
+	testDeps.MockClock.NowFunc = func() time.Time { return time.Unix(1700000000, 0) }
+
+	lm := hooks.NewLockManager("/project", "test", 5, testDeps.Dependencies)
+	lockPath := lm.LockFileForTest()
+
+	if !strings.HasPrefix(lockPath, customTempDir) {
+		t.Errorf("lock file path %q does not start with custom temp dir %q", lockPath, customTempDir)
+	}
 }
 
 func TestSplitLines(t *testing.T) {

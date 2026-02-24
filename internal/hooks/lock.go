@@ -27,8 +27,7 @@ func NewLockManager(workspaceDir, hookName string, cooldownSecs int, deps *Depen
 	// Generate a unique lock file name based on workspace and hook
 	hash := sha256.Sum256([]byte(workspaceDir))
 	lockFileName := fmt.Sprintf("claude-hook-%s-%x.lock", hookName, hash[:8])
-	// Use /tmp directly for lock files as they are temporary runtime state
-	lockFile := filepath.Join("/tmp", lockFileName)
+	lockFile := filepath.Join(deps.FS.TempDir(), lockFileName)
 
 	return &LockManager{
 		lockFile:      lockFile,
