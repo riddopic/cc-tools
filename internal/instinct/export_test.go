@@ -157,3 +157,44 @@ func TestExportJSON_EmptySlice(t *testing.T) {
 	require.NoError(t, json.Unmarshal(buf.Bytes(), &parsed))
 	assert.Empty(t, parsed)
 }
+
+func TestExport(t *testing.T) {
+	now := time.Date(2025, 6, 15, 10, 0, 0, 0, time.UTC)
+	input := []instinct.Instinct{
+		{
+			ID:         "exp-1",
+			Trigger:    "test trigger",
+			Confidence: 0.8,
+			Domain:     "go",
+			Source:     "observation",
+			SourceRepo: "",
+			Content:    "",
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		},
+	}
+
+	tests := []struct {
+		name    string
+		format  string
+		wantErr string
+	}{
+		{name: "yaml format", format: "yaml", wantErr: ""},
+		{name: "json format", format: "json", wantErr: ""},
+		{name: "unsupported format", format: "xml", wantErr: "unsupported export format"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			err := instinct.Export(&buf, input, tt.format)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.NotEmpty(t, buf.String())
+		})
+	}
+}

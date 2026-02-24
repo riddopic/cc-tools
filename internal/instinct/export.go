@@ -36,3 +36,15 @@ func ExportJSON(w io.Writer, instincts []Instinct) error {
 
 	return nil
 }
+
+// Export writes instincts in the specified format ("yaml" or "json").
+func Export(w io.Writer, instincts []Instinct, format string) error {
+	switch format {
+	case "json":
+		return ExportJSON(w, instincts)
+	case "yaml":
+		return ExportYAML(w, instincts)
+	default:
+		return fmt.Errorf("unsupported export format: %s (use yaml or json)", format)
+	}
+}
