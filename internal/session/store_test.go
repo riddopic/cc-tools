@@ -1,3 +1,5 @@
+//go:build testmode
+
 package session_test
 
 import (
@@ -389,4 +391,92 @@ func TestStore_ListEmptyDirectory(t *testing.T) {
 	listed, listErr := store.List(10)
 	require.NoError(t, listErr)
 	assert.Empty(t, listed)
+}
+
+func TestStore_LoadReturnsNotFoundForNonexistentDirectory(t *testing.T) {
+	store := session.NewStore(filepath.Join(t.TempDir(), "nonexistent"))
+
+	_, err := store.Load("some-valid-id")
+	require.Error(t, err)
+	assert.ErrorIs(t, err, session.ErrNotFound)
+}
+
+func TestStore_LoadRejectsGlobMetacharacters(t *testing.T) {
+	dir := t.TempDir()
+	store := session.NewStore(dir)
+
+	// Save a session so there is something to match if injection succeeds.
+	sess := &session.Session{
+		Version:       "1",
+		ID:            "target-id",
+		Date:          "2026-02-14",
+		Started:       time.Date(2026, 2, 14, 10, 0, 0, 0, time.UTC),
+		Ended:         time.Time{},
+		Title:         "Target session",
+		Summary:       "",
+		ToolsUsed:     nil,
+		FilesModified: nil,
+		MessageCount:  0,
+	}
+	require.NoError(t, store.Save(sess))
+
+	tests := []struct {
+		name string
+		id   string
+	}{
+		{name: "asterisk", id: "*"},
+		{name: "question mark", id: "?"},
+		{name: "open bracket", id: "["},
+		{name: "forward slash", id: "foo/bar"},
+		{name: "dot-dot traversal", id: ".."},
+		{name: "backslash", id: `foo\bar`},
+		{name: "asterisk in middle", id: "abc*def"},
+		{name: "question in middle", id: "abc?def"},
+		{name: "bracket pattern", id: "[a-z]"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := store.Load(tt.id)
+			require.Error(t, err)
+			assert.ErrorIs(t, err, session.ErrInvalidID)
+		})
+	}
+}
+
+func TestStore_LoadValidIDFormats(t *testing.T) {
+	dir := t.TempDir()
+	store := session.NewStore(dir)
+
+	tests := []struct {
+		name string
+		id   string
+	}{
+		{name: "simple alphanumeric", id: "abc123"},
+		{name: "uuid format", id: "550e8400-e29b-41d4-a716-446655440000"},
+		{name: "hex string", id: "deadbeef"},
+		{name: "mixed case", id: "AbCdEf123"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sess := &session.Session{
+				Version:       "1",
+				ID:            tt.id,
+				Date:          "2026-02-14",
+				Started:       time.Date(2026, 2, 14, 10, 0, 0, 0, time.UTC),
+				Ended:         time.Time{},
+				Title:         "Test " + tt.id,
+				Summary:       "",
+				ToolsUsed:     nil,
+				FilesModified: nil,
+				MessageCount:  0,
+			}
+			require.NoError(t, store.Save(sess))
+
+			loaded, err := store.Load(tt.id)
+			require.NoError(t, err)
+			assert.Equal(t, tt.id, loaded.ID)
+		})
+	}
 }

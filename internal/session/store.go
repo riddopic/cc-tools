@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -34,12 +35,19 @@ type Store struct {
 	dir string
 }
 
+// validSessionID matches alphanumeric characters and hyphens only.
+// Claude Code uses UUID-format session IDs, so this safely covers all
+// legitimate values while rejecting glob metacharacters and path separators.
+var validSessionID = regexp.MustCompile(`^[a-zA-Z0-9-]+$`)
+
 // Sentinel errors for session operations.
 var (
 	// ErrNotFound indicates the requested session was not found.
 	ErrNotFound = errors.New("session not found")
 	// ErrEmptyID indicates an empty session ID was provided.
 	ErrEmptyID = errors.New("session ID must not be empty")
+	// ErrInvalidID indicates the session ID contains invalid characters.
+	ErrInvalidID = errors.New("session ID contains invalid characters")
 )
 
 // NewStore creates a new Store rooted at the given directory.
@@ -75,24 +83,38 @@ func (s *Store) Save(session *Session) error {
 	return nil
 }
 
-// Load retrieves a session by its ID using glob matching.
+// Load retrieves a session by its ID using exact suffix matching.
 func (s *Store) Load(id string) (*Session, error) {
 	if id == "" {
 		return nil, ErrEmptyID
 	}
 
-	pattern := filepath.Join(s.dir, "*-"+id+".json")
+	if !validSessionID.MatchString(id) {
+		return nil, fmt.Errorf("%w: %s", ErrInvalidID, id)
+	}
 
-	matches, err := filepath.Glob(pattern)
+	suffix := "-" + id + ".json"
+
+	entries, err := os.ReadDir(s.dir)
 	if err != nil {
-		return nil, fmt.Errorf("glob session files: %w", err)
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
+		}
+
+		return nil, fmt.Errorf("read session directory: %w", err)
 	}
 
-	if len(matches) == 0 {
-		return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		if strings.HasSuffix(entry.Name(), suffix) {
+			return s.readSessionFile(filepath.Join(s.dir, entry.Name()))
+		}
 	}
 
-	return s.readSessionFile(matches[0])
+	return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
 }
 
 // List returns the most recent sessions, limited by count.
