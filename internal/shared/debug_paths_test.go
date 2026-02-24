@@ -1,6 +1,8 @@
 package shared_test
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -64,6 +66,8 @@ func assertValidHexHash(t *testing.T, got string) {
 }
 
 func TestGetDebugLogPathForDir(t *testing.T) {
+	tempPrefix := filepath.Join(os.TempDir(), "cc-tools-") //nolint:usetesting // verifying production os.TempDir usage
+
 	tests := []struct {
 		name         string
 		dir          string
@@ -75,49 +79,49 @@ func TestGetDebugLogPathForDir(t *testing.T) {
 			name:         "normal directory path",
 			dir:          "/home/user/projects/myapp",
 			wantContains: []string{"projects-myapp"},
-			wantPrefix:   "/tmp/cc-tools-",
+			wantPrefix:   tempPrefix,
 			wantSuffix:   ".debug",
 		},
 		{
 			name:         "single directory",
 			dir:          "/tmp",
 			wantContains: []string{"-tmp-"},
-			wantPrefix:   "/tmp/cc-tools-",
+			wantPrefix:   tempPrefix,
 			wantSuffix:   ".debug",
 		},
 		{
 			name:         "deep nested path",
 			dir:          "/very/deep/nested/directory/structure/here",
 			wantContains: []string{"structure-here"},
-			wantPrefix:   "/tmp/cc-tools-",
+			wantPrefix:   tempPrefix,
 			wantSuffix:   ".debug",
 		},
 		{
 			name:         "path with spaces",
 			dir:          "/home/user/my projects/app name",
 			wantContains: []string{"my_projects-app_name"},
-			wantPrefix:   "/tmp/cc-tools-",
+			wantPrefix:   tempPrefix,
 			wantSuffix:   ".debug",
 		},
 		{
 			name:         "root directory",
 			dir:          "/",
 			wantContains: []string{"root"},
-			wantPrefix:   "/tmp/cc-tools-",
+			wantPrefix:   tempPrefix,
 			wantSuffix:   ".debug",
 		},
 		{
 			name:         "empty parts after root",
 			dir:          "//",
 			wantContains: []string{"root"},
-			wantPrefix:   "/tmp/cc-tools-",
+			wantPrefix:   tempPrefix,
 			wantSuffix:   ".debug",
 		},
 		{
 			name:         "trailing slash",
 			dir:          "/home/user/project/",
 			wantContains: []string{"user-project"},
-			wantPrefix:   "/tmp/cc-tools-",
+			wantPrefix:   tempPrefix,
 			wantSuffix:   ".debug",
 		},
 	}
@@ -155,11 +159,34 @@ func TestGetDebugLogPathForDirConsistency(t *testing.T) {
 	}
 }
 
+func TestGetDebugLogPathForDirTrailingSlashNormalization(t *testing.T) {
+	// Paths with and without trailing slash should produce the same debug path
+	// because filepath.Clean normalizes them before hashing.
+	path1 := shared.GetDebugLogPathForDir("/foo/bar")
+	path2 := shared.GetDebugLogPathForDir("/foo/bar/")
+
+	if path1 != path2 {
+		t.Errorf("trailing slash produced different paths:\n  /foo/bar  -> %s\n  /foo/bar/ -> %s", path1, path2)
+	}
+}
+
+func TestGetDebugLogPathForDirUsesOSTempDir(t *testing.T) {
+	// The returned path should start with os.TempDir(), not a hardcoded "/tmp".
+	path := shared.GetDebugLogPathForDir("/home/user/project")
+	tempDir := os.TempDir() //nolint:usetesting // verifying production os.TempDir usage
+
+	if !strings.HasPrefix(path, tempDir) {
+		t.Errorf("path %q does not start with os.TempDir() %q", path, tempDir)
+	}
+}
+
 func TestGetDebugLogPathForDirEdgeCases(t *testing.T) {
+	tempPrefix := filepath.Join(os.TempDir(), "cc-tools-") //nolint:usetesting // verifying production os.TempDir usage
+
 	// Test with relative path (should still work).
 	path := shared.GetDebugLogPathForDir("relative/path")
-	if !strings.HasPrefix(path, "/tmp/cc-tools-") || !strings.HasSuffix(path, ".debug") {
-		t.Errorf("with relative path = %v, want /tmp/cc-tools-*.debug", path)
+	if !strings.HasPrefix(path, tempPrefix) || !strings.HasSuffix(path, ".debug") {
+		t.Errorf("with relative path = %v, want %s*.debug", path, tempPrefix)
 	}
 
 	// Test with path containing multiple slashes.
@@ -171,7 +198,7 @@ func TestGetDebugLogPathForDirEdgeCases(t *testing.T) {
 	// Test with very long directory name.
 	longName := strings.Repeat("a", 100) + "/" + strings.Repeat("b", 100)
 	path3 := shared.GetDebugLogPathForDir(longName)
-	if !strings.HasPrefix(path3, "/tmp/cc-tools-") || !strings.HasSuffix(path3, ".debug") {
-		t.Errorf("with long name = %v, want /tmp/cc-tools-*.debug", path3)
+	if !strings.HasPrefix(path3, tempPrefix) || !strings.HasSuffix(path3, ".debug") {
+		t.Errorf("with long name = %v, want %s*.debug", path3, tempPrefix)
 	}
 }

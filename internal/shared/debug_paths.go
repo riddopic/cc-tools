@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -41,9 +42,9 @@ func GetDebugLogPathForDir(dir string) string {
 	namePart = strings.ReplaceAll(namePart, "/", "-")
 	namePart = strings.ReplaceAll(namePart, " ", "_")
 
-	// Add a short hash of the full path to ensure uniqueness
-	hash := sha256.Sum256([]byte(dir))
+	// Add a short hash of the cleaned path to ensure uniqueness
+	hash := sha256.Sum256([]byte(cleanPath))
 	hashStr := hex.EncodeToString(hash[:4]) // Just first 4 bytes for brevity
 
-	return fmt.Sprintf("/tmp/cc-tools-%s-%s.debug", namePart, hashStr)
+	return filepath.Join(os.TempDir(), fmt.Sprintf("cc-tools-%s-%s.debug", namePart, hashStr))
 }
