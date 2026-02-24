@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-02-24
+
+### Added
+
+- Instinct command group (`cc-tools instinct`) with status, export, import, and evolve subcommands
+- File-based instinct store with list, get, save, and delete operations
+- Confidence scoring and decay for instincts
+- Instinct types and YAML frontmatter parser
+- YAML and JSON instinct export formats
+- Instinct configuration keys and defaults
+- Import, Evolve, and Export functions in instinct package
+- ToolOutput and Error fields in observe events, passed through ObserveHandler
+- Skill-audit infrastructure for evidence-based skill quality evaluation
+
+### Fixed
+
+- Stale skill references across commands and skills updated to current names
+
+### Changed
+
+- Consolidated skills and updated loading policy based on SkillsBench research
+- Trimmed CLAUDE.md and rules based on AGENTS.md research findings
+- Trimmed 15 skills from Comprehensive to Detailed/Compact format
+- Merged coding-philosophy and review-verification-protocol into parent skills
+- Simplified instinct command by delegating to internal/instinct package
+- Rewrote codex-review skill addressing 24 review findings
+- Updated instinct commands to use `cc-tools instinct` instead of Python/Bash scripts
+- Removed redundant observe.sh hooks from settings.json
+- Removed obsolete Python/Bash instinct scripts
+- Removed obsolete PRP workflow commands
+
+### Other
+
+- Diataxis-structured documentation added with updated README
+- Skill lifecycle checklist from audit learnings
+- Instinct migration design and implementation plan
+- Updated spellcheck dictionary and test alignment
+- 1210 tests with race detector coverage
+
 ## [0.1.1] - 2026-02-23
 
 ### Added
@@ -75,6 +114,7 @@ Initial release of cc-tools, a CLI companion for Claude Code.
 - Mockery v3.5 mock generation for all interfaces
 - Architecture design docs and implementation plans
 
-[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/riddopic/cc-tools/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/riddopic/cc-tools/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/riddopic/cc-tools/commits/v0.1.0
