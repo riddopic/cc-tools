@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -108,24 +109,42 @@ func newInstinctEvolveCmd() *cobra.Command {
 		Short:   "Analyze instinct clusters and suggest skill/command/agent candidates",
 		Example: "  cc-tools instinct evolve",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			store := newInstinctStore()
-			cfg := config.GetDefaultConfig()
+			cfg := loadInstinctConfig()
+			store := newInstinctStoreFromConfig(cfg)
 			return runInstinctEvolve(os.Stdout, store, cfg.Instinct.ClusterThreshold)
 		},
 	}
 }
 
-// newInstinctStore creates a FileStore using configured paths.
-func newInstinctStore() *instinct.FileStore {
-	cfg := config.GetDefaultConfig()
+// loadInstinctConfig resolves runtime config via the manager, falling back to
+// defaults if the config file cannot be loaded.
+func loadInstinctConfig() *config.Values {
+	mgr := config.NewManager()
+
+	cfg, err := mgr.GetConfig(context.Background())
+	if err != nil {
+		return config.GetDefaultConfig()
+	}
+
+	return cfg
+}
+
+// newInstinctStoreFromConfig creates a FileStore using the given config values.
+func newInstinctStoreFromConfig(cfg *config.Values) *instinct.FileStore {
 	personalPath := expandTilde(cfg.Instinct.PersonalPath)
 	inheritedPath := expandTilde(cfg.Instinct.InheritedPath)
 	return instinct.NewFileStore(personalPath, inheritedPath)
 }
 
+// newInstinctStore creates a FileStore using configured paths.
+func newInstinctStore() *instinct.FileStore {
+	cfg := loadInstinctConfig()
+	return newInstinctStoreFromConfig(cfg)
+}
+
 // newInheritedStore creates a FileStore that writes to the inherited directory.
 func newInheritedStore() *instinct.FileStore {
-	cfg := config.GetDefaultConfig()
+	cfg := loadInstinctConfig()
 	inheritedPath := expandTilde(cfg.Instinct.InheritedPath)
 	return instinct.NewFileStore(inheritedPath, "")
 }
