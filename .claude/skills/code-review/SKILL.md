@@ -3,41 +3,93 @@ name: code-review
 description: Apply code review standards. Use when reviewing code, evaluating pull requests, or checking code quality before commits. Covers Go idioms, testing patterns, security, and project standards.
 ---
 
-# Code Review Standards
+# Code Review Process
 
-## Pre-Commit Checklist
+How to review code effectively. Coding conventions are in `.claude/rules/` (coding-style.md, testing.md, security.md) — this skill focuses on the review workflow and judgment calls.
 
-```bash
-task pre-commit         # Or: task check (fmt + lint + test-race)
-```
+## Review Workflow
 
-- [ ] Code passes formatting: `task fmt`
-- [ ] No linter warnings: `task lint`
-- [ ] All tests pass: `task test`
-- [ ] Race detector passes: `task test-race`
+1. Run `task pre-commit` (or `task check`) to catch mechanical issues first
+2. Apply the checklists below for issues automation cannot catch
+3. Follow the verification protocol below before reporting any findings
 
-## Go Code Review Checklist
+## Pre-Report Verification Checklist
 
-- [ ] All errors checked and wrapped with context (`fmt.Errorf("...: %w", err)`)
-- [ ] Resources closed with `defer` immediately after creation
+Before flagging ANY issue, verify:
+
+- [ ] **I read the actual code** — Not just the diff context, but the full function
+- [ ] **I searched for usages** — Before claiming "unused", searched all references
+- [ ] **I checked surrounding code** — The issue may be handled elsewhere
+- [ ] **I verified syntax against current docs** — Library syntax evolves
+- [ ] **I distinguished "wrong" from "different style"** — Both approaches may be valid
+- [ ] **I considered intentional design** — Checked comments, CLAUDE.md, architectural context
+
+## Judgment-Based Review Checklist
+
+Issues that require judgment beyond what linters catch:
+
 - [ ] No goroutine leaks (channels closed, contexts canceled)
 - [ ] Interfaces defined by consumers, small (1-2 methods)
-- [ ] Context passed as first parameter
-- [ ] Mutexes protect shared state
-- [ ] Functions under 50 lines, single responsibility
-- [ ] Early returns reduce nesting
-- [ ] No commented-out code, no TODO without issue reference
-
-## Go Test Review Checklist
-
-- [ ] Tests are table-driven with clear case names
+- [ ] Mutexes protect shared state correctly
+- [ ] Functions have single responsibility
+- [ ] Resources closed with `defer` immediately after creation
 - [ ] Test names describe behavior, not implementation
 - [ ] Error messages include input, got, and want
 - [ ] Parallel tests don't share mutable state
-- [ ] Cleanup registered with `t.Cleanup`
-- [ ] Tests verify behavior, not implementation details
-- [ ] Coverage includes edge cases and error paths
-- [ ] Coverage ≥80% for new code
+
+## Verification by Issue Type
+
+### "Unused Variable/Function"
+
+Before flagging, you MUST:
+1. Search for ALL references in the codebase (use `rg` for exact matches)
+2. Check if it's exported and used by external consumers
+3. Check if it's used via reflection or interface satisfaction
+4. Verify it's not a callback passed to a framework
+
+### "Missing Validation/Error Handling"
+
+Before flagging, you MUST:
+1. Check if validation exists at a higher level (caller, middleware)
+2. Check if the type system already enforces constraints
+3. Verify the "missing" check isn't present in a different form
+
+### "Type Assertion/Unsafe Cast"
+
+Before flagging, you MUST:
+1. Confirm the assertion is actually unsafe, not guarded by a type switch
+2. Check if the interface value is narrowed by runtime checks
+3. Verify if the caller guarantees the concrete type
+
+Valid patterns often flagged incorrectly:
+```go
+// Type switch makes each branch safe
+switch v := val.(type) {
+case string:
+    fmt.Println(v)
+}
+
+// Comma-ok pattern handles the failure case
+if s, ok := val.(string); ok {
+    fmt.Println(s)
+}
+```
+
+### "Potential Memory Leak/Race Condition"
+
+Before flagging, you MUST:
+1. Verify cleanup is actually missing (not in a defer or different location)
+2. Check if context cancellation is propagated correctly
+3. Confirm the goroutine can actually outlive its parent scope
+
+## Severity Calibration
+
+| Severity | Use For |
+|----------|---------|
+| **Critical** (block merge) | Security vulnerabilities, data corruption, crash-causing bugs, breaking API changes |
+| **Major** (should fix) | Logic bugs, missing error handling causing poor UX, measurable performance issues |
+| **Minor** (consider) | Code clarity, documentation gaps, non-critical test coverage |
+| **Do NOT flag** | Style preferences, unmeasurable optimizations, test code simplicity, generated code |
 
 ## Valid Patterns (Do NOT Flag)
 
@@ -45,6 +97,8 @@ task pre-commit         # Or: task check (fmt + lint + test-race)
 - `//nolint` directives with explanation
 - Channel without close when consumer stops via context cancellation
 - Naked returns in functions < 5 lines with named returns
+- `+?` lazy quantifier in regex — prevents over-matching
+- Multiple returns in function — can improve readability
 
 ## Context-Sensitive Rules
 
@@ -54,6 +108,7 @@ task pre-commit         # Or: task check (fmt + lint + test-race)
 | Goroutine leak | No context cancellation path exists |
 | Missing defer | Resource isn't explicitly closed before next acquisition or return |
 | Interface pollution | Interface has > 1 method AND only one consumer |
+| Missing try/catch | No error boundary at higher level AND crash would result |
 
 ## Red Flags — Stop and Address
 
@@ -71,6 +126,11 @@ task pre-commit         # Or: task check (fmt + lint + test-race)
 4. **Is it testable?** (TDD requirement)
 5. **Would I understand this in 6 months?**
 
-## Before Submitting Findings
+## Before Submitting Review
 
-Load and follow `review-verification-protocol` before reporting any issue.
+1. Re-read each finding and ask: "Did I verify this is actually an issue?"
+2. For each finding, can you point to the specific line that proves it?
+3. Would a domain expert agree this is a problem, or is it a style preference?
+4. Does fixing this provide real value, or is it busywork?
+
+If uncertain: remove the finding, mark as a question, or read more context.

@@ -12,19 +12,19 @@ Apply these standards when writing or reviewing Go code in this project.
 | Principle | Rule |
 |-----------|------|
 | Interfaces | Accept interfaces, return concrete types |
-| Errors | Errors are values - handle explicitly with context wrapping |
+| Errors | Errors are values — handle explicitly with context wrapping |
 | Functions | Keep under 50 lines, use early returns |
-| Receivers | Be consistent - all pointer or all value |
-| Zero values | Make them useful - types should work without initialization |
+| Receivers | Be consistent — all pointer or all value |
+| Zero values | Make them useful — types should work without initialization |
 
 ## Core Go Idioms
 
-1. **Errors are values** - No exceptions, explicit error handling
-2. **Make zero values useful** - Design types to work without initialization
+1. **Errors are values** — No exceptions, explicit error handling
+2. **Make zero values useful** — Design types to work without initialization
 3. **Accept interfaces, return concrete types**
-4. **Composition over inheritance** - Use embedding and interfaces
-5. **Small interfaces** - One or two methods per interface
-6. **Early returns** - Reduce nesting with guard clauses
+4. **Composition over inheritance** — Use embedding and interfaces
+5. **Small interfaces** — One or two methods per interface
+6. **Early returns** — Reduce nesting with guard clauses
 
 ## Error Handling Pattern
 
@@ -70,6 +70,30 @@ func NewStatusLine(options ...Option) *StatusLine {
 - Preallocate slices when size is known: `make([]T, 0, expectedSize)`
 - Use `strings.Builder` for concatenation
 - Use `sync.Pool` for frequently allocated objects
+
+## LEVER Decision Framework
+
+Before writing new code, apply the LEVER principles:
+
+```
+L - Leverage existing patterns (use what works)
+E - Extend before creating (build on existing)
+V - Verify through reactivity (self-validating systems)
+E - Eliminate duplication (of knowledge, not just code)
+R - Reduce complexity (simplest solution wins)
+```
+
+**Quick decision guide:**
+
+1. **Leverage**: Does the standard library solve this? Does an existing internal package?
+2. **Extend**: Can we extend existing code rather than create new?
+3. **Verify**: Will this be self-validating through reactive patterns?
+4. **Eliminate**: Am I duplicating business knowledge?
+5. **Reduce**: Is this the simplest solution?
+
+> **Tip:** The `search-first` skill provides a systematic workflow for the Leverage step.
+
+**Note**: Duplicate _code_ is acceptable if it represents different _knowledge_.
 
 ## Detailed Standards
 

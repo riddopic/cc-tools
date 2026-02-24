@@ -6,21 +6,19 @@ Guidelines for using specialized agents and skills.
 
 Skills in `.claude/skills/` auto-trigger based on context. Load **2-3 most relevant** per task. Organized by category:
 
-### Core Development (4)
+### Core Development (3)
 
 | Skill | Triggers On |
 | ----- | ----------- |
-| `go-coding-standards` | Writing Go code, reviewing implementations |
+| `go-coding-standards` | Writing Go code, reviewing implementations, LEVER decisions |
 | `tdd-workflow` | Implementing features, fixing bugs (TDD is mandatory) |
 | `testing-patterns` | Writing tests, Mockery v3.5 patterns |
-| `coding-philosophy` | LEVER decisions, build-vs-reuse choices |
 
-### Code Review (2)
+### Code Review (1)
 
 | Skill | Triggers On |
 | ----- | ----------- |
-| `code-review` | Reviewing code, pre-commit checks, Go idioms, test quality |
-| `review-verification-protocol` | Before reporting ANY code review findings |
+| `code-review` | Reviewing code, pre-commit checks, verification protocol |
 
 ### Documentation (6)
 
@@ -52,7 +50,7 @@ Skills in `.claude/skills/` auto-trigger based on context. Load **2-3 most relev
 | `prp-workflow` | Working with PRP workflow patterns |
 | `search-first` | Before writing new code, adding dependencies |
 
-### Analysis & Patterns (5)
+### Analysis & Patterns (6)
 
 | Skill | Triggers On |
 | ----- | ----------- |
@@ -61,6 +59,7 @@ Skills in `.claude/skills/` auto-trigger based on context. Load **2-3 most relev
 | `continuous-learning-v2` | Instinct management via `cc-tools instinct` commands |
 | `recursive-decomposition` | Breaking complex problems into sub-problems |
 | `reviewing-with-codex` | Second opinion on plans from Codex |
+| `skill-audit` | Auditing skill quality, co-loading budget, periodic maintenance |
 
 ### Specialized (1)
 
@@ -99,6 +98,7 @@ Always use parallel execution for independent operations. See the `dispatching-p
 | Large-scale analysis | `recursive-decomposition` skill |
 | Code refactoring | `code-refactoring-expert` agent |
 | Security audit preparation | `audit-context-building` skill → `function-analyzer` agent |
+| Skill quality audit | `skill-audit` skill |
 
 ## Quick Reference
 
