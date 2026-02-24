@@ -60,7 +60,7 @@ Confidence determines how strongly an instinct influences behavior. It is bounde
 **How confidence changes:**
 
 - **Reinforcement** -- when the system observes the pattern again, confidence increases. The base confidence depends on observation count: 3+ observations yield 0.5, 6+ yield 0.7, 11+ yield 0.85.
-- **Decay** -- confidence decreases by `instinct.decay_rate` (default 0.02) for each full week since the instinct's `updated_at` timestamp. Decay is evaluated at read time --- during `status`, `export`, `evolve`, and `import` --- without mutating stored files. This ensures stale instincts gradually lose influence while preserving the original data on disk.
+- **Decay** -- confidence decreases by `instinct.decay_rate` (default 0.02) for each full week since the instinct's `updated_at` timestamp. Decay is evaluated at read time during `status`, `export`, and `evolve` without mutating stored files. During `import`, decay is applied and the decayed values are persisted to the inherited store.
 - **Pruning** -- the system retains at most `instinct.max_instincts` (default 100) instincts. When the limit is reached, the lowest-confidence instincts are removed first.
 
 ### 4. Storage

@@ -146,7 +146,7 @@ Controls the instinct learning system that captures, evolves, and applies behavi
 | `instinct.max_instincts` | int | `100` | Maximum number of instincts to retain |
 | `instinct.cluster_threshold` | int | `3` | Minimum instincts in a cluster for evolve analysis |
 
-Instincts below `min_confidence` are not activated. Those above `auto_approve` are applied without prompting. The `decay_rate` reduces confidence by the configured amount for each full week since the instinct's `updated_at` timestamp. Decay is evaluated at read time (during `status`, `export`, `evolve`, and `import`) without mutating stored files. Instincts that fall below `min_confidence` through decay become candidates for pruning.
+Instincts below `min_confidence` are not activated. Those above `auto_approve` are applied without prompting. The `decay_rate` reduces confidence by the configured amount for each full week since the instinct's `updated_at` timestamp. Decay is evaluated at read time during `status`, `export`, and `evolve` without mutating stored files. During `import`, decay is applied and the decayed values are persisted to the inherited store. Instincts that fall below `min_confidence` through decay become candidates for pruning.
 
 ## File Paths
 
