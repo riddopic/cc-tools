@@ -152,8 +152,8 @@ func (h *ObserveHandler) Handle(_ context.Context, input *hookcmd.HookInput) (*R
 		Phase:      h.phase,
 		ToolName:   input.ToolName,
 		ToolInput:  input.ToolInput,
-		ToolOutput: nil,
-		Error:      "",
+		ToolOutput: input.ToolOutput,
+		Error:      input.Error,
 		SessionID:  input.SessionID,
 	}); err != nil {
 		return nil, fmt.Errorf("record observation: %w", err)

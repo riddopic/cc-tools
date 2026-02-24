@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/riddopic/cc-tools/internal/config"
 	"github.com/riddopic/cc-tools/internal/handler"
 	"github.com/riddopic/cc-tools/internal/hookcmd"
+	"github.com/riddopic/cc-tools/internal/observe"
 )
 
 // newTestConfig returns a config.Values with all fields populated to satisfy
@@ -584,6 +586,81 @@ func TestObserveHandler_EmptyToolInput(t *testing.T) {
 	data, readErr := os.ReadFile(obsFile)
 	require.NoError(t, readErr, "observations file should exist")
 	assert.Contains(t, string(data), "Read")
+}
+
+func TestObserveHandler_PostPhaseRecordsToolOutput(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	obsDir := filepath.Join(tmpDir, "observations")
+
+	cfg := newTestConfig()
+	cfg.Observe.Enabled = true
+	cfg.Observe.MaxFileSizeMB = 10
+
+	h := handler.NewObserveHandler(cfg, "post", handler.WithObserveDir(obsDir))
+
+	toolInput, _ := json.Marshal(map[string]string{"command": "echo hello"})
+	toolOutput := json.RawMessage(`{"stdout":"hello\n","stderr":""}`)
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventPostToolUse,
+		ToolName:      "Bash",
+		ToolInput:     toolInput,
+		ToolOutput:    toolOutput,
+		SessionID:     "post-output-session",
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 0, resp.ExitCode)
+
+	obsFile := filepath.Join(obsDir, "observations.jsonl")
+	data, readErr := os.ReadFile(obsFile)
+	require.NoError(t, readErr, "observations file should exist")
+
+	var event observe.Event
+	require.NoError(t, json.Unmarshal(bytes.TrimSpace(data), &event))
+	assert.Equal(t, "post", event.Phase)
+	assert.JSONEq(t, string(toolOutput), string(event.ToolOutput),
+		"recorded event should contain the tool output")
+	assert.Empty(t, event.Error, "post-phase event should have no error")
+}
+
+func TestObserveHandler_FailurePhaseRecordsError(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	obsDir := filepath.Join(tmpDir, "observations")
+
+	cfg := newTestConfig()
+	cfg.Observe.Enabled = true
+	cfg.Observe.MaxFileSizeMB = 10
+
+	h := handler.NewObserveHandler(cfg, "failure", handler.WithObserveDir(obsDir))
+
+	toolInput, _ := json.Marshal(map[string]string{"command": "rm /protected"})
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventPostToolUseFailure,
+		ToolName:      "Bash",
+		ToolInput:     toolInput,
+		Error:         "permission denied: /protected",
+		SessionID:     "failure-error-session",
+	}
+
+	resp, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 0, resp.ExitCode)
+
+	obsFile := filepath.Join(obsDir, "observations.jsonl")
+	data, readErr := os.ReadFile(obsFile)
+	require.NoError(t, readErr, "observations file should exist")
+
+	var event observe.Event
+	require.NoError(t, json.Unmarshal(bytes.TrimSpace(data), &event))
+	assert.Equal(t, "failure", event.Phase)
+	assert.Equal(t, "permission denied: /protected", event.Error,
+		"recorded event should contain the error string")
+	assert.Nil(t, event.ToolOutput, "failure-phase event should have no tool output")
 }
 
 func TestObserveHandler_ImplementsHandler(t *testing.T) {
