@@ -1,3 +1,5 @@
+//go:build testmode
+
 package handler_test
 
 import (
@@ -22,6 +24,18 @@ func (s *stubHandler) Name() string { return s.name }
 
 func (s *stubHandler) Handle(_ context.Context, _ *hookcmd.HookInput) (*handler.Response, error) {
 	return s.resp, s.err
+}
+
+// panicHandler is a test handler that panics when Handle is called.
+type panicHandler struct {
+	name string
+	msg  string
+}
+
+func (p *panicHandler) Name() string { return p.name }
+
+func (p *panicHandler) Handle(_ context.Context, _ *hookcmd.HookInput) (*handler.Response, error) {
+	panic(p.msg)
 }
 
 func TestRegistry_Dispatch_NoHandlers(t *testing.T) {
@@ -139,4 +153,34 @@ func TestRegistry_Dispatch_NilResponse(t *testing.T) {
 
 	assert.Equal(t, 0, resp.ExitCode)
 	assert.Nil(t, resp.Stdout)
+}
+
+func TestRegistry_Dispatch_PanicRecovery(t *testing.T) {
+	t.Parallel()
+	r := handler.NewRegistry()
+	r.Register(hookcmd.EventPreToolUse,
+		&panicHandler{name: "crasher", msg: "unexpected nil pointer"},
+		&stubHandler{
+			name: "normal",
+			resp: &handler.Response{
+				ExitCode: 0,
+				Stdout: &handler.HookOutput{
+					SystemMessage: "still here",
+				},
+			},
+			err: nil,
+		},
+	)
+
+	input := &hookcmd.HookInput{HookEventName: hookcmd.EventPreToolUse}
+	resp := r.Dispatch(context.Background(), input)
+
+	require.NotNil(t, resp)
+	// The panicking handler's error is captured in stderr.
+	assert.Contains(t, resp.Stderr, "[crasher] error:")
+	assert.Contains(t, resp.Stderr, "panic:")
+	assert.Contains(t, resp.Stderr, "unexpected nil pointer")
+	// The normal handler's response is still included.
+	require.NotNil(t, resp.Stdout)
+	assert.Equal(t, "still here", resp.Stdout.SystemMessage)
 }

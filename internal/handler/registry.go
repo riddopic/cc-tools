@@ -32,7 +32,7 @@ func (r *Registry) Dispatch(ctx context.Context, input *hookcmd.HookInput) *Resp
 
 	merged := &Response{}
 	for _, h := range handlers {
-		resp, err := h.Handle(ctx, input)
+		resp, err := r.dispatchOne(ctx, h, input)
 		if err != nil {
 			merged.Stderr += fmt.Sprintf("[%s] error: %v\n", h.Name(), err)
 
@@ -57,4 +57,20 @@ func (r *Registry) Dispatch(ctx context.Context, input *hookcmd.HookInput) *Resp
 	}
 
 	return merged
+}
+
+// dispatchOne calls a single handler with panic recovery. If the handler
+// panics, the panic value is captured and returned as an error.
+//
+//nolint:nonamedreturns // named returns required for defer/recover to assign err
+func (r *Registry) dispatchOne(
+	ctx context.Context, h Handler, input *hookcmd.HookInput,
+) (resp *Response, err error) {
+	defer func() {
+		if p := recover(); p != nil {
+			err = fmt.Errorf("panic: %v", p)
+		}
+	}()
+
+	return h.Handle(ctx, input)
 }
