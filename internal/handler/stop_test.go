@@ -101,7 +101,7 @@ func TestStopReminderHandler_Handle(t *testing.T) {
 			t.Parallel()
 
 			stateDir := t.TempDir()
-			sessionID := "test-session"
+			sessionID := hookcmd.SessionID("test-session")
 
 			if tt.seedCount > 0 {
 				seedStopCount(t, stateDir, sessionID, tt.seedCount)
@@ -134,7 +134,7 @@ func TestStopReminderHandler_CounterPersistence(t *testing.T) {
 	t.Parallel()
 
 	stateDir := t.TempDir()
-	sessionID := "counter-test"
+	sessionID := hookcmd.SessionID("counter-test")
 	cfg := stopConfig(true, 100, 200)
 	h := handler.NewStopReminderHandler(cfg, handler.WithStopStateDir(stateDir))
 
@@ -147,7 +147,7 @@ func TestStopReminderHandler_CounterPersistence(t *testing.T) {
 	}
 
 	// Verify counter file.
-	counterPath := filepath.Join(stateDir, "stop-"+sessionID+".count")
+	counterPath := filepath.Join(stateDir, "stop-"+string(sessionID)+".count")
 	data, err := os.ReadFile(counterPath)
 	require.NoError(t, err)
 	assert.Equal(t, "3", string(data))
@@ -157,12 +157,12 @@ func TestStopReminderHandler_CorruptCounterFile(t *testing.T) {
 	t.Parallel()
 
 	stateDir := t.TempDir()
-	sessionID := "corrupt-test"
+	sessionID := hookcmd.SessionID("corrupt-test")
 	cfg := stopConfig(true, 100, 200)
 
 	// Write corrupt counter value.
 	err := os.WriteFile(
-		filepath.Join(stateDir, "stop-"+sessionID+".count"),
+		filepath.Join(stateDir, "stop-"+string(sessionID)+".count"),
 		[]byte("not-a-number"),
 		0o600,
 	)
@@ -176,7 +176,7 @@ func TestStopReminderHandler_CorruptCounterFile(t *testing.T) {
 	assert.Empty(t, resp.Stderr)
 
 	// Verify counter was reset to 1 (corrupt treated as 0, then incremented).
-	data, readErr := os.ReadFile(filepath.Join(stateDir, "stop-"+sessionID+".count"))
+	data, readErr := os.ReadFile(filepath.Join(stateDir, "stop-"+string(sessionID)+".count"))
 	require.NoError(t, readErr)
 	assert.Equal(t, "1", string(data))
 }
@@ -185,7 +185,7 @@ func TestStopReminderHandler_IntervalZeroNoReminder(t *testing.T) {
 	t.Parallel()
 
 	stateDir := t.TempDir()
-	sessionID := "zero-interval"
+	sessionID := hookcmd.SessionID("zero-interval")
 	cfg := stopConfig(true, 0, 0)
 	h := handler.NewStopReminderHandler(cfg, handler.WithStopStateDir(stateDir))
 
@@ -205,9 +205,8 @@ func TestStopReminderHandler_CounterPath_SafeSessionID(t *testing.T) {
 	cfg := stopConfig(true, 100, 200)
 	h := handler.NewStopReminderHandler(cfg, handler.WithStopStateDir(stateDir))
 
-	maliciousID := "../traversal"
 	resp, err := h.Handle(context.Background(), &hookcmd.HookInput{
-		SessionID: maliciousID,
+		SessionID: "../traversal",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -240,10 +239,10 @@ func stopConfig(enabled bool, interval, warnAt int) *config.Values {
 	return cfg
 }
 
-func seedStopCount(t *testing.T, stateDir, sessionID string, count int) {
+func seedStopCount(t *testing.T, stateDir string, sessionID hookcmd.SessionID, count int) {
 	t.Helper()
 	err := os.WriteFile(
-		filepath.Join(stateDir, "stop-"+sessionID+".count"),
+		filepath.Join(stateDir, "stop-"+string(sessionID)+".count"),
 		fmt.Appendf(nil, "%d", count),
 		0o600,
 	)

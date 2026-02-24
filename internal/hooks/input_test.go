@@ -214,7 +214,7 @@ func TestJSONMarshaling(t *testing.T) {
 		}
 
 		assertStringField(t, decoded.HookEventName, input.HookEventName, "HookEventName")
-		assertStringField(t, decoded.SessionID, input.SessionID, "SessionID")
+		assertStringField(t, string(decoded.SessionID), string(input.SessionID), "SessionID")
 	})
 }
 

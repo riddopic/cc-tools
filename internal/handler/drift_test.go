@@ -131,7 +131,7 @@ func TestDriftHandler_Handle(t *testing.T) {
 			t.Parallel()
 
 			stateDir := t.TempDir()
-			sessionID := "test-session"
+			sessionID := hookcmd.SessionID("test-session")
 
 			if tt.seedState != nil {
 				seedDriftState(t, stateDir, sessionID, tt.seedState)
@@ -165,7 +165,7 @@ func TestDriftHandler_IntentPersistence(t *testing.T) {
 	t.Parallel()
 
 	stateDir := t.TempDir()
-	sessionID := "persist-test"
+	sessionID := hookcmd.SessionID("persist-test")
 	cfg := driftConfig(true, 6, 0.2)
 	h := handler.NewDriftHandler(cfg, handler.WithDriftStateDir(stateDir))
 
@@ -178,7 +178,7 @@ func TestDriftHandler_IntentPersistence(t *testing.T) {
 	assert.Empty(t, resp.Stderr)
 
 	// Verify state file was created.
-	statePath := filepath.Join(stateDir, "drift-"+sessionID+".json")
+	statePath := filepath.Join(stateDir, "drift-"+string(sessionID)+".json")
 	data, err := os.ReadFile(statePath)
 	require.NoError(t, err)
 
@@ -193,7 +193,7 @@ func TestDriftHandler_PivotResetsState(t *testing.T) {
 	t.Parallel()
 
 	stateDir := t.TempDir()
-	sessionID := "pivot-test"
+	sessionID := hookcmd.SessionID("pivot-test")
 	cfg := driftConfig(true, 2, 0.2)
 	h := handler.NewDriftHandler(cfg, handler.WithDriftStateDir(stateDir))
 
@@ -212,7 +212,7 @@ func TestDriftHandler_PivotResetsState(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify intent was updated.
-	statePath := filepath.Join(stateDir, "drift-"+sessionID+".json")
+	statePath := filepath.Join(stateDir, "drift-"+string(sessionID)+".json")
 	data, err := os.ReadFile(statePath)
 	require.NoError(t, err)
 
@@ -268,7 +268,7 @@ func TestDriftHandler_IntentTruncation(t *testing.T) {
 			t.Parallel()
 
 			stateDir := t.TempDir()
-			sessionID := "truncation-test"
+			sessionID := hookcmd.SessionID("truncation-test")
 			cfg := driftConfig(true, 6, 0.2)
 			h := handler.NewDriftHandler(cfg, handler.WithDriftStateDir(stateDir))
 
@@ -278,7 +278,7 @@ func TestDriftHandler_IntentTruncation(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			statePath := filepath.Join(stateDir, "drift-"+sessionID+".json")
+			statePath := filepath.Join(stateDir, "drift-"+string(sessionID)+".json")
 			data, readErr := os.ReadFile(statePath)
 			require.NoError(t, readErr)
 
@@ -294,12 +294,12 @@ func TestDriftHandler_CorruptStateFile(t *testing.T) {
 	t.Parallel()
 
 	stateDir := t.TempDir()
-	sessionID := "corrupt-test"
+	sessionID := hookcmd.SessionID("corrupt-test")
 	cfg := driftConfig(true, 6, 0.2)
 
 	// Write corrupt JSON to state file.
 	err := os.WriteFile(
-		filepath.Join(stateDir, "drift-"+sessionID+".json"),
+		filepath.Join(stateDir, "drift-"+string(sessionID)+".json"),
 		[]byte("not valid json{{{"),
 		0o600,
 	)
@@ -314,7 +314,7 @@ func TestDriftHandler_CorruptStateFile(t *testing.T) {
 	assert.Empty(t, resp.Stderr)
 
 	// Verify state was re-initialized (corrupt state treated as empty).
-	data, readErr := os.ReadFile(filepath.Join(stateDir, "drift-"+sessionID+".json"))
+	data, readErr := os.ReadFile(filepath.Join(stateDir, "drift-"+string(sessionID)+".json"))
 	require.NoError(t, readErr)
 
 	var state driftTestState
@@ -330,9 +330,8 @@ func TestDriftHandler_StatePath_SafeSessionID(t *testing.T) {
 	cfg := driftConfig(true, 6, 0.2)
 	h := handler.NewDriftHandler(cfg, handler.WithDriftStateDir(stateDir))
 
-	maliciousID := "../traversal"
 	resp, err := h.Handle(context.Background(), &hookcmd.HookInput{
-		SessionID: maliciousID,
+		SessionID: "../traversal",
 		Prompt:    "test prompt for safe session key",
 	})
 	require.NoError(t, err)
@@ -373,12 +372,12 @@ func driftConfig(enabled bool, minEdits int, threshold float64) *config.Values {
 	return cfg
 }
 
-func seedDriftState(t *testing.T, stateDir, sessionID string, state *driftTestState) {
+func seedDriftState(t *testing.T, stateDir string, sessionID hookcmd.SessionID, state *driftTestState) {
 	t.Helper()
 	data, err := json.Marshal(state)
 	require.NoError(t, err)
 	err = os.WriteFile(
-		filepath.Join(stateDir, "drift-"+sessionID+".json"),
+		filepath.Join(stateDir, "drift-"+string(sessionID)+".json"),
 		data,
 		0o600,
 	)

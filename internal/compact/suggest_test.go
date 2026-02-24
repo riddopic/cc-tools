@@ -122,9 +122,8 @@ func TestSuggestor_SafeSessionID(t *testing.T) {
 	stateDir := t.TempDir()
 	s := compact.NewSuggestor(stateDir, 1, 1)
 
-	maliciousID := "../../../etc/passwd"
 	var buf bytes.Buffer
-	s.RecordCall(maliciousID, &buf)
+	s.RecordCall("../../../etc/passwd", &buf)
 
 	// Verify the counter file was created with a safe name inside stateDir.
 	entries, err := os.ReadDir(stateDir)

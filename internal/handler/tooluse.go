@@ -154,7 +154,7 @@ func (h *ObserveHandler) Handle(_ context.Context, input *hookcmd.HookInput) (*R
 		ToolInput:  input.ToolInput,
 		ToolOutput: input.ToolOutput,
 		Error:      input.Error,
-		SessionID:  input.SessionID,
+		SessionID:  string(input.SessionID),
 	}); err != nil {
 		return nil, fmt.Errorf("record observation: %w", err)
 	}

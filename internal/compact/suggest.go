@@ -33,10 +33,10 @@ func NewSuggestor(stateDir string, threshold, reminderInterval int) *Suggestor {
 
 // RecordCall increments the tool call counter for the given session and writes
 // a /compact suggestion to errOut when the threshold or reminder interval is hit.
-func (s *Suggestor) RecordCall(sessionID string, errOut io.Writer) {
-	count := s.readCount(sessionID)
+func (s *Suggestor) RecordCall(id hookcmd.SessionID, errOut io.Writer) {
+	count := s.readCount(id)
 	count++
-	s.writeCount(sessionID, count)
+	s.writeCount(id, count)
 
 	if s.shouldSuggest(count) {
 		fmt.Fprintf(errOut,
@@ -59,12 +59,12 @@ func (s *Suggestor) shouldSuggest(count int) bool {
 	return false
 }
 
-func (s *Suggestor) counterPath(sessionID string) string {
-	return filepath.Join(s.stateDir, "cc-tools-compact-"+hookcmd.FileSafeSessionKey(sessionID)+".count")
+func (s *Suggestor) counterPath(id hookcmd.SessionID) string {
+	return filepath.Join(s.stateDir, "cc-tools-compact-"+id.FileKey()+".count")
 }
 
-func (s *Suggestor) readCount(sessionID string) int {
-	data, err := os.ReadFile(s.counterPath(sessionID)) // #nosec G304 -- path built from stateDir
+func (s *Suggestor) readCount(id hookcmd.SessionID) int {
+	data, err := os.ReadFile(s.counterPath(id)) // #nosec G304 -- path built from stateDir
 	if err != nil {
 		return 0
 	}
@@ -77,12 +77,12 @@ func (s *Suggestor) readCount(sessionID string) int {
 	return count
 }
 
-func (s *Suggestor) writeCount(sessionID string, count int) {
+func (s *Suggestor) writeCount(id hookcmd.SessionID, count int) {
 	// Ensure the state directory exists.
 	_ = os.MkdirAll(s.stateDir, 0o750)
 
 	_ = os.WriteFile(
-		s.counterPath(sessionID),
+		s.counterPath(id),
 		[]byte(strconv.Itoa(count)),
 		0o600,
 	)

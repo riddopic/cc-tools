@@ -89,7 +89,7 @@ func (h *SessionEndHandler) Handle(_ context.Context, input *hookcmd.HookInput) 
 
 	sess := &session.Session{
 		Version:       "1",
-		ID:            input.SessionID,
+		ID:            string(input.SessionID),
 		Date:          now.Format("2006-01-02"),
 		Started:       now,
 		Ended:         now,

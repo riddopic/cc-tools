@@ -134,12 +134,12 @@ func (h *DriftHandler) initIntent(prompt string) *driftState {
 	}
 }
 
-func (h *DriftHandler) statePath(dir, sessionID string) string {
-	return filepath.Join(dir, "drift-"+hookcmd.FileSafeSessionKey(sessionID)+".json")
+func (h *DriftHandler) statePath(dir string, id hookcmd.SessionID) string {
+	return filepath.Join(dir, "drift-"+id.FileKey()+".json")
 }
 
-func (h *DriftHandler) loadState(dir, sessionID string) *driftState {
-	data, err := os.ReadFile(h.statePath(dir, sessionID)) // #nosec G304 -- path built from stateDir
+func (h *DriftHandler) loadState(dir string, id hookcmd.SessionID) *driftState {
+	data, err := os.ReadFile(h.statePath(dir, id)) // #nosec G304 -- path built from stateDir
 	if err != nil {
 		return &driftState{}
 	}
@@ -150,13 +150,13 @@ func (h *DriftHandler) loadState(dir, sessionID string) *driftState {
 	return &state
 }
 
-func (h *DriftHandler) saveState(dir, sessionID string, state *driftState) {
+func (h *DriftHandler) saveState(dir string, id hookcmd.SessionID, state *driftState) {
 	_ = os.MkdirAll(dir, 0o750)
 	data, err := json.Marshal(state)
 	if err != nil {
 		return
 	}
-	_ = os.WriteFile(h.statePath(dir, sessionID), data, 0o600)
+	_ = os.WriteFile(h.statePath(dir, id), data, 0o600)
 }
 
 // firstSentence extracts the first sentence from text, up to maxLen characters.

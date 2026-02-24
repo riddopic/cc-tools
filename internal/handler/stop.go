@@ -107,12 +107,12 @@ func stopReminders() []string {
 	}
 }
 
-func (h *StopReminderHandler) counterPath(dir, sessionID string) string {
-	return filepath.Join(dir, "stop-"+hookcmd.FileSafeSessionKey(sessionID)+".count")
+func (h *StopReminderHandler) counterPath(dir string, id hookcmd.SessionID) string {
+	return filepath.Join(dir, "stop-"+id.FileKey()+".count")
 }
 
-func (h *StopReminderHandler) readCount(dir, sessionID string) int {
-	data, err := os.ReadFile(h.counterPath(dir, sessionID)) // #nosec G304 -- path built from stateDir
+func (h *StopReminderHandler) readCount(dir string, id hookcmd.SessionID) int {
+	data, err := os.ReadFile(h.counterPath(dir, id)) // #nosec G304 -- path built from stateDir
 	if err != nil {
 		return 0
 	}
@@ -125,10 +125,10 @@ func (h *StopReminderHandler) readCount(dir, sessionID string) int {
 	return count
 }
 
-func (h *StopReminderHandler) writeCount(dir, sessionID string, count int) {
+func (h *StopReminderHandler) writeCount(dir string, id hookcmd.SessionID, count int) {
 	_ = os.MkdirAll(dir, 0o750)
 	_ = os.WriteFile(
-		h.counterPath(dir, sessionID),
+		h.counterPath(dir, id),
 		[]byte(strconv.Itoa(count)),
 		0o600,
 	)
