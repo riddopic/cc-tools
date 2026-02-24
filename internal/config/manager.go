@@ -517,26 +517,31 @@ func (m *Manager) ensureDefaults() {
 	if m.config.StopReminder.WarnAt == 0 {
 		m.config.StopReminder.WarnAt = defaults.StopReminder.WarnAt
 	}
-	if m.config.Instinct.PersonalPath == "" {
-		m.config.Instinct.PersonalPath = defaults.Instinct.PersonalPath
+	ensureInstinctDefaults(&m.config.Instinct, &defaults.Instinct)
+}
+
+// ensureInstinctDefaults fills zero-valued instinct fields with defaults.
+func ensureInstinctDefaults(inst, defaults *InstinctValues) {
+	if inst.PersonalPath == "" {
+		inst.PersonalPath = defaults.PersonalPath
 	}
-	if m.config.Instinct.InheritedPath == "" {
-		m.config.Instinct.InheritedPath = defaults.Instinct.InheritedPath
+	if inst.InheritedPath == "" {
+		inst.InheritedPath = defaults.InheritedPath
 	}
-	if m.config.Instinct.MinConfidence == 0 {
-		m.config.Instinct.MinConfidence = defaults.Instinct.MinConfidence
+	if inst.MinConfidence == 0 {
+		inst.MinConfidence = defaults.MinConfidence
 	}
-	if m.config.Instinct.AutoApprove == 0 {
-		m.config.Instinct.AutoApprove = defaults.Instinct.AutoApprove
+	if inst.AutoApprove == 0 {
+		inst.AutoApprove = defaults.AutoApprove
 	}
-	if m.config.Instinct.DecayRate == 0 {
-		m.config.Instinct.DecayRate = defaults.Instinct.DecayRate
+	if inst.DecayRate == 0 {
+		inst.DecayRate = defaults.DecayRate
 	}
-	if m.config.Instinct.MaxInstincts == 0 {
-		m.config.Instinct.MaxInstincts = defaults.Instinct.MaxInstincts
+	if inst.MaxInstincts == 0 {
+		inst.MaxInstincts = defaults.MaxInstincts
 	}
-	if m.config.Instinct.ClusterThreshold == 0 {
-		m.config.Instinct.ClusterThreshold = defaults.Instinct.ClusterThreshold
+	if inst.ClusterThreshold == 0 {
+		inst.ClusterThreshold = defaults.ClusterThreshold
 	}
 }
 

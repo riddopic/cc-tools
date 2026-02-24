@@ -1,30 +1,18 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "DISABLE_TELEMETRY": "1",
+    "DISABLE_ERROR_REPORTING": "1",
+    "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
   "permissions": {
     "allow": [
-      "mcp__Ref",
-      "mcp__serena",
-      "mcp__augments",
       "mcp__sequential-thinking",
-      "mcp__mcp-deepwiki",
-      "mcp__ide",
       "mcp__context7",
-      "mcp__github",
-      "mcp__codex",
       "mcp__firecrawl",
       "WebFetch(domain:github.com)",
-      "WebSearch",
-      "Bash(make lint:*)",
-      "Bash(make test:*)",
-      "Bash(make test-integration:*)",
-      "Bash(make test-race:*)",
-      "Bash(while read f)",
-      "Bash(done)",
-      "Bash(source:*)",
-      "Bash(chmod:*)",
-      "Bash(./scripts/validate_contracts.sh:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "WebFetch(domain:docs.anthropic.com)"
     ],
     "deny": [
       "Read(./NOTES.md)",
@@ -34,6 +22,7 @@
   },
   "enableAllProjectMcpServers": true,
   "alwaysThinkingEnabled": true,
+  "includeCoAuthoredBy": false,
   "enabledMcpjsonServers": [
     "sequential-thinking",
     "memory"
@@ -46,10 +35,6 @@
           {
             "type": "command",
             "command": "cc-tools hook"
-          },
-          {
-            "type": "command",
-            "command": ".claude/skills/continuous-learning-v2/hooks/observe.sh pre"
           }
         ]
       }
@@ -70,10 +55,6 @@
           {
             "type": "command",
             "command": "cc-tools hook"
-          },
-          {
-            "type": "command",
-            "command": ".claude/skills/continuous-learning-v2/hooks/observe.sh post"
           }
         ]
       }
