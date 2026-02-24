@@ -1,0 +1,320 @@
+{
+  "mode": "full",
+  "batch_progress": {
+    "total": 33,
+    "evaluated": 33,
+    "status": "completed"
+  },
+  "skill_budget": {
+    "task_classes": {
+      "writing-go-code": {
+        "skills": [
+          "go-coding-standards",
+          "tdd-workflow",
+          "testing-patterns",
+          "coding-philosophy"
+        ],
+        "count": 4,
+        "status": "over_budget",
+        "recommendation": "Merge coding-philosophy (57 lines, LEVER decisions) into go-coding-standards as a short section to reduce from 4 to 3 skills"
+      },
+      "code-review-go": {
+        "skills": [
+          "code-review",
+          "review-verification-protocol",
+          "go-coding-standards",
+          "testing-patterns"
+        ],
+        "count": 4,
+        "status": "over_budget",
+        "recommendation": "Merge review-verification-protocol into code-review to reduce Code Review category from 2 to 1 skill, bringing co-load to 3"
+      },
+      "writing-tutorial-docs": {
+        "skills": [
+          "docs-style",
+          "tutorial-docs",
+          "writing-clearly-and-concisely"
+        ],
+        "count": 3,
+        "status": "ok"
+      },
+      "writing-howto-docs": {
+        "skills": [
+          "docs-style",
+          "howto-docs",
+          "writing-clearly-and-concisely"
+        ],
+        "count": 3,
+        "status": "ok"
+      },
+      "writing-explanation-docs": {
+        "skills": [
+          "docs-style",
+          "explanation-docs",
+          "writing-clearly-and-concisely"
+        ],
+        "count": 3,
+        "status": "ok"
+      },
+      "writing-reference-docs": {
+        "skills": [
+          "docs-style",
+          "reference-docs",
+          "writing-clearly-and-concisely"
+        ],
+        "count": 3,
+        "status": "ok"
+      },
+      "debugging": {
+        "skills": [
+          "systematic-debugging",
+          "tdd-workflow"
+        ],
+        "count": 2,
+        "status": "ok"
+      },
+      "feature-design": {
+        "skills": [
+          "brainstorming",
+          "writing-plans"
+        ],
+        "count": 2,
+        "status": "ok"
+      },
+      "plan-execution": {
+        "skills": [
+          "executing-plans",
+          "subagent-driven-development"
+        ],
+        "count": 2,
+        "status": "ok"
+      },
+      "completing-work": {
+        "skills": [
+          "verification-before-completion",
+          "requesting-code-review"
+        ],
+        "count": 2,
+        "status": "ok"
+      },
+      "prp-workflow": {
+        "skills": [
+          "prp-workflow",
+          "executing-plans",
+          "verification-before-completion"
+        ],
+        "count": 3,
+        "status": "ok"
+      },
+      "git-operations": {
+        "skills": [
+          "commit",
+          "using-git-worktrees"
+        ],
+        "count": 2,
+        "status": "ok"
+      }
+    }
+  },
+  "skills": {
+    "audit-context-building": {
+      "path": "~/git/cc-tools/.claude/skills/audit-context-building/SKILL.md",
+      "verdict": "Improve",
+      "reason": "324 lines (Comprehensive format, -2.9pp penalty); generic code analysis patterns (L120-220) duplicate model pretraining; trim to ~120 lines by keeping only the per-function deep-dive workflow which is unique procedural value",
+      "mtime": "2026-02-23T02:38:44Z"
+    },
+    "brainstorming": {
+      "path": "~/git/cc-tools/.claude/skills/brainstorming/SKILL.md",
+      "verdict": "Keep",
+      "reason": "101 lines (Detailed format); procedural flow with hard gate preventing premature implementation; unique creative-to-design workflow with checklist; strong pretraining gap — models don't naturally enforce design-before-code discipline",
+      "mtime": "2026-02-13T09:43:15Z"
+    },
+    "code-review": {
+      "path": "~/git/cc-tools/.claude/skills/code-review/SKILL.md",
+      "verdict": "Improve",
+      "reason": "77 lines (Compact); some conventions overlap with rules/coding-style.md; trim duplicated rules references (~10 lines); also a skill budget concern — consider absorbing review-verification-protocol to keep code-review task class at 3 skills",
+      "mtime": "2026-02-24T01:18:07Z"
+    },
+    "coding-philosophy": {
+      "path": "~/git/cc-tools/.claude/skills/coding-philosophy/SKILL.md",
+      "verdict": "Keep",
+      "reason": "57 lines (Compact); LEVER framework and build-vs-reuse heuristics are project-specific procedural knowledge; skill budget concern — co-loads as 4th skill in 'writing Go code' task class; recommend merging into go-coding-standards as a LEVER section",
+      "mtime": "2026-02-24T01:18:30Z"
+    },
+    "commit": {
+      "path": "~/git/cc-tools/.claude/skills/commit/SKILL.md",
+      "verdict": "Keep",
+      "reason": "50 lines (Compact); atomic commit workflow with project-specific task fmt/lint/test commands; procedural steps with conventional commit format; unique to this project's toolchain",
+      "mtime": "2026-02-13T14:28:38Z"
+    },
+    "continuous-learning-v2": {
+      "path": "~/git/cc-tools/.claude/skills/continuous-learning-v2/SKILL.md",
+      "verdict": "Improve",
+      "reason": "172 lines (Detailed); 'How It Works' ASCII diagram (L49-87, ~38 lines) and 'Confidence Scoring' table explain internals rather than provide procedural guidance; trim encyclopedic content to focus on Quick Start commands and configuration; target ~90 lines",
+      "mtime": "2026-02-24T03:36:37Z"
+    },
+    "dispatching-parallel-agents": {
+      "path": "~/git/cc-tools/.claude/skills/dispatching-parallel-agents/SKILL.md",
+      "verdict": "Improve",
+      "reason": "220 lines (Comprehensive); three full worked examples is encyclopedic; keep 1 example + the decision flowchart + dispatch rules; remove 2 redundant examples (~80 lines); target ~120 lines",
+      "mtime": "2026-02-13T09:43:15Z"
+    },
+    "docs-style": {
+      "path": "~/git/cc-tools/.claude/skills/docs-style/SKILL.md",
+      "verdict": "Improve",
+      "reason": "379 lines (Comprehensive, -2.9pp penalty); Voice Examples section (~80 lines) and Formatting Deep Dive (~100 lines) are encyclopedic; keep core voice/tone rules and Diataxis mapping; target ~100 lines",
+      "mtime": "2026-02-13T14:28:38Z"
+    },
+    "executing-plans": {
+      "path": "~/git/cc-tools/.claude/skills/executing-plans/SKILL.md",
+      "verdict": "Keep",
+      "reason": "85 lines (Detailed); stepwise plan execution with checkpoint and validation flow; procedural with clear decision points; unique workflow not covered by other skills",
+      "mtime": "2026-02-13T09:43:15Z"
+    },
+    "explanation-docs": {
+      "path": "~/git/cc-tools/.claude/skills/explanation-docs/SKILL.md",
+      "verdict": "Improve",
+      "reason": "536 lines (Comprehensive, severe -2.9pp penalty); example articles (~200 lines) and framework comparison section (~80 lines) are encyclopedic padding; keep the Diataxis explanation template and structural guidance; target ~100 lines",
+      "mtime": "2026-02-24T01:31:23Z"
+    },
+    "finishing-a-development-branch": {
+      "path": "~/git/cc-tools/.claude/skills/finishing-a-development-branch/SKILL.md",
+      "verdict": "Improve",
+      "reason": "200 lines (Detailed, borderline Comprehensive); 'Red Flags' and 'Common Mistakes' sections have overlapping content; consolidate into single 'Pitfalls' section to save ~30 lines; target ~170 lines",
+      "mtime": "2026-02-13T09:43:15Z"
+    },
+    "go-coding-standards": {
+      "path": "~/git/cc-tools/.claude/skills/go-coding-standards/SKILL.md",
+      "verdict": "Keep",
+      "reason": "79 lines (Detailed); project-specific Go conventions including import ordering, error wrapping patterns, function length limits; unique to this project's codebase; not replaceable by model pretraining",
+      "mtime": "2026-02-13T14:28:38Z"
+    },
+    "howto-docs": {
+      "path": "~/git/cc-tools/.claude/skills/howto-docs/SKILL.md",
+      "verdict": "Improve",
+      "reason": "409 lines (Comprehensive, -2.9pp penalty); full worked examples (~150 lines) are encyclopedic; keep the how-to template and prerequisite checklist; target ~120 lines",
+      "mtime": "2026-02-13T14:28:38Z"
+    },
+    "prp-workflow": {
+      "path": "~/git/cc-tools/.claude/skills/prp-workflow/SKILL.md",
+      "verdict": "Improve",
+      "reason": "130 lines (Detailed); references deleted commands (evaluate-prp-task, execute-prp, fix-prp) that no longer exist in .claude/commands/; update or remove stale command references to prevent confusion",
+      "mtime": "2026-02-24T01:31:23Z"
+    },
+    "receiving-code-review": {
+      "path": "~/git/cc-tools/.claude/skills/receiving-code-review/SKILL.md",
+      "verdict": "Keep",
+      "reason": "213 lines (Detailed, borderline Comprehensive); procedural workflow for processing review feedback with verification steps; unique value in systematic review response protocol; strong pretraining gap — models tend to blindly agree with reviews",
+      "mtime": "2026-02-13T09:43:15Z"
+    },
+    "recursive-decomposition": {
+      "path": "~/git/cc-tools/.claude/skills/recursive-decomposition/SKILL.md",
+      "verdict": "Keep",
+      "reason": "186 lines (Detailed); decomposition algorithm with decision tree for context-exceeding tasks; strong pretraining gap — models don't naturally break problems into recursive self-invocations; based on RLM research (Zhang, Kraska, Khattab 2025)",
+      "mtime": "2026-02-13T09:43:15Z"
+    },
+    "reference-docs": {
+      "path": "~/git/cc-tools/.claude/skills/reference-docs/SKILL.md",
+      "verdict": "Improve",
+      "reason": "386 lines (Comprehensive, -2.9pp penalty); full example reference pages (~150 lines) are encyclopedic padding; keep the template structure and godoc conventions; target ~100 lines",
+      "mtime": "2026-02-13T14:28:38Z"
+    },
+    "requesting-code-review": {
+      "path": "~/git/cc-tools/.claude/skills/requesting-code-review/SKILL.md",
+      "verdict": "Keep",
+      "reason": "105 lines (Detailed); pre-commit quality checklist specific to this project's task commands (task fmt, lint, test); procedural with clear verification steps",
+      "mtime": "2026-02-13T09:43:15Z"
+    },
+    "review-verification-protocol": {
+      "path": "~/git/cc-tools/.claude/skills/review-verification-protocol/SKILL.md",
+      "verdict": "Improve",
+      "reason": "201 lines (Detailed); contains TypeScript/React false-positive patterns irrelevant to this Go-only project (~60 lines); remove non-Go content; target ~135 lines; skill budget concern — consider merging into code-review to reduce Code Review co-loading from 4 to 3",
+      "mtime": "2026-02-13T09:43:15Z"
+    },
+    "reviewing-with-codex": {
+      "path": "~/git/cc-tools/.claude/skills/reviewing-with-codex/SKILL.md",
+      "verdict": "Keep",
+      "reason": "172 lines (Detailed); gpt-5.3-codex model reference verified current (GA Feb 2026); unique multi-round review workflow with session persistence; strong pretraining gap — iterative external review protocol with verdict tracking not standard model behavior",
+      "mtime": "2026-02-23T10:05:21Z"
+    },
+    "search-first": {
+      "path": "~/git/cc-tools/.claude/skills/search-first/SKILL.md",
+      "verdict": "Keep",
+      "reason": "179 lines (Detailed); research-before-coding workflow with specific codebase-search patterns; fills pretraining gap for code reuse discipline — models default to writing new code rather than searching existing patterns",
+      "mtime": "2026-02-23T01:15:14Z"
+    },
+    "skill-audit": {
+      "path": "~/git/cc-tools/.claude/skills/skill-audit/SKILL.md",
+      "verdict": "Improve",
+      "reason": "227 lines (Detailed, borderline Comprehensive); Results File Schema section (~30 lines) and Notes section (~10 lines) could be trimmed; the skill documents its own evidence base well; target ~160 lines",
+      "mtime": "2026-02-24T03:54:11Z"
+    },
+    "subagent-driven-development": {
+      "path": "~/git/cc-tools/.claude/skills/subagent-driven-development/SKILL.md",
+      "verdict": "Improve",
+      "reason": "242 lines (Comprehensive); detailed Team workflow example (~60 lines) overlaps with dispatching-parallel-agents; trim to focus on session-local subagent coordination which is its unique value; target ~160 lines",
+      "mtime": "2026-02-24T01:31:20Z"
+    },
+    "systematic-debugging": {
+      "path": "~/git/cc-tools/.claude/skills/systematic-debugging/SKILL.md",
+      "verdict": "Improve",
+      "reason": "326 lines (Comprehensive, -2.9pp penalty); 'Common Debugging Scenarios' section (~80 lines) is encyclopedic reference material; keep the hypothesis-driven debugging flowchart and evidence-gathering protocol; target ~220 lines",
+      "mtime": "2026-02-13T14:28:38Z"
+    },
+    "tdd-workflow": {
+      "path": "~/git/cc-tools/.claude/skills/tdd-workflow/SKILL.md",
+      "verdict": "Keep",
+      "reason": "98 lines (Detailed); Red-Green-Refactor with project-specific commands (gotestsum, -tags=testmode); mandatory workflow in this project; procedural with clear phase transitions",
+      "mtime": "2026-02-24T01:17:40Z"
+    },
+    "testing-patterns": {
+      "path": "~/git/cc-tools/.claude/skills/testing-patterns/SKILL.md",
+      "verdict": "Improve",
+      "reason": "379 lines (Comprehensive, -2.9pp penalty); contains DeFi/Solidity testing content (~120 lines) from wrong project; remove non-Go content; keep Mockery v3.5 patterns and table-driven test templates which are project-specific; target ~110 lines",
+      "mtime": "2026-02-13T14:28:38Z"
+    },
+    "tutorial-docs": {
+      "path": "~/git/cc-tools/.claude/skills/tutorial-docs/SKILL.md",
+      "verdict": "Improve",
+      "reason": "437 lines (Comprehensive, -2.9pp penalty); contains Hugo site and exploit detector tutorial content (~150 lines) from wrong project; remove non-project content; keep the Diataxis tutorial template; target ~150 lines",
+      "mtime": "2026-02-13T14:28:38Z"
+    },
+    "using-git-worktrees": {
+      "path": "~/git/cc-tools/.claude/skills/using-git-worktrees/SKILL.md",
+      "verdict": "Improve",
+      "reason": "217 lines (Detailed, borderline Comprehensive); 'Red Flags' and 'Common Mistakes' sections overlap; consolidate into single 'Pitfalls' section; target ~180 lines",
+      "mtime": "2026-02-13T09:43:15Z"
+    },
+    "using-superpowers": {
+      "path": "~/git/cc-tools/.claude/skills/using-superpowers/SKILL.md",
+      "verdict": "Keep",
+      "reason": "67 lines (Compact); skill discovery and 2-3 loading policy; unique infrastructure role that governs all other skill loading; correctly encodes the SkillsBench 2-3 skill budget finding",
+      "mtime": "2026-02-24T01:19:02Z"
+    },
+    "verification-before-completion": {
+      "path": "~/git/cc-tools/.claude/skills/verification-before-completion/SKILL.md",
+      "verdict": "Keep",
+      "reason": "157 lines (Detailed); pre-completion checklist with specific task commands; procedural quality gate preventing premature completion claims; strong pretraining gap — models default to claiming done without evidence",
+      "mtime": "2026-02-13T14:28:38Z"
+    },
+    "writing-clearly-and-concisely": {
+      "path": "~/git/cc-tools/.claude/skills/writing-clearly-and-concisely/SKILL.md",
+      "verdict": "Keep",
+      "reason": "63 lines (Compact); Strunk-derived prose rules applied to technical writing; compact procedural checklist; fills pretraining gap — models default to verbose, hedged language",
+      "mtime": "2026-02-13T09:43:15Z"
+    },
+    "writing-plans": {
+      "path": "~/git/cc-tools/.claude/skills/writing-plans/SKILL.md",
+      "verdict": "Keep",
+      "reason": "118 lines (Detailed); plan structure with checkpoints and validation gates; procedural workflow for multi-step task planning; unique to this project's planning methodology",
+      "mtime": "2026-02-23T06:09:58Z"
+    },
+    "writing-skills": {
+      "path": "~/git/cc-tools/.claude/skills/writing-skills/SKILL.md",
+      "verdict": "Improve",
+      "reason": "656 lines (Comprehensive, severe -2.9pp penalty); the skill itself exceeds the length guidelines it teaches; split into SKILL.md (~150 lines of core procedural guidance) + a supporting reference file for templates and examples; the irony of a skill-writing guide violating length discipline undermines its authority",
+      "mtime": "2026-02-24T01:31:22Z"
+    }
+  },
+  "evaluated_at": "2026-02-24T04:02:33Z"
+}

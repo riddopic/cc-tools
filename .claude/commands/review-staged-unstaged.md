@@ -27,17 +27,16 @@ Previous review report: $ARGUMENTS
 
 Before beginning review, load these skills for comprehensive Go code review:
 
-1. **code-review** - Go idioms, error handling, testing patterns, project standards
-2. **review-verification-protocol** - MANDATORY before reporting ANY findings
+1. **code-review** - Go idioms, error handling, testing patterns, verification protocol, project standards
 
-These skills contain detailed checklists and patterns. Reference them instead of duplicating content here.
+This skill contains detailed checklists, verification protocol, and patterns. Reference it instead of duplicating content here.
 
 ## Execution Process
 
 1. Use the **product-manager-orchestrator** to coordinate specialized agents for comprehensive code review
 2. Run all Go validation checks to ensure code quality
 3. Verify compliance with project guidelines in `docs/CODING_GUIDELINES.md` and `docs/examples/` directory
-4. Apply **review-verification-protocol** before reporting findings to reduce false positives
+4. Apply the verification protocol in **code-review** before reporting findings to reduce false positives
 
 ## Pre-Review Validation Checks
 

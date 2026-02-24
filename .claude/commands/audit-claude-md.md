@@ -1,5 +1,5 @@
 ---
-description: Audit and refactor CLAUDE.md to follow progressive disclosure, leveraging existing skills and docs infrastructure. Run periodically to prevent bloat.
+description: Evidence-based audit of CLAUDE.md against AGENTS.md research findings. Prevents bloat, identifies harmful content, and optionally applies fixes.
 allowed-tools:
   - Read
   - Grep
@@ -7,121 +7,175 @@ allowed-tools:
   - Write
   - Edit
   - Task
+  - Bash
   - mcp__sequential-thinking__sequentialthinking
-argument-hint: "[audit|refactor|full]"
+argument-hint: "[audit|apply|full]"
 model: sonnet
 ---
 
-# Refactor CLAUDE.md for Progressive Disclosure
+# Audit CLAUDE.md Against Research Evidence
 
-Audit and refactor CLAUDE.md to maintain it as a lean navigation hub that leverages existing skills and documentation infrastructure.
+Measure CLAUDE.md against empirical findings from "Evaluating AGENTS.md" (arXiv 2602.11988) and SkillsBench. Flag content that increases cost without improving outcomes. Optionally apply fixes.
+
+## Evidence Base
+
+Audit criteria derive from empirical research:
+
+| Finding | Source | Impact |
+|---------|--------|--------|
+| Architecture overviews don't reduce steps to relevant files | AGENTS.md paper, 4 models | Remove overviews |
+| Tool mentions amplify usage 10-50x | AGENTS.md paper, Fig 11 | Intentional placement only |
+| Context files add +14-22% reasoning tokens | AGENTS.md paper, Fig 7 | Minimize always-on content |
+| 2-3 skills optimal; 4+ degrades performance | SkillsBench, 7,308 trajectories | Don't list skills in CLAUDE.md |
+| Context redundant with existing docs | AGENTS.md paper, Fig 5 | Remove duplicated content |
+| Minimal requirements only | AGENTS.md paper, conclusion | Keep only non-discoverable content |
 
 ## Scope: $ARGUMENTS
 
 Parse the argument to determine operation:
 
-- `audit` - Analyze only, report findings without changes
-- `refactor` - Apply changes after audit
-- `full` (default) - Full audit + refactor + verification
-
-## Context
-
-This is a **Go CLI project**. The existing infrastructure includes:
-
-- **Skills** in `.claude/skills/` with YAML frontmatter and progressive disclosure
-- **Detailed docs** in `docs/examples/` organized by philosophy/patterns/standards
-- Skills auto-trigger based on context (testing → testing-patterns skill)
+- `audit` — Analyze only, report findings without changes
+- `apply` — Apply changes after audit
+- `full` (default) — Full audit + apply + verification
 
 ## Phase 1: Gather Current State
 
-### Step 1.1: Measure Current Size
+### Step 1.1: Measure CLAUDE.md Size
 
 ```bash
 wc -l CLAUDE.md
 ```
 
-Target: **≤150 lines**. If over, refactoring is needed.
+Target: **≤80 lines**. If over, audit will likely find removable content.
 
-### Step 1.2: List Available Skills
+### Step 1.2: Measure Total Always-On Context
 
 ```bash
-ls -la .claude/skills/*/SKILL.md
+wc -l CLAUDE.md .claude/rules/*.md
 ```
 
-### Step 1.3: List Available Docs
+Report total lines. Rules are path-scoped (not all load every session), but visibility helps track growth.
+
+### Step 1.3: Estimate Token Overhead
+
+Heuristic: 1 markdown line ≈ 12 tokens. Report "estimated per-session token overhead" for CLAUDE.md alone.
+
+### Step 1.4: List Available Skills and Rules
 
 ```bash
-ls -la docs/examples/**/*.md
+ls .claude/skills/*/SKILL.md
+ls .claude/rules/*.md
 ```
 
 ## Phase 2: Audit for Issues
 
-### Issue Type 1: Contradictions
+Audit in order of evidence strength. For each issue found, record the line numbers, content summary, evidence source, and recommended action.
 
-Compare CLAUDE.md content against:
+### Issue Type 1: Architecture Overviews (strongest evidence)
 
-- Content in existing skills
-- Content in docs/examples/
-- Internal contradictions (same topic covered differently)
+Flag: file trees, directory listings, package descriptions, "Architecture" sections, entry point descriptions, execution path narratives.
 
-For each contradiction found, document:
+**Action**: REMOVE — agents navigate via Glob/Grep, not descriptions.
 
-- Location in CLAUDE.md (line numbers)
-- Conflicting source
-- Which version is correct
+**Evidence**: Tested across 4 models, zero reduction in steps to find relevant files.
 
-### Issue Type 2: Redundancy with Skills
+### Issue Type 2: Instruction Amplification (+14-22% cost)
 
-Check for content that duplicates these skills:
+Flag: "Always check X before Y" patterns, pre-commit checklists that duplicate rules/skills, skill-discovery instructions, search-workflow instructions.
+
+**Action**: REMOVE if covered by a skill or rule file.
+
+**Evidence**: Instructions cause more reasoning work without better outcomes.
+
+### Issue Type 3: Redundancy with Rules Files (double-loading penalty)
+
+Flag: content in CLAUDE.md that also appears in `.claude/rules/*.md`.
+
+**Action**: REMOVE from CLAUDE.md — rules file is the authoritative source.
+
+**Evidence**: Double-loaded content costs tokens twice with zero benefit.
+
+Compare against all rules files:
+
+| Rule File | Topics |
+|-----------|--------|
+| `coding-style.md` | Go idioms, formatting, naming |
+| `testing.md` | TDD, mocks, test patterns |
+| `security.md` | Security practices |
+| `performance.md` | Benchmarks, profiling, model selection |
+| `git-workflow.md` | Conventional commits, PR workflow |
+| `comments.md` | Comment guidelines |
+| `hooks.md` | Hook types, configuration |
+| `agents.md` | Agent/skill orchestration |
+
+### Issue Type 4: Contradictions
+
+Compare CLAUDE.md content against skills, rules, and docs. For each contradiction, document which source is correct.
+
+### Issue Type 5: Redundancy with Skills
+
+Check for content duplicating these skills:
 
 | Skill | Topics It Covers |
-| ------- | ------------------ |
+|-------|------------------|
 | `go-coding-standards` | Go idioms, error handling, interfaces, zero values |
 | `tdd-workflow` | TDD checklist, Red-Green-Refactor cycle |
 | `testing-patterns` | Table-driven tests, mockery, security in tests |
-| `coding-philosophy` | LEVER decision framework |
+| `go-coding-standards` (LEVER section) | LEVER decision framework |
 | `code-review` | Go idioms, testing patterns, project standards |
 
 **Action**: Content covered by skills should be REMOVED from CLAUDE.md.
 
-### Issue Type 3: Agent-Known Content
+### Issue Type 6: Agent-Known Content
 
-Flag content that Claude already knows without explicit instruction:
+Flag content that Claude already knows without instruction:
 
 - Standard Go idioms (errors are values, early returns)
-- Basic naming conventions (PascalCase, camelCase)
+- Basic naming conventions
 - Standard import organization
-- Basic TDD concepts
 - Generic best practices ("write clean code")
 
 **Action**: DELETE agent-known content.
 
-### Issue Type 4: Verbose Formatting
+### Issue Type 7: Verbose Formatting
 
-Check for:
-
-- Code blocks that could be tables
-- Repeated command listings
-- Redundant examples
-- Long explanatory paragraphs
+Check for code blocks that could be tables, repeated command listings, redundant examples, long explanatory paragraphs.
 
 **Action**: Compact to tables or single-line entries.
 
+### Issue Type 8: Casual Tool Mentions (10-50x amplification)
+
+Flag tool/library names outside the Build Commands section.
+
+**Action**: Move to Build Commands section (intentional amplification) or REMOVE.
+
+**Evidence**: Agents use mentioned tools 10-50x more than baseline.
+
+### Issue Type 9: Cost-Inducing Patterns (summary category)
+
+Flag: code blocks > 3 lines, sections replaceable by a single skill/rule reference.
+
+**Action**: Estimate token cost, prioritize removal by cost-per-unique-signal ratio.
+
 ## Phase 3: Define Essential Content
 
-Content that MUST remain in CLAUDE.md:
+CLAUDE.md should contain **only content not discoverable from code or covered by skills/rules**.
 
 | Section | Purpose | Target Lines |
-| --------- | --------- | -------------- |
-| Project Overview | Domain context | 5-10 |
-| Critical Commands | Project-specific task targets | 30-40 |
-| Skills Reference | Navigation table | 10-15 |
-| Documentation Reference | Navigation table | 5-10 |
-| Global Rules | Rules for EVERY task | 10-15 |
-| Search Requirements | rg vs grep | 5-10 |
-| Project-Specific Patterns | Learned gotchas | 15-25 |
+|---------|---------|--------------|
+| Project Identity | What this project IS — not discoverable from code | 5-8 |
+| Build Commands | Intentional tool amplification for critical commands | 10-15 |
+| Minimal Requirements | Hard constraints that break builds if wrong (Go version, build tags, toolchain) | 5-8 |
+| Project-Specific Gotchas | Learned patterns — the only category with positive research effect | 5-10 |
 
-## Phase 4: Refactor (if scope includes refactor)
+**Removed sections with rationale:**
+
+- **Skills Reference** → already in `rules/agents.md` and `using-superpowers` skill; adding = instruction amplification
+- **Documentation Reference** → navigation tables don't reduce steps (paper evidence)
+- **Search Requirements** → agent-known; `search-first` skill covers this
+- **Global Rules** → every current rule is already in a `.claude/rules/` file
+
+## Phase 4: Apply Changes (if scope includes apply)
 
 ### Step 4.1: Create Backup
 
@@ -129,36 +183,26 @@ Content that MUST remain in CLAUDE.md:
 cp CLAUDE.md CLAUDE.md.backup
 ```
 
-### Step 4.2: Write Refactored File
+### Step 4.2: Write Audited File
 
-Structure:
+Structure (target ≤80 lines):
 
 ```markdown
 # CLAUDE.md
 
-## Project Overview
-[1 paragraph domain context]
+[1-2 sentence project description]
 
-## Critical Commands
-[Compact table format]
+## Project
+[Module path, language version, key toolchain constraints]
 
-## Skills (Auto-Triggered)
-[Table pointing to skills]
+## Build Commands
+[Compact table or code block — intentional tool amplification]
 
-## Documentation
-[Table pointing to docs]
+## Minimal Requirements
+[Build tags, gotestsum requirement, other non-obvious constraints]
 
-## Global Rules
-[Numbered list, 10 max]
-
-## Search Requirements
-[rg examples]
-
-## Project-Specific Patterns
-[Learned patterns and gotchas only]
-
-## Dependencies
-[Main deps only]
+## Project-Specific Gotchas
+[Learned patterns and gotchas only — the evidence-backed section]
 ```
 
 ### Step 4.3: Verify Line Count
@@ -167,7 +211,7 @@ Structure:
 wc -l CLAUDE.md
 ```
 
-Must be ≤150 lines. If over, further compaction needed.
+Must be ≤80 lines. If over, further compaction needed.
 
 ## Phase 5: Generate Report
 
@@ -178,81 +222,105 @@ Output format for audit results:
 
 **Date:** {timestamp}
 **Initial Lines:** {count}
-**Final Lines:** {count}
-**Reduction:** {percentage}%
+**Final Lines:** {count} (if apply mode)
+**Reduction:** {percentage}% (if apply mode)
 
-## Findings
+## Cost Analysis
+
+| File | Lines | Est. Tokens |
+|------|-------|-------------|
+| CLAUDE.md | {n} | {n × 12} |
+| rules/coding-style.md | {n} | {n × 12} |
+| rules/testing.md | {n} | {n × 12} |
+| ... | ... | ... |
+| **Total always-on** | {sum} | {sum × 12} |
+
+**Per-session overhead**: {CLAUDE.md tokens} tokens before any user prompt.
+
+## Evidence-Based Findings
+
+| Type | Issue | Lines | Evidence Source | Action |
+|------|-------|-------|----------------|--------|
+| 1 - Architecture Overview | {description} | {lines} | AGENTS.md, 4 models | REMOVE |
+| 2 - Instruction Amplification | {description} | {lines} | AGENTS.md, Fig 7 | REMOVE |
+| 3 - Rules Redundancy | {description} | {lines} | Token cost analysis | REMOVE |
+| ... | ... | ... | ... | ... |
+
+## Detailed Findings
+
+### Architecture Overviews Found
+| Lines | Content | Action |
+|-------|---------|--------|
+
+### Instruction Amplification Found
+| Lines | Content | Covered By | Action |
+|-------|---------|------------|--------|
+
+### Redundancy with Rules Files
+| Lines | CLAUDE.md Content | Also In | Action |
+|-------|-------------------|---------|--------|
 
 ### Contradictions Found
 | Location | CLAUDE.md Says | Source Says | Resolution |
-| ---------- | --------------- | ------------- | ------------ |
+|----------|----------------|-------------|------------|
 
 ### Redundancy with Skills
 | Lines | Content | Duplicated In | Action |
-| ------- | --------- | --------------- | -------- |
+|-------|---------|---------------|--------|
 
-### Agent-Known Content Removed
+### Agent-Known Content
 | Lines | Content | Reason |
-| ------- | --------- | -------- |
+|-------|---------|--------|
 
-### Verbose Content Compacted
+### Verbose Content
 | Before | After | Lines Saved |
-| -------- | ------- | ------------- |
+|--------|-------|-------------|
 
-## Skills Audit
-
-Verified skills are up-to-date:
-- [ ] go-coding-standards
-- [ ] tdd-workflow
-- [ ] testing-patterns
-- [ ] coding-philosophy
-- [ ] code-review
+### Casual Tool Mentions
+| Lines | Tool/Library | Context | Action |
+|-------|-------------|---------|--------|
 
 ## Recommendations
 
 1. {any skills that need updating}
-2. {any docs that need updating}
-3. {any new patterns to document}
+2. {any new gotchas to document}
+3. {any rules files that need consolidation}
 ```
 
 ## Anti-Patterns to Avoid
 
 ### DO NOT add to CLAUDE.md
 
+- Architecture overviews (file trees, package descriptions, directory layouts)
+- "Always check X before Y" instructions (instruction amplification)
+- Content already in `.claude/rules/` files (double-loading)
+- Casual tool/library mentions outside Build Commands section (10-50x amplification)
+- Skill discovery instructions (use `using-superpowers` skill)
+- Navigation tables pointing to files (agents use Glob/Grep)
 - Standard Go conventions (use skills)
 - TDD workflow details (use skills)
 - Testing patterns (use skills)
-- CLI patterns (use skills)
 - Generic best practices
-- Long code examples
+- Long code examples (>3 lines)
 - Verbose explanations
 
 ### ALWAYS add to CLAUDE.md
 
 - Project-specific gotchas discovered during work
-- Commands unique to this project
-- Patterns specific to this codebase
-- Global rules that apply to every task
+- Build commands unique to this project
+- Hard constraints that break builds if wrong
 
 ## Maintenance Schedule
 
-Run `/refactor-claude-md audit` when:
+Run `/audit-claude-md audit` when:
 
-- CLAUDE.md exceeds 150 lines
-- After adding new skills
+- CLAUDE.md exceeds 80 lines
+- After adding new skills or rules files
 - After significant project changes
 - Monthly maintenance
 
-Run `/refactor-claude-md refactor` when:
+Run `/audit-claude-md apply` when:
 
-- Audit shows >20% redundancy
-- New skills make content obsolete
-- Contradictions are found
-
-## Integration
-
-This command works with:
-
-- `.claude/skills/` - Authoritative domain knowledge
-- `docs/examples/` - Deep dive documentation
-- `LEARNINGS.md` - Recent learnings (separate from CLAUDE.md)
+- Audit shows Architecture Overview or Instruction Amplification issues
+- Any redundancy with rules files found
+- New learned gotchas to add to Gotchas section
