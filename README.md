@@ -1,6 +1,6 @@
 # cc-tools
 
-A CLI companion for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that automates hook event handling, parallel lint/test validation, MCP server management, notifications, session tracking, and per-directory skip configuration.
+A CLI companion for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that automates hook event handling, parallel lint/test validation, MCP server management, notifications, session tracking, per-directory skip configuration, and instinct-based learning.
 
 ## What it does
 
@@ -12,6 +12,7 @@ Beyond validation, cc-tools provides:
 - **Notifications** — audio playback, macOS desktop alerts, and ntfy push notifications with quiet hours
 - **Session tracking** — stores session metadata, supports aliases and search
 - **Observation logging** — records tool use events for analysis
+- **Instinct learning** — observes tool usage, builds instincts with confidence scoring, evolves them into skills
 - **MCP management** — enable/disable MCP server integrations
 - **Skip registry** — per-directory skip rules for lint, test, or both
 
@@ -40,6 +41,7 @@ cc-tools <command> [arguments]
 | `unskip` | Remove skip settings from directories |
 | `mcp` | Manage Claude MCP servers (list, enable, disable) |
 | `debug` | Configure debug logging (enable, disable, status, list, filename) |
+| `instinct` | Manage learned instincts (status, export, import, evolve) |
 
 ### Hook integration
 
@@ -104,83 +106,75 @@ Add to your Claude Code settings (`~/.claude/settings.json`):
 }
 ```
 
-The `hook` command reads event JSON from stdin, dispatches to registered handlers, and returns structured output. The `validate` command discovers lint/test commands for the project and runs them concurrently.
-
-### Registered handlers
-
-| Event | Handlers |
-|-------|----------|
-| SessionStart | Superpowers injection, package manager detection, session context |
-| SessionEnd | Session metadata persistence |
-| PreToolUse | Compact suggestion, observation logging, pre-commit reminder |
-| PostToolUse | Observation logging |
-| UserPromptSubmit | Drift detection (warns when session diverges from original intent) |
-| Stop | Response count tracking with rotating session reminders |
-| PreCompact | Log compaction |
-| Notification | Audio playback, desktop alert, ntfy push |
+For a guided walkthrough, see [Getting Started](docs/getting-started.md). For details on every handler, see [Hooks and Handlers](docs/hooks-and-handlers.md).
 
 ### Examples
 
 ```bash
-# Dispatch a hook event (stdin receives event JSON)
-echo '{"hook_event_name":"Notification","title":"Done","message":"Tests passed"}' | cc-tools hook
-
-# Validate a file edit
-echo '{"tool_name":"Edit","tool_input":{"file_path":"main.go"}}' | cc-tools validate
-
 # Manage sessions
 cc-tools session list
 cc-tools session info <session-id>
 cc-tools session search "auth refactor"
 cc-tools session alias set latest <session-id>
 
+# Configure settings
+cc-tools config set validate.timeout 120
+cc-tools config list
+
+# Skip validation in the current directory
+cc-tools skip lint
+cc-tools skip list
+
 # Manage MCP servers
 cc-tools mcp list
 cc-tools mcp enable jira
-cc-tools mcp disable jira
 
-# Skip validation for a directory
-cc-tools skip lint /path/to/generated
-cc-tools skip list
-
-# Configure settings
-cc-tools config set validate.timeout 120
-cc-tools config get validate.timeout
-cc-tools config list
+# View learned instincts
+cc-tools instinct status
+cc-tools instinct export --format yaml
 ```
+
+See [CLI Reference](docs/cli-reference.md) for the complete command reference.
 
 ## Configuration
 
-Settings are stored at `~/.config/cc-tools/config.json`.
+Settings are stored at `~/.config/cc-tools/config.json`. Manage them with `cc-tools config`:
 
-| Key | Default | Description |
-|-----|---------|-------------|
-| `validate.timeout` | `60` | Validation timeout in seconds |
-| `validate.cooldown` | `5` | Cooldown between validation runs |
-| `notifications.ntfy_topic` | `""` | ntfy.sh topic for push notifications |
-| `compact.threshold` | `50` | Token threshold for compact suggestions |
-| `compact.reminder_interval` | `25` | Tool calls between compact reminders |
-| `notify.quiet_hours.enabled` | `true` | Suppress notifications during quiet hours |
-| `notify.quiet_hours.start` | `"21:00"` | Quiet hours start time (HH:MM) |
-| `notify.quiet_hours.end` | `"07:30"` | Quiet hours end time (HH:MM) |
-| `notify.audio.enabled` | `true` | Enable audio notification sounds |
-| `notify.audio.directory` | `"~/.claude/audio"` | Path to directory of MP3 files |
-| `notify.desktop.enabled` | `true` | Enable macOS desktop notifications |
-| `observe.enabled` | `true` | Enable tool use observation logging |
-| `observe.max_file_size_mb` | `10` | Max file size in MB for observation logging |
-| `learning.min_session_length` | `10` | Minimum session length for learning extraction |
-| `learning.learned_skills_path` | `".claude/skills/learned"` | Path for learned skill files |
-| `pre_commit_reminder.enabled` | `true` | Remind to run checks before git commit |
-| `pre_commit_reminder.command` | `"task pre-commit"` | Command to suggest before commits |
-| `package_manager.preferred` | `""` | Preferred package manager (overrides auto-detection) |
-| `drift.enabled` | `true` | Enable drift detection on prompts |
-| `drift.min_edits` | `6` | Minimum edits before checking for drift |
-| `drift.threshold` | `0.2` | Keyword overlap ratio below which drift is flagged |
-| `stop_reminder.enabled` | `true` | Enable periodic session reminders |
-| `stop_reminder.interval` | `20` | Responses between reminders |
-| `stop_reminder.warn_at` | `50` | Response count for strong wrap-up warning |
+```bash
+cc-tools config list                          # View all settings with defaults
+cc-tools config set validate.timeout 120      # Change a value
+cc-tools config reset validate.timeout        # Reset to default
+```
 
-Debug logs are written to `~/.cache/cc-tools/debug/`.
+Configuration covers 11 groups with 31 keys total:
+
+| Group | Keys | Controls |
+|-------|------|----------|
+| `validate.*` | 2 | Timeout and cooldown for lint/test runs |
+| `notifications.*` | 1 | ntfy.sh push notification topic |
+| `compact.*` | 2 | Context compaction suggestion thresholds |
+| `notify.*` | 6 | Quiet hours, audio, and desktop notifications |
+| `observe.*` | 2 | Tool use observation logging |
+| `learning.*` | 2 | Skill extraction from sessions |
+| `pre_commit_reminder.*` | 2 | Pre-commit check reminders |
+| `package_manager.*` | 1 | Preferred package manager override |
+| `drift.*` | 3 | Session topic drift detection |
+| `stop_reminder.*` | 3 | Periodic session length reminders |
+| `instinct.*` | 7 | Instinct storage, confidence, and evolution |
+
+See [Configuration Reference](docs/configuration.md) for all keys, types, defaults, and examples.
+
+## Documentation
+
+| Document | Type | Description |
+|----------|------|-------------|
+| [Getting Started](docs/getting-started.md) | Tutorial | Install, configure, and verify cc-tools from scratch |
+| [CLI Reference](docs/cli-reference.md) | Reference | Every command, flag, and environment variable |
+| [Configuration](docs/configuration.md) | Reference | All 31 configuration keys with types and defaults |
+| [Hooks and Handlers](docs/hooks-and-handlers.md) | Explanation | How the hook system dispatches events to handlers |
+| [Instincts](docs/instincts.md) | Explanation | The learning system lifecycle — observation to evolution |
+| [Skills and Commands](docs/skills-and-commands.md) | Reference | All skills and slash commands with trigger contexts |
+| [Troubleshooting](docs/troubleshooting.md) | How-to | Common issues and solutions |
 
 ## Development
 
