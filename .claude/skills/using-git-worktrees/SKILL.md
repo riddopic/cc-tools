@@ -148,32 +148,19 @@ Ready to implement <feature-name>
 | `.worktrees/` exists | Use it (verify ignored) |
 | `worktrees/` exists | Use it (verify ignored) |
 | Both exist | Use `.worktrees/` |
-| Neither exists | Check CLAUDE.md → Ask user |
+| Neither exists | Check CLAUDE.md -> Ask user |
 | Directory not ignored | Add to .gitignore + commit |
 | Tests fail during baseline | Report failures + ask |
 | No package.json/Cargo.toml | Skip dependency install |
 
-## Common Mistakes
+## Pitfalls
 
-### Skipping ignore verification
-
-- **Problem:** Worktree contents get tracked, pollute git status
-- **Fix:** Always use `git check-ignore` before creating project-local worktree
-
-### Assuming directory location
-
-- **Problem:** Creates inconsistency, violates project conventions
-- **Fix:** Follow priority: existing > CLAUDE.md > ask
-
-### Proceeding with failing tests
-
-- **Problem:** Can't distinguish new bugs from pre-existing issues
-- **Fix:** Report failures, get explicit permission to proceed
-
-### Hardcoding setup commands
-
-- **Problem:** Breaks on projects using different tools
-- **Fix:** Auto-detect from project files (package.json, etc.)
+- **Skipping ignore verification**: Worktree contents get tracked and pollute git status. Always use `git check-ignore` before creating project-local worktrees.
+- **Assuming directory location**: Creates inconsistency and violates project conventions. Follow priority: existing > CLAUDE.md > ask.
+- **Proceeding with failing tests**: Cannot distinguish new bugs from pre-existing issues. Report failures and get explicit permission to proceed.
+- **Hardcoding setup commands**: Breaks on projects using different tools. Auto-detect from project files (package.json, etc.).
+- **Skipping CLAUDE.md check**: The project may have a documented preference for worktree location. Always check before asking.
+- **Creating worktree without verifying it's ignored**: For project-local directories, this is a hard requirement to prevent repository pollution.
 
 ## Example Workflow
 
@@ -190,21 +177,6 @@ Worktree ready at /Users/jesse/myproject/.worktrees/auth
 Tests passing (47 tests, 0 failures)
 Ready to implement auth feature
 ```
-
-## Red Flags
-
-**Never:**
-- Create worktree without verifying it's ignored (project-local)
-- Skip baseline test verification
-- Proceed with failing tests without asking
-- Assume directory location when ambiguous
-- Skip CLAUDE.md check
-
-**Always:**
-- Follow directory priority: existing > CLAUDE.md > ask
-- Verify directory is ignored for project-local
-- Auto-detect and run project setup
-- Verify clean test baseline
 
 ## Integration
 

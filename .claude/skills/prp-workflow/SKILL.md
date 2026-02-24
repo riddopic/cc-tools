@@ -1,6 +1,6 @@
 ---
 name: prp-workflow
-description: Apply PRP (Product Requirements Plan) workflow patterns. Use when working with PRPs, generating PRPs, executing PRPs, evaluating implementations, or fixing PRP issues. Auto-triggers for /generate-initial, /generate-prp, /execute-prp, /evaluate-prp, /fix-prp commands.
+description: Apply PRP (Product Requirements Plan) workflow patterns. Use when working with PRPs, executing multi-stage development plans, evaluating implementations, or fixing quality issues.
 context: fork
 ---
 
@@ -11,17 +11,17 @@ The PRP (Product Requirements Plan) workflow is a multi-stage development proces
 ## Workflow Overview
 
 ```
-Sprint Doc → INITIAL.md → PRP → Execute → Evaluate → Fix (if needed)
+Sprint Doc -> INITIAL.md -> PRP -> Execute -> Evaluate -> Fix (if needed)
 ```
 
-### Stage 1: Generate INITIAL.md (`/generate-initial`)
+### Stage 1: Generate INITIAL.md
 Transform sprint documentation into a structured INITIAL.md with:
 - Feature description
 - Go code examples (interfaces, implementations, tests)
 - Documentation references
 - Implementation checklist
 
-### Stage 2: Generate PRP (`/generate-prp`)
+### Stage 2: Generate PRP
 Deep research phase that produces a comprehensive PRP document:
 - Codebase analysis for existing patterns
 - External research (Go docs, libraries, best practices)
@@ -39,7 +39,7 @@ Before writing the PRP, conduct a structured AskUserQuestion phase to surface:
 
 This reduces rework during execution by capturing intent accurately upfront.
 
-### Stage 3: Execute PRP (`/execute-prp`)
+### Stage 3: Execute PRP
 Implementation phase using sub-agent orchestration:
 
 **Claude Code Role**: Orchestrator ONLY - never writes code directly.
@@ -64,26 +64,26 @@ After each task passes quality gates, commit only that task's files with the PRP
 **Recovery/Continuation**:
 If a session fails mid-execution, start a new session with the PRP pinned. Check git log for completed task commits, then resume from the next incomplete task. The PRP is the stable recovery point.
 
-### Stage 4: Evaluate PRP (`/evaluate-prp`)
+### Stage 4: Evaluate PRP
 Quality assessment against Go standards:
 
 **Scoring Rubric (1-10)**:
 - Code Quality: 3 points (Go idioms + clean lint)
-- Test Coverage: 2 points (table-driven + ≥80%)
+- Test Coverage: 2 points (table-driven + >=80%)
 - Documentation: 2 points (godoc + examples)
 - Performance: 1 point (benchmarks + no races)
 - Error Handling: 1 point (wrapping + no ignores)
 - Architecture: 1 point (clean packages + interfaces)
 
-**Pass Threshold**: Score ≥ 8/10
+**Pass Threshold**: Score >= 8/10
 
-### Stage 5: Fix PRP (`/fix-prp`)
+### Stage 5: Fix PRP
 Systematic remediation if score < 8:
 1. Load evaluation report and fixes document
 2. Categorize issues (Critical/Major/Minor)
 3. Fix in TDD order (test first, then implementation)
 4. Validate after each category
-5. Auto-chain to `/evaluate-prp` for re-evaluation
+5. Re-evaluate to confirm fix
 
 ## Quality Gates
 

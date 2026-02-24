@@ -39,52 +39,10 @@ Use functional patterns over classes when appropriate.
 ```
 
 **Properties:**
-- **Atomic** — one trigger, one action
-- **Confidence-weighted** — 0.3 = tentative, 0.9 = near certain
-- **Domain-tagged** — code-style, testing, git, debugging, workflow, etc.
-- **Evidence-backed** — tracks what observations created it
-
-## How It Works
-
-```
-Session Activity
-      │
-      │ cc-tools hook dispatches ObserveHandler
-      ▼
-┌─────────────────────────────────────┐
-│    ~/.cache/cc-tools/observations/  │
-│    observations.jsonl               │
-│  (prompts, tool calls, outcomes)    │
-└─────────────────────────────────────┘
-      │
-      │ /learn extracts patterns
-      ▼
-┌─────────────────────────────────────┐
-│         PATTERN DETECTION           │
-│   • User corrections → instinct    │
-│   • Error resolutions → instinct   │
-│   • Repeated workflows → instinct  │
-└─────────────────────────────────────┘
-      │
-      │ Creates/updates
-      ▼
-┌─────────────────────────────────────┐
-│ ~/.config/cc-tools/instincts/      │
-│   personal/                         │
-│   • prefer-functional.md (0.7)     │
-│   • always-test-first.md (0.9)     │
-│   • use-zod-validation.md (0.6)    │
-└─────────────────────────────────────┘
-      │
-      │ cc-tools instinct evolve
-      ▼
-┌─────────────────────────────────────┐
-│   Cluster analysis suggests:       │
-│   • skills from 3+ related         │
-│   • commands from high-confidence  │
-│   • agents from large clusters     │
-└─────────────────────────────────────┘
-```
+- **Atomic** -- one trigger, one action
+- **Confidence-weighted** -- 0.3 = tentative, 0.9 = near certain
+- **Domain-tagged** -- code-style, testing, git, debugging, workflow, etc.
+- **Evidence-backed** -- tracks what observations created it
 
 ## Quick Start
 
@@ -92,7 +50,7 @@ Session Activity
 
 Observation is handled automatically by `cc-tools hook`. The ObserveHandler captures tool usage events (tool name, input, output, errors) to `~/.cache/cc-tools/observations/observations.jsonl`.
 
-No manual hook configuration is needed — `cc-tools hook` dispatches to the ObserveHandler as part of its standard handler registry.
+No manual hook configuration is needed -- `cc-tools hook` dispatches to the ObserveHandler as part of its standard handler registry.
 
 ### 2. Use the Instinct Commands
 
@@ -150,19 +108,6 @@ Managed through `cc-tools config`:
 ~/.cache/cc-tools/observations/
 └── observations.jsonl     # Raw session observations
 ```
-
-## Confidence Scoring
-
-Confidence evolves over time:
-
-| Score | Meaning | Behavior |
-|-------|---------|----------|
-| 0.3 | Tentative | Suggested but not enforced |
-| 0.5 | Moderate | Applied when relevant |
-| 0.7 | Strong | Auto-approved for application |
-| 0.9 | Near-certain | Core behavior |
-
-**Confidence increases** when patterns are repeatedly observed. **Confidence decreases** via time-based decay (configurable rate, default 0.02/week) and is clamped to the [0.3, 0.9] range.
 
 ## Privacy
 

@@ -9,7 +9,7 @@ description: Use when implementation is complete, all tests pass, and you need t
 
 Guide completion of development work by presenting clear options and handling chosen workflow.
 
-**Core principle:** Verify tests → Present options → Execute choice → Clean up.
+**Core principle:** Verify tests -> Present options -> Execute choice -> Clean up.
 
 **Announce at start:** "I'm using the finishing-a-development-branch skill to complete this work."
 
@@ -153,42 +153,20 @@ git worktree remove <worktree-path>
 
 | Option | Merge | Push | Keep Worktree | Cleanup Branch |
 |--------|-------|------|---------------|----------------|
-| 1. Merge locally | ✓ | - | - | ✓ |
-| 2. Create PR | - | ✓ | ✓ | - |
-| 3. Keep as-is | - | - | ✓ | - |
-| 4. Discard | - | - | - | ✓ (force) |
+| 1. Merge locally | Y | - | - | Y |
+| 2. Create PR | - | Y | Y | - |
+| 3. Keep as-is | - | - | Y | - |
+| 4. Discard | - | - | - | Y (force) |
 
-## Common Mistakes
+## Pitfalls
 
-**Skipping test verification**
-- **Problem:** Merge broken code, create failing PR
-- **Fix:** Always verify tests before offering options
-
-**Open-ended questions**
-- **Problem:** "What should I do next?" → ambiguous
-- **Fix:** Present exactly 4 structured options
-
-**Automatic worktree cleanup**
-- **Problem:** Remove worktree when might need it (Option 2, 3)
-- **Fix:** Only cleanup for Options 1 and 4
-
-**No confirmation for discard**
-- **Problem:** Accidentally delete work
-- **Fix:** Require typed "discard" confirmation
-
-## Red Flags
-
-**Never:**
-- Proceed with failing tests
-- Merge without verifying tests on result
-- Delete work without confirmation
-- Force-push without explicit request
-
-**Always:**
-- Verify tests before offering options
-- Present exactly 4 options
-- Get typed confirmation for Option 4
-- Clean up worktree for Options 1 & 4 only
+- **Skipping test verification**: Merging broken code or creating failing PRs. Always verify tests before offering options.
+- **Open-ended questions**: Asking "What should I do next?" is ambiguous. Present exactly 4 structured options.
+- **Automatic worktree cleanup**: Removing a worktree the user might still need (Option 3). Only cleanup for Options 1 and 4.
+- **No confirmation for discard**: Accidentally deleting work. Require typed "discard" confirmation.
+- **Proceeding with failing tests**: Never merge or create a PR with failing tests.
+- **Force-pushing without explicit request**: Always require the user to explicitly ask for force push.
+- **Merging without verifying tests on result**: Tests must pass on the merged result, not just the feature branch.
 
 ## Integration
 
