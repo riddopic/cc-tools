@@ -9,13 +9,7 @@ allowed-tools:
 
 # /learn - Extract Reusable Patterns
 
-## Required Skills
-
-This command uses the following skills (auto-loaded based on context):
-
-- `continuous-learning-v2` - For pattern extraction and skill creation
-
-Analyze the current session and extract any patterns worth saving as skills.
+Analyze the current session and extract any patterns worth saving as skills or instincts.
 
 ## Trigger
 
@@ -75,7 +69,7 @@ Create a skill file at `.claude/skills/learned/[pattern-name].md`:
 2. Identify the most valuable/reusable insight
 3. Draft the skill file
 4. Ask user to confirm before saving
-5. Save to `.claude/skills/learned/`
+5. Save to `.claude/skills/learned/` (project) or `~/.config/cc-tools/instincts/personal/` (global instinct)
 
 ## Notes
 

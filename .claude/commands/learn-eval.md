@@ -18,7 +18,7 @@ Adds a quality gate and save-location decision on top of `/learn`. Run `/learn` 
 2. **Determine save location:**
    - Ask: "Would this pattern be useful in a different project?"
    - **Project** (`.claude/skills/learned/` in current project): Default choice. Project-specific knowledge, architecture decisions, integration patterns. Checked into version control and shared with collaborators.
-   - **Global** (`~/.claude/skills/learned/`): Generic patterns usable across 2+ projects (bash compatibility, LLM API behavior, debugging techniques, etc.). Machine-local, not shared via git.
+   - **Global** (`~/.config/cc-tools/instincts/personal/`): Generic patterns usable across 2+ projects (bash compatibility, LLM API behavior, debugging techniques, etc.). Machine-local, not shared via git.
    - When in doubt, choose Project (version-controlled and shareable; moving Project → Global is easy if it proves broadly useful)
 
 3. Verify the draft uses this format (matching existing learned skills):
