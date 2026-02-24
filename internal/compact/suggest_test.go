@@ -118,6 +118,28 @@ func TestSuggestor_IndependentSessions(t *testing.T) {
 		"session A should suggest when it reaches threshold independently")
 }
 
+func TestSuggestor_SafeSessionID(t *testing.T) {
+	stateDir := t.TempDir()
+	s := compact.NewSuggestor(stateDir, 1, 1)
+
+	maliciousID := "../../../etc/passwd"
+	var buf bytes.Buffer
+	s.RecordCall(maliciousID, &buf)
+
+	// Verify the counter file was created with a safe name inside stateDir.
+	entries, err := os.ReadDir(stateDir)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+
+	fileName := entries[0].Name()
+	assert.NotContains(t, fileName, "..",
+		"counter file name must not contain path traversal characters")
+	assert.NotContains(t, fileName, "/",
+		"counter file name must not contain path separators")
+	assert.True(t, filepath.IsAbs(filepath.Join(stateDir, fileName)),
+		"counter file must resolve to an absolute path within stateDir")
+}
+
 func TestSuggestor_MissingStateDir(t *testing.T) {
 	stateDir := filepath.Join(t.TempDir(), "nonexistent", "subdir")
 

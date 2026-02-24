@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/riddopic/cc-tools/internal/hookcmd"
 )
 
 // Suggestor tracks tool call counts per session and suggests running /compact
@@ -58,7 +60,7 @@ func (s *Suggestor) shouldSuggest(count int) bool {
 }
 
 func (s *Suggestor) counterPath(sessionID string) string {
-	return filepath.Join(s.stateDir, "cc-tools-compact-"+sessionID+".count")
+	return filepath.Join(s.stateDir, "cc-tools-compact-"+hookcmd.FileSafeSessionKey(sessionID)+".count")
 }
 
 func (s *Suggestor) readCount(sessionID string) int {

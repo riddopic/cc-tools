@@ -323,6 +323,41 @@ func TestDriftHandler_CorruptStateFile(t *testing.T) {
 	assert.Equal(t, 0, state.Edits)
 }
 
+func TestDriftHandler_StatePath_SafeSessionID(t *testing.T) {
+	t.Parallel()
+
+	stateDir := t.TempDir()
+	cfg := driftConfig(true, 6, 0.2)
+	h := handler.NewDriftHandler(cfg, handler.WithDriftStateDir(stateDir))
+
+	maliciousID := "../traversal"
+	resp, err := h.Handle(context.Background(), &hookcmd.HookInput{
+		SessionID: maliciousID,
+		Prompt:    "test prompt for safe session key",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 0, resp.ExitCode)
+
+	// Verify no file was created outside the state directory.
+	entries, err := os.ReadDir(filepath.Dir(stateDir))
+	require.NoError(t, err)
+	for _, entry := range entries {
+		if entry.Name() == filepath.Base(stateDir) {
+			continue
+		}
+		assert.NotContains(t, entry.Name(), "drift-",
+			"drift state file must not escape stateDir")
+	}
+
+	// Verify the file was created inside stateDir with a safe name.
+	stateEntries, err := os.ReadDir(stateDir)
+	require.NoError(t, err)
+	require.Len(t, stateEntries, 1)
+	assert.NotContains(t, stateEntries[0].Name(), "..",
+		"state file name must not contain path traversal characters")
+}
+
 // driftTestState mirrors the internal driftState struct for test seeding.
 type driftTestState struct {
 	Intent   string   `json:"intent"`

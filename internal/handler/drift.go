@@ -135,7 +135,7 @@ func (h *DriftHandler) initIntent(prompt string) *driftState {
 }
 
 func (h *DriftHandler) statePath(dir, sessionID string) string {
-	return filepath.Join(dir, "drift-"+sessionID+".json")
+	return filepath.Join(dir, "drift-"+hookcmd.FileSafeSessionKey(sessionID)+".json")
 }
 
 func (h *DriftHandler) loadState(dir, sessionID string) *driftState {

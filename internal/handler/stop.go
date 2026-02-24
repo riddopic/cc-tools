@@ -108,7 +108,7 @@ func stopReminders() []string {
 }
 
 func (h *StopReminderHandler) counterPath(dir, sessionID string) string {
-	return filepath.Join(dir, "stop-"+sessionID+".count")
+	return filepath.Join(dir, "stop-"+hookcmd.FileSafeSessionKey(sessionID)+".count")
 }
 
 func (h *StopReminderHandler) readCount(dir, sessionID string) int {
