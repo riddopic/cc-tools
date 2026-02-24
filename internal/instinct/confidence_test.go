@@ -1,6 +1,7 @@
 package instinct_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -43,6 +44,9 @@ func TestClampConfidence(t *testing.T) {
 		{name: "in range unchanged", input: 0.6, want: 0.6},
 		{name: "at min boundary", input: 0.3, want: 0.3},
 		{name: "at max boundary", input: 0.9, want: 0.9},
+		{name: "NaN clamps to min", input: math.NaN(), want: 0.3},
+		{name: "positive infinity clamps to max", input: math.Inf(1), want: 0.9},
+		{name: "negative infinity clamps to min", input: math.Inf(-1), want: 0.3},
 	}
 
 	for _, tt := range tests {

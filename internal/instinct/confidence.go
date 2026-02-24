@@ -1,5 +1,7 @@
 package instinct
 
+import "math"
+
 const (
 	// MinConfidence is the lowest allowed confidence value.
 	MinConfidence = 0.3
@@ -37,6 +39,10 @@ func ConfidenceFromObservations(count int) float64 {
 
 // ClampConfidence restricts a confidence value to [MinConfidence, MaxConfidence].
 func ClampConfidence(c float64) float64 {
+	if math.IsNaN(c) {
+		return MinConfidence
+	}
+
 	if c < MinConfidence {
 		return MinConfidence
 	}
