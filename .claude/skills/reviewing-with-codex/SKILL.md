@@ -1,6 +1,7 @@
 ---
 name: reviewing-with-codex
 description: Use when reviewing an implementation plan with OpenAI Codex CLI, or when the user requests a second opinion on a plan from a different model
+user_invocable: true
 ---
 
 # Reviewing Plans with Codex
