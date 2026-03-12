@@ -87,3 +87,6 @@ __pycache__/
 # Codex
 .codex/
 AGENTS.md
+
+# Brainstorm visual companion
+.claude/skills/brainstorming/scripts/node_modules/
