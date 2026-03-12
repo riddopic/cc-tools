@@ -191,8 +191,11 @@ func getConfigDir() string {
 // migrateDebugConfigIfNeeded copies debug-config.json from ~/.claude/ to the
 // new config dir if the old file exists and the new one does not.
 func migrateDebugConfigIfNeeded() {
-	newPath := filepath.Join(shared.ConfigDir(), "debug-config.json")
+	newPath := filepath.Clean(filepath.Join(shared.ConfigDir(), "debug-config.json"))
 	if _, err := os.Stat(newPath); err == nil {
+		return
+	}
+	if strings.Contains(newPath, "..") {
 		return
 	}
 
@@ -210,5 +213,6 @@ func migrateDebugConfigIfNeeded() {
 
 	dir := filepath.Dir(newPath)
 	_ = os.MkdirAll(dir, 0o750)
+	// #nosec G703 - path from ConfigDir() + hardcoded name, validated above.
 	_ = os.WriteFile(newPath, data, 0o600)
 }

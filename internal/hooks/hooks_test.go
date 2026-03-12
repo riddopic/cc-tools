@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/riddopic/cc-tools/internal/hookcmd"
 	"github.com/riddopic/cc-tools/internal/hooks"
 	"github.com/riddopic/cc-tools/internal/shared"
@@ -390,9 +392,7 @@ test:
 		if err != nil {
 			t.Errorf("Failed to discover lint command: %v", err)
 		}
-		if cmd == nil {
-			t.Fatal("Expected to find lint command")
-		}
+		require.NotNil(t, cmd, "Expected to find lint command")
 		if cmd.Command != "make" || len(cmd.Args) != 1 || cmd.Args[0] != "lint" {
 			t.Errorf("Unexpected command: %v", cmd.String())
 		}
@@ -402,9 +402,7 @@ test:
 		if err != nil {
 			t.Errorf("Failed to discover test command: %v", err)
 		}
-		if cmd == nil {
-			t.Fatal("Expected to find test command")
-		}
+		require.NotNil(t, cmd, "Expected to find test command")
 		if cmd.Command != "make" || len(cmd.Args) != 1 || cmd.Args[0] != "test" {
 			t.Errorf("Unexpected command: %v", cmd.String())
 		}

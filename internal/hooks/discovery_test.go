@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/riddopic/cc-tools/internal/hooks"
 )
 
@@ -41,9 +43,7 @@ func testDiscoversMakefileLintTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if cmd == nil {
-		t.Fatal("Expected to find command")
-	}
+	require.NotNil(t, cmd, "Expected to find command")
 	if cmd.Command != "make" || len(cmd.Args) != 1 || cmd.Args[0] != "lint" {
 		t.Errorf("Unexpected command: %s %v", cmd.Command, cmd.Args)
 	}
@@ -82,9 +82,7 @@ func testDiscoversJustfileRecipe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if cmd == nil {
-		t.Fatal("Expected to find command")
-	}
+	require.NotNil(t, cmd, "Expected to find command")
 	if cmd.Command != "just" || len(cmd.Args) != 1 || cmd.Args[0] != "test" {
 		t.Errorf("Unexpected command: %s %v", cmd.Command, cmd.Args)
 	}
@@ -120,9 +118,7 @@ func testDiscoversTaskfileTask(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if cmd == nil {
-		t.Fatal("Expected to find command")
-	}
+	require.NotNil(t, cmd, "Expected to find command")
 	if cmd.Command != "task" || len(cmd.Args) != 1 || cmd.Args[0] != "lint" {
 		t.Errorf("Unexpected command: %s %v", cmd.Command, cmd.Args)
 	}
@@ -162,9 +158,7 @@ func testDiscoversNpmScripts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if cmd == nil {
-		t.Fatal("Expected to find command")
-	}
+	require.NotNil(t, cmd, "Expected to find command")
 	if cmd.Command != "npm" {
 		t.Errorf("Expected npm, got %s", cmd.Command)
 	}
@@ -203,9 +197,7 @@ func testDetectsYarnFromLockFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if cmd == nil {
-		t.Fatal("Expected to find command")
-	}
+	require.NotNil(t, cmd, "Expected to find command")
 	if cmd.Command != "yarn" {
 		t.Errorf("Expected yarn, got %s", cmd.Command)
 	}
@@ -265,9 +257,7 @@ func testDiscoversExecutableScript(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if cmd == nil {
-		t.Fatal("Expected to find command")
-	}
+	require.NotNil(t, cmd, "Expected to find command")
 	if cmd.Command != "./scripts/lint" {
 		t.Errorf("Expected ./scripts/lint, got %s", cmd.Command)
 	}
@@ -327,9 +317,7 @@ func testDiscoversGoLintWithGolangciLint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if cmd == nil {
-		t.Fatal("Expected to find command")
-	}
+	require.NotNil(t, cmd, "Expected to find command")
 	if cmd.Command != "golangci-lint" {
 		t.Errorf("Expected golangci-lint, got %s", cmd.Command)
 	}
@@ -361,9 +349,7 @@ func testFallsBackToGoVet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if cmd == nil {
-		t.Fatal("Expected to find command")
-	}
+	require.NotNil(t, cmd, "Expected to find command")
 	if cmd.Command != "go" {
 		t.Errorf("Expected go, got %s", cmd.Command)
 	}
@@ -391,9 +377,7 @@ func testDiscoversGoTestCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if cmd == nil {
-		t.Fatal("Expected to find command")
-	}
+	require.NotNil(t, cmd, "Expected to find command")
 	if cmd.Command != "go" || cmd.Args[0] != "test" || cmd.Args[1] != "./..." {
 		t.Errorf("Unexpected command: %s %v", cmd.Command, cmd.Args)
 	}
@@ -418,9 +402,7 @@ func testDiscoversRustClippy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if cmd == nil {
-		t.Fatal("Expected to find command")
-	}
+	require.NotNil(t, cmd, "Expected to find command")
 	if cmd.Command != "cargo" {
 		t.Errorf("Expected cargo, got %s", cmd.Command)
 	}
@@ -454,9 +436,7 @@ func testDiscoversRustTest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if cmd == nil {
-		t.Fatal("Expected to find command")
-	}
+	require.NotNil(t, cmd, "Expected to find command")
 	if cmd.Command != "cargo" || len(cmd.Args) != 1 || cmd.Args[0] != "test" {
 		t.Errorf("Unexpected command: %s %v", cmd.Command, cmd.Args)
 	}
@@ -490,9 +470,7 @@ func testDiscoversPythonRuff(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if cmd == nil {
-		t.Fatal("Expected to find command")
-	}
+	require.NotNil(t, cmd, "Expected to find command")
 	if cmd.Command != "ruff" {
 		t.Errorf("Expected ruff, got %s", cmd.Command)
 	}
@@ -527,9 +505,7 @@ func testFallsBackToFlake8(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if cmd == nil {
-		t.Fatal("Expected to find command")
-	}
+	require.NotNil(t, cmd, "Expected to find command")
 	if cmd.Command != "flake8" {
 		t.Errorf("Expected flake8, got %s", cmd.Command)
 	}
@@ -563,9 +539,7 @@ func testDiscoversPytest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if cmd == nil {
-		t.Fatal("Expected to find command")
-	}
+	require.NotNil(t, cmd, "Expected to find command")
 	if cmd.Command != "pytest" {
 		t.Errorf("Expected pytest, got %s", cmd.Command)
 	}
@@ -596,9 +570,7 @@ func testFallsBackToUnittest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if cmd == nil {
-		t.Fatal("Expected to find command")
-	}
+	require.NotNil(t, cmd, "Expected to find command")
 	if cmd.Command != "python" {
 		t.Errorf("Expected python, got %s", cmd.Command)
 	}
@@ -636,9 +608,7 @@ func testWalksUpDirectoryTree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if cmd == nil {
-		t.Fatal("Expected to find command")
-	}
+	require.NotNil(t, cmd, "Expected to find command")
 	if cmd.WorkingDir != "/project" {
 		t.Errorf("Expected working dir /project, got %s", cmd.WorkingDir)
 	}

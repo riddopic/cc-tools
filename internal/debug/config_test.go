@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/riddopic/cc-tools/internal/debug"
 	"github.com/riddopic/cc-tools/internal/shared"
@@ -17,14 +18,10 @@ import (
 func TestNewManager(t *testing.T) {
 	m := debug.NewManager()
 
-	if m == nil {
-		t.Fatal("NewManager() should not return nil")
-	}
+	require.NotNil(t, m, "NewManager() should not return nil")
 
 	cfg := m.ManagerConfig()
-	if cfg == nil {
-		t.Fatal("config should be initialized")
-	}
+	require.NotNil(t, cfg, "config should be initialized")
 
 	if cfg.EnabledDirs == nil {
 		t.Error("EnabledDirs map should be initialized")
@@ -86,9 +83,7 @@ func TestManagerLoad(t *testing.T) {
 			checkFunc: func(t *testing.T, m *debug.Manager) {
 				t.Helper()
 				cfg := m.ManagerConfig()
-				if cfg == nil {
-					t.Error("config should be initialized even when file missing")
-				}
+				require.NotNil(t, cfg, "config should be initialized even when file missing")
 				assertConfigDirCount(t, cfg, 0)
 			},
 			wantErr: false,

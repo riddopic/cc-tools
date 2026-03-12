@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/riddopic/cc-tools/internal/shared"
@@ -290,7 +291,7 @@ func (r *JSONRegistry) Clear(ctx context.Context, dir DirectoryPath) error {
 
 // Helper function to get the registry file path.
 func getRegistryPath() string {
-	return filepath.Join(shared.ConfigDir(), "skip-registry.json")
+	return filepath.Clean(filepath.Join(shared.ConfigDir(), "skip-registry.json"))
 }
 
 // migrateRegistryIfNeeded copies skip-registry.json from ~/.claude/ to the
@@ -299,6 +300,9 @@ func migrateRegistryIfNeeded() {
 	newPath := getRegistryPath()
 	if _, err := os.Stat(newPath); err == nil {
 		return // new file already exists
+	}
+	if strings.Contains(newPath, "..") {
+		return
 	}
 
 	home, err := os.UserHomeDir()
@@ -315,5 +319,6 @@ func migrateRegistryIfNeeded() {
 
 	dir := filepath.Dir(newPath)
 	_ = os.MkdirAll(dir, 0o750)
+	// #nosec G703 - path from ConfigDir() + hardcoded name, validated above.
 	_ = os.WriteFile(newPath, data, 0o600)
 }

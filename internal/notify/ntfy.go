@@ -75,7 +75,7 @@ func (n *NtfyNotifier) Send(ctx context.Context, title, message string) error {
 		req.Header.Set("Authorization", "Bearer "+n.config.Token)
 	}
 
-	resp, err := n.client.Do(req) //nolint:gosec // G704 -- server URL is intentionally user-configurable
+	resp, err := n.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("send ntfy notification: %w", err)
 	}
