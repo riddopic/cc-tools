@@ -13,8 +13,8 @@
 
 set -euo pipefail
 
-GLOBAL_DIR="${SKILL_AUDIT_GLOBAL_DIR:-${HOM}E/.claude/skills}"
-CWD_SKILLS_DIR="${SKILL_AUDIT_PROJECT_DIR:-${1:-${PWD}{/}.claude/skills}}"
+GLOBAL_DIR="${SKILL_AUDIT_GLOBAL_DIR:-${HOME}/.claude/skills}"
+CWD_SKILLS_DIR="${SKILL_AUDIT_PROJECT_DIR:-${1:-${PWD}/.claude/skills}}"
 # Path to JSONL file containing tool-use observations (optional; used for usage frequency counts).
 # Override via SKILL_AUDIT_OBSERVATIONS env var if your setup uses a different path.
 OBSERVATIONS="${SKILL_AUDIT_OBSERVATIONS:-${HOME}/.claude/observations.jsonl}"
@@ -106,7 +106,7 @@ scan_dir_to_json() {
     u7="${u7:-0}"
     u30=$(echo "${obs_30d_counts}" | awk -v f="${file}" '$2 == f {print $1}' | head -1)
     u30="${u30:-0}"
-    dp="${file/#${HOME}/~}"
+    dp="~${file#${HOME}}"
 
     jq -n \
       --arg path "${dp}" \
