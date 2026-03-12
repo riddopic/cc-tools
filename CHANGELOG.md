@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-03-12
+
+### Added
+
+- Browser-based visual companion for brainstorming sessions with Express/WebSocket server, content fragment templating, and interactive option selection
+- Spec-document-reviewer prompt for automated design spec quality checks
+- Plan-document-reviewer prompt for implementation plan quality checks
+- Platform adaptation references for Codex tool equivalents
+
+### Fixed
+
+- Gosec G703 path traversal warnings in debug config and skip registry migration paths
+- Stale nolint directives removed from main.go and ntfy.go
+- WebSocket server crash on malformed JSON messages (now logs and continues)
+- Missing template file at server startup now exits with clear error instead of stack trace
+- Redundant `require()` calls removed from visual companion server
+- Script path references in brainstorming skill resolved to `.claude/skills/` prefix
+- Auto `npm install` in start-server.sh prevents cryptic failures when dependencies are missing
+
+### Changed
+
+- Brainstorming skill enhanced with visual companion, spec review loop, and commit type guidance
+- Subagent-driven-development skill updated with review loop patterns and implementer status codes
+- Test nil-checks refactored to use `require.NotNil` for consistency
+
+### Other
+
+- Gitignore updated to exclude brainstorming visual companion node_modules
+- ULTRATHINK keyword added to deep thinking commands
+- Reviewing-with-codex made user-invocable; duplicate codex-review skill removed
+- 1296 tests with race detector coverage
+
 ## [0.1.3] - 2026-02-24
 
 ### Added
@@ -152,7 +184,8 @@ Initial release of cc-tools, a CLI companion for Claude Code.
 - Mockery v3.5 mock generation for all interfaces
 - Architecture design docs and implementation plans
 
-[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/riddopic/cc-tools/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/riddopic/cc-tools/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/riddopic/cc-tools/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/riddopic/cc-tools/compare/v0.1.0...v0.1.1
