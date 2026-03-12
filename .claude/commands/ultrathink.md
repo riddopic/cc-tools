@@ -14,16 +14,17 @@ argument-hint: "<task>"
 model: opus
 ---
 
-# Deep thinking on a task
+# ULTRATHINK on a task
 
 ## Required Skills
 
 This command uses the following skills (auto-loaded based on context):
+
 - `go-coding-standards` - For Go idioms and patterns
 - `tdd-workflow` - For test-first development
 - `verification-before-completion` - For verifying work completeness
 
-Think carefully and thoroughly through this. ALWAYS FOLLOW OUR PROJECT GUIDELINES AND BEST PRACTICES.
+ULTRATHINK, think carefully and thoroughly through this. ALWAYS FOLLOW OUR PROJECT GUIDELINES AND BEST PRACTICES.
 Start by exploring the codebase and gathering the necessary context.
 You should use sub-agents where it makes sense.
 

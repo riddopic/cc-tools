@@ -18,21 +18,22 @@ argument-hint: "<task>"
 model: opus
 ---
 
-# Deep thinking on a task with in-depth research
+# ULTRATHINK on a task with in-depth research
 
 ## Required Skills
 
 This command uses the following skills (auto-loaded based on context):
+
 - `go-coding-standards` - For Go idioms and patterns
 - `tdd-workflow` - For test-first development
 - `verification-before-completion` - For verifying work completeness
 - `discovery-oriented-prompts` - For research-driven discovery
 
-Think carefully and thoroughly through this. ALWAYS FOLLOW OUR PROJECT GUIDELINES AND BEST PRACTICES.
+ULTRATHINK, think carefully and thoroughly through this. ALWAYS FOLLOW OUR PROJECT GUIDELINES AND BEST PRACTICES.
 Start by exploring the codebase and gathering the necessary context.
 You should use sub-agents where it makes sense.
 
-Do in-depth research on this.
+Please ULTRATHINK on this, do in-depth research on this.
 
 ## YOU MUST DO IN-DEPTH RESEARCH, FOLLOW THE <RESEARCH PROCESS>
 
