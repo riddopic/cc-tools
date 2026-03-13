@@ -83,7 +83,8 @@ Use `--url-host` to control what hostname is printed in the returned URL JSON.
 
 ## The Loop
 
-1. **Write HTML** to a new file in `screen_dir`:
+1. **Check server is alive**, then **write HTML** to a new file in `screen_dir`:
+   - Before each write, check that `$SCREEN_DIR/.server-info` exists. If it doesn't (or `.server-stopped` exists), the server has shut down — restart it with `start-server.sh` before continuing. The server auto-exits after 30 minutes of inactivity.
    - Use semantic filenames: `platform.html`, `visual-style.html`, `layout.html`
    - **Never reuse filenames** — each screen gets a fresh file
    - Use Write tool — **never use cat/heredoc** (dumps noise into terminal)
@@ -146,91 +147,17 @@ That's it. No `<html>`, no CSS, no `<script>` tags needed. The server provides a
 
 ## CSS Classes Available
 
-The frame template provides these CSS classes for your content:
+The frame template provides layout, option, card, mockup, and wireframe CSS classes. Key components:
 
-### Options (A/B/C choices)
+- **`.options` + `.option`** — A/B/C choice cards with `data-choice` and `onclick="toggleSelect(this)"`. Add `data-multiselect` to the container for multi-select.
+- **`.cards` + `.card`** — Visual design cards with `.card-image` and `.card-body`
+- **`.mockup`** — Container with `.mockup-header` and `.mockup-body` for previews
+- **`.split`** — Side-by-side layout (wrap two `.mockup` elements)
+- **`.pros-cons`** — Two-column `.pros` / `.cons` with `<ul>` lists
+- **Mock elements** — `.mock-nav`, `.mock-sidebar`, `.mock-content`, `.mock-button`, `.mock-input`, `.placeholder`
+- **Typography** — `h2` (title), `h3` (section), `.subtitle`, `.section`, `.label`
 
-```html
-<div class="options">
-  <div class="option" data-choice="a" onclick="toggleSelect(this)">
-    <div class="letter">A</div>
-    <div class="content">
-      <h3>Title</h3>
-      <p>Description</p>
-    </div>
-  </div>
-</div>
-```
-
-**Multi-select:** Add `data-multiselect` to the container to let users select multiple options. Each click toggles the item. The indicator bar shows the count.
-
-```html
-<div class="options" data-multiselect>
-  <!-- same option markup — users can select/deselect multiple -->
-</div>
-```
-
-### Cards (visual designs)
-
-```html
-<div class="cards">
-  <div class="card" data-choice="design1" onclick="toggleSelect(this)">
-    <div class="card-image"><!-- mockup content --></div>
-    <div class="card-body">
-      <h3>Name</h3>
-      <p>Description</p>
-    </div>
-  </div>
-</div>
-```
-
-### Mockup container
-
-```html
-<div class="mockup">
-  <div class="mockup-header">Preview: Dashboard Layout</div>
-  <div class="mockup-body"><!-- your mockup HTML --></div>
-</div>
-```
-
-### Split view (side-by-side)
-
-```html
-<div class="split">
-  <div class="mockup"><!-- left --></div>
-  <div class="mockup"><!-- right --></div>
-</div>
-```
-
-### Pros/Cons
-
-```html
-<div class="pros-cons">
-  <div class="pros"><h4>Pros</h4><ul><li>Benefit</li></ul></div>
-  <div class="cons"><h4>Cons</h4><ul><li>Drawback</li></ul></div>
-</div>
-```
-
-### Mock elements (wireframe building blocks)
-
-```html
-<div class="mock-nav">Logo | Home | About | Contact</div>
-<div style="display: flex;">
-  <div class="mock-sidebar">Navigation</div>
-  <div class="mock-content">Main content area</div>
-</div>
-<button class="mock-button">Action Button</button>
-<input class="mock-input" placeholder="Input field">
-<div class="placeholder">Placeholder area</div>
-```
-
-### Typography and sections
-
-- `h2` — page title
-- `h3` — section heading
-- `.subtitle` — secondary text below title
-- `.section` — content block with bottom margin
-- `.label` — small uppercase label text
+See `frame-template.html` for the full CSS reference with all classes, selectors, and theming variables.
 
 ## Browser Events Format
 
