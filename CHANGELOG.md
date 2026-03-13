@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-03-13
+
+### Changed
+
+- Brainstorming visual companion server migrated from Express to zero-dependency stdlib Node.js with RFC 6455 WebSocket, file watching with debounce, 30-min idle timeout, and owner PID lifecycle
+- Deleted orphaned npm artifacts (package.json, package-lock.json, node_modules) no longer needed by stdlib server
+- Trimmed visual-companion.md (278→203 lines) replacing verbose CSS reference with summary pointing to frame-template.html
+- Trimmed subagent-driven-development skill (293→203 lines) condensing example workflow and merging advantages/cost sections
+
+### Other
+
+- Skills updated with review loop refinements and platform adaptation notes
+- 1296 tests with race detector coverage
+
 ## [0.1.4] - 2026-03-12
 
 ### Added
@@ -184,7 +198,8 @@ Initial release of cc-tools, a CLI companion for Claude Code.
 - Mockery v3.5 mock generation for all interfaces
 - Architecture design docs and implementation plans
 
-[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/riddopic/cc-tools/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/riddopic/cc-tools/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/riddopic/cc-tools/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/riddopic/cc-tools/compare/v0.1.1...v0.1.2
