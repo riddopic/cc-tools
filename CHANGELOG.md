@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-03-17
+
+### Fixed
+
+- Lint warnings in brainstorming server and helper scripts (string concatenation → template literals, unused catch/callback parameters)
+
+### Changed
+
+- Shell scripts use portable shebang (`#!/usr/bin/env bash`) instead of hardcoded path
+- Windows/Git Bash auto-foreground detection in start-server.sh (OSTYPE/MSYSTEM)
+- Graceful shutdown with SIGKILL escalation in stop-server.sh
+- Spec and plan review loops reduced from 5 to 3 max iterations before surfacing to human
+- Plan review switched from chunk-based to whole-document review
+- Reviewer prompts calibrated to only flag implementation-blocking issues
+- Visual companion CSS class documentation expanded with inline code examples
+
+### Other
+
+- 1296 tests with race detector coverage
+
 ## [0.1.5] - 2026-03-13
 
 ### Changed
@@ -198,7 +218,8 @@ Initial release of cc-tools, a CLI companion for Claude Code.
 - Mockery v3.5 mock generation for all interfaces
 - Architecture design docs and implementation plans
 
-[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/riddopic/cc-tools/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/riddopic/cc-tools/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/riddopic/cc-tools/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/riddopic/cc-tools/compare/v0.1.2...v0.1.3
