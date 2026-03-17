@@ -94,7 +94,7 @@ const WAITING_PAGE = `<!DOCTYPE html>
 h1 { color: #333; } p { color: #666; }</style>
 </head>
 <body><h1>Brainstorm Companion</h1>
-<p>Waiting for Claude to push a screen...</p></body></html>`;
+<p>Waiting for the agent to push a screen...</p></body></html>`;
 
 const frameTemplate = fs.readFileSync(path.join(__dirname, 'frame-template.html'), 'utf-8');
 const helperScript = fs.readFileSync(path.join(__dirname, 'helper.js'), 'utf-8');
@@ -231,14 +231,14 @@ function handleMessage(text) {
   console.log(JSON.stringify({ source: 'user-event', ...event }));
   if (event.choice) {
     const eventsFile = path.join(SCREEN_DIR, '.events');
-    fs.appendFileSync(eventsFile, JSON.stringify(event) + '\n');
+    fs.appendFileSync(eventsFile, `${JSON.stringify(event)}\n`);
   }
 }
 
 function broadcast(msg) {
   const frame = encodeFrame(OPCODES.TEXT, Buffer.from(JSON.stringify(msg)));
   for (const socket of clients) {
-    try { socket.write(frame); } catch (e) { clients.delete(socket); }
+    try { socket.write(frame); } catch { clients.delete(socket); }
   }
 }
 
@@ -270,7 +270,7 @@ function startServer() {
   const server = http.createServer(handleRequest);
   server.on('upgrade', handleUpgrade);
 
-  const watcher = fs.watch(SCREEN_DIR, (eventType, filename) => {
+  const watcher = fs.watch(SCREEN_DIR, (_eventType, filename) => {
     if (!filename || !filename.endsWith('.html')) return;
 
     if (debounceTimers.has(filename)) clearTimeout(debounceTimers.get(filename));
@@ -301,7 +301,7 @@ function startServer() {
     if (fs.existsSync(infoFile)) fs.unlinkSync(infoFile);
     fs.writeFileSync(
       path.join(SCREEN_DIR, '.server-stopped'),
-      JSON.stringify({ reason, timestamp: Date.now() }) + '\n'
+      `${JSON.stringify({ reason, timestamp: Date.now() })}\n`
     );
     watcher.close();
     clearInterval(lifecycleCheck);
@@ -323,11 +323,11 @@ function startServer() {
   server.listen(PORT, HOST, () => {
     const info = JSON.stringify({
       type: 'server-started', port: Number(PORT), host: HOST,
-      url_host: URL_HOST, url: 'http://' + URL_HOST + ':' + PORT,
+      url_host: URL_HOST, url: `http://${URL_HOST}:${PORT}`,
       screen_dir: SCREEN_DIR
     });
     console.log(info);
-    fs.writeFileSync(path.join(SCREEN_DIR, '.server-info'), info + '\n');
+    fs.writeFileSync(path.join(SCREEN_DIR, '.server-info'), `${info}\n`);
   });
 }
 
