@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-03-19
+
+### Fixed
+
+- Remaining lint warnings in brainstorming server (template literals, unused catch params)
+- Renamed server.js to server.cjs to explicitly mark CommonJS module format
+- Inconsistent script path in visual-companion.md Codex section
+
+### Changed
+
+- Writing-plans skill offers execution choice (subagent-driven vs inline) instead of forcing subagent-driven
+- Windows/MSYS2 owner-PID monitoring skipped (Node.js can't see MSYS2 PIDs; idle timeout prevents orphans)
+
+### Other
+
+- 1296 tests with race detector coverage
+
 ## [0.1.6] - 2026-03-17
 
 ### Fixed
@@ -218,7 +235,8 @@ Initial release of cc-tools, a CLI companion for Claude Code.
 - Mockery v3.5 mock generation for all interfaces
 - Architecture design docs and implementation plans
 
-[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/riddopic/cc-tools/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/riddopic/cc-tools/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/riddopic/cc-tools/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/riddopic/cc-tools/compare/v0.1.3...v0.1.4
