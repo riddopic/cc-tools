@@ -98,7 +98,7 @@ h1 { color: #333; } p { color: #666; }</style>
 
 const frameTemplate = fs.readFileSync(path.join(__dirname, 'frame-template.html'), 'utf-8');
 const helperScript = fs.readFileSync(path.join(__dirname, 'helper.js'), 'utf-8');
-const helperInjection = '<script>\n' + helperScript + '\n</script>';
+const helperInjection = `<script>\n${helperScript}\n</script>`;
 
 // ========== Helper Functions ==========
 
@@ -133,7 +133,7 @@ function handleRequest(req, res) {
       : WAITING_PAGE;
 
     if (html.includes('</body>')) {
-      html = html.replace('</body>', helperInjection + '\n</body>');
+      html = html.replace('</body>', `${helperInjection}\n</body>`);
     } else {
       html += helperInjection;
     }
@@ -169,9 +169,7 @@ function handleUpgrade(req, socket) {
   const accept = computeAcceptKey(key);
   socket.write(
     'HTTP/1.1 101 Switching Protocols\r\n' +
-    'Upgrade: websocket\r\n' +
-    'Connection: Upgrade\r\n' +
-    'Sec-WebSocket-Accept: ' + accept + '\r\n\r\n'
+    `Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`
   );
 
   let buffer = Buffer.alloc(0);
@@ -183,7 +181,7 @@ function handleUpgrade(req, socket) {
       let result;
       try {
         result = decodeFrame(buffer);
-      } catch (e) {
+      } catch {
         socket.end(encodeFrame(OPCODES.CLOSE, Buffer.alloc(0)));
         clients.delete(socket);
         return;
@@ -310,7 +308,7 @@ function startServer() {
 
   const ownerAlive = () => {
     if (!OWNER_PID) return true;
-    try { process.kill(OWNER_PID, 0); return true; } catch (e) { return false; }
+    try { process.kill(OWNER_PID, 0); return true; } catch { return false; }
   };
 
   // Check every 60s: exit if owner process died or idle for 30 minutes
