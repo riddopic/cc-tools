@@ -91,6 +91,9 @@ tasks:
       GOPATH:
         sh: go env GOPATH
     cmds:
+      # Remove first: overwriting a signed binary in place can leave macOS
+      # holding the old signature, which kills the new binary at launch.
+      - rm -f {{.GOPATH}}/bin/{{.BINARY_NAME}}
       - cp {{.BINARY_PATH}} {{.GOPATH}}/bin/{{.BINARY_NAME}}
 
   clean:
