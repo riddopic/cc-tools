@@ -44,7 +44,7 @@ func newInstinctStatusCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:     "status",
+		Use:     subcmdStatus,
 		Short:   "List instincts grouped by domain with confidence bars",
 		Example: "  cc-tools instinct status --domain testing --min-confidence 0.5",
 		RunE: func(_ *cobra.Command, _ []string) error {

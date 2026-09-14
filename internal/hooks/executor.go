@@ -85,11 +85,9 @@ func (ce *CommandExecutor) Execute(ctx context.Context, cmd *DiscoveredCommand) 
 	// Get exit code
 	exitCode := 0
 	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		exitCode = -1
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			exitCode = exitErr.ExitCode()
-		} else {
-			exitCode = -1
 		}
 	}
 

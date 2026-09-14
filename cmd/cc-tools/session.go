@@ -37,7 +37,7 @@ func newSessionListCmd() *cobra.Command {
 	var limit int
 
 	cmd := &cobra.Command{
-		Use:     "list",
+		Use:     subcmdList,
 		Short:   "List recent sessions",
 		Example: "  cc-tools session list --limit 20",
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -120,7 +120,7 @@ func newSessionAliasRemoveCmd() *cobra.Command {
 
 func newSessionAliasListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list",
+		Use:   subcmdList,
 		Short: "List all session aliases",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			homeDir, err := os.UserHomeDir()

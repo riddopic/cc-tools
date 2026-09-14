@@ -10,6 +10,13 @@ import (
 	"github.com/riddopic/cc-tools/internal/skipregistry"
 )
 
+// Subcommand names and table labels shared across commands.
+const (
+	subcmdList   = "list"
+	subcmdStatus = "status"
+	statusLabel  = "Status"
+)
+
 func newTerminal() *output.Terminal {
 	return output.NewTerminal(os.Stdout, os.Stderr)
 }

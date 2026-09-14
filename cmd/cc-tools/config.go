@@ -55,7 +55,7 @@ func newConfigSetCmd() *cobra.Command {
 
 func newConfigListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "list",
+		Use:     subcmdList,
 		Short:   "Show all configuration with defaults and overrides",
 		Aliases: []string{"show"},
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -134,7 +134,7 @@ func handleConfigList(ctx context.Context, out *output.Terminal, manager *config
 	sort.Strings(keys)
 
 	table := output.NewTable(
-		[]string{"Setting", "Value", "Status"},
+		[]string{"Setting", "Value", statusLabel},
 		[]int{30, 25, 10},
 	)
 

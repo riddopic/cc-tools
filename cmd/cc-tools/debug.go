@@ -54,7 +54,7 @@ func newDebugDisableCmd() *cobra.Command {
 
 func newDebugStatusCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "status",
+		Use:     subcmdStatus,
 		Short:   "Show debug status for the current directory",
 		Example: "  cc-tools debug status",
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -66,7 +66,7 @@ func newDebugStatusCmd() *cobra.Command {
 
 func newDebugListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list",
+		Use:   subcmdList,
 		Short: "Show all directories with debug logging enabled",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			out := newTerminal()
@@ -138,10 +138,10 @@ func showDebugStatus(ctx context.Context, out *output.Terminal, manager *debug.M
 
 	if enabled {
 		logFile := debug.GetLogFilePath(dir)
-		table.AddRow([]string{"Status", "ENABLED"})
+		table.AddRow([]string{statusLabel, "ENABLED"})
 		table.AddRow([]string{"Log file", logFile})
 	} else {
-		table.AddRow([]string{"Status", "DISABLED"})
+		table.AddRow([]string{statusLabel, "DISABLED"})
 	}
 
 	_ = out.Info("Debug status for %s:", dir)

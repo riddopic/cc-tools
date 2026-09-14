@@ -80,7 +80,7 @@ func newSkipAllCmd() *cobra.Command {
 
 func newSkipListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list",
+		Use:   subcmdList,
 		Short: "Show all directories with skip configurations",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return listSkips(context.Background(), newTerminal(), newSkipRegistry())
@@ -90,7 +90,7 @@ func newSkipListCmd() *cobra.Command {
 
 func newSkipStatusCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "status",
+		Use:     subcmdStatus,
 		Short:   "Show skip status for the current directory",
 		Example: "  cc-tools skip status",
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -266,7 +266,7 @@ func showStatus(
 	}
 
 	table := output.NewTable(
-		[]string{"Type", "Status"},
+		[]string{"Type", statusLabel},
 		[]int{20, 30},
 	)
 

@@ -18,6 +18,12 @@ const (
 	CommandTypeTest CommandType = "test"
 )
 
+// Project markers and sources used by language-specific discovery.
+const (
+	goModFile           = "go.mod"
+	pythonProjectSource = "Python project"
+)
+
 // DiscoveredCommand represents a discovered command.
 type DiscoveredCommand struct {
 	Type       CommandType
@@ -319,7 +325,7 @@ func (cd *CommandDiscovery) checkGoCommands(
 	cmdType CommandType,
 ) *DiscoveredCommand {
 	// Only check if go.mod exists in this directory
-	if _, err := cd.deps.FS.Stat(filepath.Join(dir, "go.mod")); err != nil {
+	if _, err := cd.deps.FS.Stat(filepath.Join(dir, goModFile)); err != nil {
 		return nil
 	}
 
@@ -332,7 +338,7 @@ func (cd *CommandDiscovery) checkGoCommands(
 				Command:    "golangci-lint",
 				Args:       []string{"run"},
 				WorkingDir: dir,
-				Source:     "go.mod",
+				Source:     goModFile,
 			}
 		}
 		// Fall back to go vet
@@ -341,7 +347,7 @@ func (cd *CommandDiscovery) checkGoCommands(
 			Command:    "go",
 			Args:       []string{"vet", "./..."},
 			WorkingDir: dir,
-			Source:     "go.mod",
+			Source:     goModFile,
 		}
 	case CommandTypeTest:
 		return &DiscoveredCommand{
@@ -349,7 +355,7 @@ func (cd *CommandDiscovery) checkGoCommands(
 			Command:    "go",
 			Args:       []string{"test", "./..."},
 			WorkingDir: dir,
-			Source:     "go.mod",
+			Source:     goModFile,
 		}
 	}
 
@@ -428,7 +434,7 @@ func (cd *CommandDiscovery) checkPythonCommands(
 					Command:    linter.name,
 					Args:       linter.args,
 					WorkingDir: dir,
-					Source:     "Python project",
+					Source:     pythonProjectSource,
 				}
 			}
 			cd.debugf("python: linter %q not found in PATH", linter.name)
@@ -441,7 +447,7 @@ func (cd *CommandDiscovery) checkPythonCommands(
 				Command:    "pytest",
 				Args:       []string{},
 				WorkingDir: dir,
-				Source:     "Python project",
+				Source:     pythonProjectSource,
 			}
 		}
 		// Fall back to unittest
@@ -450,7 +456,7 @@ func (cd *CommandDiscovery) checkPythonCommands(
 			Command:    "python",
 			Args:       []string{"-m", "unittest"},
 			WorkingDir: dir,
-			Source:     "Python project",
+			Source:     pythonProjectSource,
 		}
 	}
 
@@ -476,7 +482,7 @@ func (cd *CommandDiscovery) detectProjectTypes(dir string) []string {
 	var types []string
 
 	// Go project
-	if _, err := cd.deps.FS.Stat(filepath.Join(dir, "go.mod")); err == nil {
+	if _, err := cd.deps.FS.Stat(filepath.Join(dir, goModFile)); err == nil {
 		types = append(types, "go")
 	}
 

@@ -28,7 +28,7 @@ func newMCPCmd() *cobra.Command {
 
 func newMCPListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "list",
+		Use:     subcmdList,
 		Short:   "Show all MCP servers and their status",
 		Example: "  cc-tools mcp list",
 		RunE: func(_ *cobra.Command, _ []string) error {
