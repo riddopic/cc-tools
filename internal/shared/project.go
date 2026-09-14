@@ -77,6 +77,43 @@ func FindProjectRoot(startDir string, deps *Dependencies) (string, error) {
 	return dir, nil
 }
 
+// FindRepoRoot walks up from startDir to the nearest directory containing .git.
+// Package manifests inside a monorepo (a nested pyproject.toml, for instance)
+// are not tooling roots, so they must not end the search. Outside a git
+// repository it falls back to FindProjectRoot.
+func FindRepoRoot(startDir string, deps *Dependencies) (string, error) {
+	if deps == nil {
+		deps = NewDefaultDependencies()
+	}
+
+	dir := startDir
+	if dir == "" {
+		wd, err := deps.FS.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("getting working directory: %w", err)
+		}
+		dir = wd
+	}
+
+	absDir, err := deps.FS.Abs(dir)
+	if err != nil {
+		return "", fmt.Errorf("getting absolute path: %w", err)
+	}
+
+	for {
+		if _, statErr := deps.FS.Stat(filepath.Join(absDir, ".git")); statErr == nil {
+			return absDir, nil
+		}
+		parent := filepath.Dir(absDir)
+		if parent == absDir {
+			break
+		}
+		absDir = parent
+	}
+
+	return FindProjectRoot(dir, deps)
+}
+
 // DetectProjectType analyzes the project directory to determine its type.
 func DetectProjectType(projectDir string, deps *Dependencies) []string {
 	if deps == nil {

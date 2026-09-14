@@ -417,50 +417,150 @@ func (cd *CommandDiscovery) checkPythonCommands(
 
 	switch cmdType {
 	case CommandTypeLint:
-		// Try linters in order of preference
-		linters := []struct {
-			name string
-			args []string
-		}{
-			{"ruff", []string{"check", "."}},
-			{"flake8", []string{"."}},
-			{"pylint", []string{"."}},
-		}
-
-		for _, linter := range linters {
-			if _, err := cd.deps.Runner.LookPath(linter.name); err == nil {
-				return &DiscoveredCommand{
-					Type:       cmdType,
-					Command:    linter.name,
-					Args:       linter.args,
-					WorkingDir: dir,
-					Source:     pythonProjectSource,
-				}
-			}
-			cd.debugf("python: linter %q not found in PATH", linter.name)
-		}
+		return cd.pythonLintCommand(dir)
 	case CommandTypeTest:
-		// Try test runners in order of preference
-		if _, err := cd.deps.Runner.LookPath("pytest"); err == nil {
-			return &DiscoveredCommand{
-				Type:       cmdType,
-				Command:    "pytest",
-				Args:       []string{},
-				WorkingDir: dir,
-				Source:     pythonProjectSource,
-			}
+		return cd.pythonTestCommand(dir)
+	}
+
+	return nil
+}
+
+// pythonLintCommand returns the preferred Python linter that can run from dir.
+func (cd *CommandDiscovery) pythonLintCommand(dir string) *DiscoveredCommand {
+	linters := []struct {
+		name string
+		args []string
+	}{
+		{"ruff", []string{"check", "."}},
+		{"flake8", []string{"."}},
+		{"pylint", []string{"."}},
+	}
+
+	for _, linter := range linters {
+		if _, err := cd.deps.Runner.LookPath(linter.name); err != nil {
+			cd.debugf("python: linter %q not found in PATH", linter.name)
+			continue
 		}
-		// Fall back to unittest
+		if !cd.isPythonToolRoot(dir, linter.name) {
+			continue
+		}
 		return &DiscoveredCommand{
-			Type:       cmdType,
-			Command:    "python",
-			Args:       []string{"-m", "unittest"},
+			Type:       CommandTypeLint,
+			Command:    linter.name,
+			Args:       linter.args,
 			WorkingDir: dir,
 			Source:     pythonProjectSource,
 		}
 	}
 
 	return nil
+}
+
+// pythonTestCommand returns the Python test runner that can run from dir.
+func (cd *CommandDiscovery) pythonTestCommand(dir string) *DiscoveredCommand {
+	if !cd.isPythonToolRoot(dir, "pytest") {
+		return nil
+	}
+
+	if _, err := cd.deps.Runner.LookPath("pytest"); err == nil {
+		return &DiscoveredCommand{
+			Type:       CommandTypeTest,
+			Command:    "pytest",
+			Args:       []string{},
+			WorkingDir: dir,
+			Source:     pythonProjectSource,
+		}
+	}
+
+	return &DiscoveredCommand{
+		Type:       CommandTypeTest,
+		Command:    "python",
+		Args:       []string{"-m", "unittest"},
+		WorkingDir: dir,
+		Source:     pythonProjectSource,
+	}
+}
+
+// isPythonToolRoot reports whether tool should run from dir. In a monorepo a
+// package's pyproject.toml marks a build unit, not a tooling root. Accepting it
+// ends discovery before the repository's own lint and test targets are found,
+// so the bare tool on PATH runs instead of the project's pinned toolchain, and
+// pytest takes its rootdir from the package and skips the root conftest.py.
+// Below the project root, dir qualifies only if it declares tool's config.
+func (cd *CommandDiscovery) isPythonToolRoot(dir, tool string) bool {
+	if dir == cd.projectRoot {
+		return true
+	}
+
+	cfg := pythonToolConfig(tool)
+	for _, name := range cfg.files {
+		if _, err := cd.deps.FS.Stat(filepath.Join(dir, name)); err == nil {
+			return true
+		}
+	}
+	for name, header := range cfg.sections {
+		data, err := cd.deps.FS.ReadFile(filepath.Join(dir, name))
+		if err == nil && hasSectionHeader(data, header) {
+			return true
+		}
+	}
+
+	cd.debugf("python: %s declares no %s config, deferring to a parent directory", dir, tool)
+	return false
+}
+
+// Shared Python config files that can carry sections for several tools.
+const (
+	pyprojectFile = "pyproject.toml"
+	setupCfgFile  = "setup.cfg"
+	toxIniFile    = "tox.ini"
+)
+
+// toolConfig describes where a Python tool's configuration can be declared.
+type toolConfig struct {
+	files    []string          // files whose presence alone declares config
+	sections map[string]string // file name to the section header prefix that declares config
+}
+
+// pythonToolConfig returns the config locations recognised for tool.
+func pythonToolConfig(tool string) toolConfig {
+	switch tool {
+	case "ruff":
+		return toolConfig{
+			files:    []string{"ruff.toml", ".ruff.toml"},
+			sections: map[string]string{pyprojectFile: "[tool.ruff"},
+		}
+	case "flake8":
+		return toolConfig{
+			files:    []string{".flake8"},
+			sections: map[string]string{setupCfgFile: "[flake8]", toxIniFile: "[flake8]"},
+		}
+	case "pylint":
+		return toolConfig{
+			files:    []string{".pylintrc", "pylintrc"},
+			sections: map[string]string{pyprojectFile: "[tool.pylint", setupCfgFile: "[pylint"},
+		}
+	case "pytest":
+		return toolConfig{
+			files: []string{"pytest.ini"},
+			sections: map[string]string{
+				pyprojectFile: "[tool.pytest.ini_options]",
+				toxIniFile:    "[pytest]",
+				setupCfgFile:  "[tool:pytest]",
+			},
+		}
+	}
+	return toolConfig{files: nil, sections: nil}
+}
+
+// hasSectionHeader reports whether any line of data starts with header.
+func hasSectionHeader(data []byte, header string) bool {
+	for line := range strings.SplitSeq(string(data), "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), header) {
+			return true
+		}
+	}
+	return false
 }
 
 // detectPackageManager detects which package manager to use based on lock files.

@@ -58,8 +58,9 @@ func (vr *ValidateResult) FormatMessage() string {
 		lintCmd := vr.LintResult.Command.String()
 		testCmd := vr.TestResult.Command.String()
 		return formatter.FormatBlockingError(
-			"⛔ BLOCKING: Lint and test failures. Run 'cd %s && %s' and '%s'",
-			vr.LintResult.Command.WorkingDir, lintCmd, testCmd)
+			"⛔ BLOCKING: Lint and test failures. Run 'cd %s && %s' and 'cd %s && %s'",
+			vr.LintResult.Command.WorkingDir, lintCmd,
+			vr.TestResult.Command.WorkingDir, testCmd)
 	}
 
 	// Only lint failed
@@ -280,9 +281,9 @@ func runValidateHookInternal(
 		return 0
 	}
 
-	// Find project root
+	// Resolve the repository root so nested package manifests cannot bound discovery
 	fileDir := filepath.Dir(filePath)
-	projectRoot, err := shared.FindProjectRoot(fileDir, nil)
+	projectRoot, err := shared.FindRepoRoot(fileDir, nil)
 	if err != nil {
 		if debug {
 			_, _ = fmt.Fprintf(deps.Stderr, "Error finding project root: %v\n", err)
