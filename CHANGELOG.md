@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-09-15
+
+### Added
+
+- `skip status` reports the effective skip decision for the current directory, including skips inherited from a parent up to the repository root, and names the source: `set on this directory` or `inherited from <path>`. It shares one resolver with the validate hook, so the two always agree
+- Stored `all` skip entries skip both lint and test in the validate hook, matching `skip status`
+
+### Other
+
+- Worktree roots whose `.git` is a file are covered by tests
+- 1332 tests with race detector coverage
+
 ## [0.1.8] - 2026-09-15
 
 ### Fixed
@@ -256,7 +268,8 @@ Initial release of cc-tools, a CLI companion for Claude Code.
 - Mockery v3.5 mock generation for all interfaces
 - Architecture design docs and implementation plans
 
-[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.8...HEAD
+[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.9...HEAD
+[0.1.9]: https://github.com/riddopic/cc-tools/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/riddopic/cc-tools/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/riddopic/cc-tools/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/riddopic/cc-tools/compare/v0.1.5...v0.1.6
