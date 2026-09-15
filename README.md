@@ -124,6 +124,7 @@ cc-tools config list
 # Skip validation in the current directory and everything beneath it
 cc-tools skip lint
 cc-tools skip list
+cc-tools skip status   # Effective skips here, including ones inherited from a parent directory
 
 # Manage MCP servers
 cc-tools mcp list

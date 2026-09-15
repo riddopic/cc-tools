@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/riddopic/cc-tools/internal/output"
+	"github.com/riddopic/cc-tools/internal/shared"
 	"github.com/riddopic/cc-tools/internal/skipregistry"
 )
 
@@ -255,12 +256,18 @@ func showStatus(
 		return fmt.Errorf("get current directory: %w", err)
 	}
 
-	types, err := registry.GetSkipTypes(ctx, skipregistry.DirectoryPath(dir))
+	// Resolve skips exactly as the validate hook does, so status answers the
+	// hook's question: entries on this directory or its ancestors up to the
+	// repository root apply.
+	root, err := shared.FindRepoRoot(dir, nil)
 	if err != nil {
-		return fmt.Errorf("get skip types: %w", err)
+		return fmt.Errorf("find repository root: %w", err)
 	}
 
-	if len(types) == 0 {
+	skips := skipregistry.Effective(
+		ctx, registry, skipregistry.DirectoryPath(dir), skipregistry.DirectoryPath(root),
+	)
+	if !skips.Lint.Skipped && !skips.Test.Skipped {
 		_ = out.Info("No skips configured for %s", dir)
 		return nil
 	}
@@ -269,29 +276,34 @@ func showStatus(
 		[]string{"Type", statusLabel},
 		[]int{20, 30},
 	)
-
-	// Expand all types to determine effective skip state.
-	expanded := make(map[skipregistry.SkipType]bool)
-	for _, t := range types {
-		for _, et := range skipregistry.ExpandSkipType(t) {
-			expanded[et] = true
-		}
-	}
-
-	if expanded[skipregistry.SkipTypeLint] {
-		table.AddRow([]string{"Linting", "SKIPPED"})
-	} else {
-		table.AddRow([]string{"Linting", "Active"})
-	}
-
-	if expanded[skipregistry.SkipTypeTest] {
-		table.AddRow([]string{"Testing", "SKIPPED"})
-	} else {
-		table.AddRow([]string{"Testing", "Active"})
-	}
+	table.AddRow([]string{"Linting", decisionStatus(skips.Lint)})
+	table.AddRow([]string{"Testing", decisionStatus(skips.Test)})
 
 	_ = out.Info("Skip status for %s:", dir)
 	_ = out.Write(table.Render())
+	writeDecisionSource(out, "Linting", skips.Lint, dir)
+	writeDecisionSource(out, "Testing", skips.Test, dir)
 
 	return nil
+}
+
+// decisionStatus returns the status label for a skip decision.
+func decisionStatus(decision skipregistry.Decision) string {
+	if decision.Skipped {
+		return "SKIPPED"
+	}
+	return "Active"
+}
+
+// writeDecisionSource names the registry entry behind a skipped validation, so
+// a skip inherited from a parent directory is distinguishable from one set here.
+func writeDecisionSource(out *output.Terminal, label string, decision skipregistry.Decision, dir string) {
+	switch {
+	case !decision.Skipped:
+		return
+	case decision.Source.String() == dir:
+		_ = out.Info("%s: set on this directory", label)
+	default:
+		_ = out.Info("%s: inherited from %s", label, decision.Source)
+	}
 }

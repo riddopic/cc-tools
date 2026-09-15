@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"strings"
 
 	"github.com/riddopic/cc-tools/internal/hookcmd"
 	"github.com/riddopic/cc-tools/internal/shared"
@@ -115,30 +114,12 @@ func checkSkipsFromInput(ctx context.Context, input *hookcmd.HookInput, debug bo
 	return skipLint, skipTest
 }
 
-// skippedTypes reports which validations are skipped for files in fileDir. A
-// skip registered on fileDir or on any ancestor up to and including root
-// applies, so `cc-tools skip` at a repository root also covers packages with
-// their own manifests nested below it. Registry read errors skip nothing.
+// skippedTypes reports which validations are skipped for files in fileDir,
+// using the same resolution `cc-tools skip status` reports: a skip registered
+// on fileDir or on any ancestor up to and including root applies.
 func skippedTypes(ctx context.Context, reader skipregistry.Reader, fileDir, root string) (bool, bool) {
-	if !isWithinDir(fileDir, root) {
-		root = fileDir
-	}
-
-	var skipLint, skipTest bool
-	for dir := fileDir; ; dir = filepath.Dir(dir) {
-		lint, _ := reader.IsSkipped(ctx, skipregistry.DirectoryPath(dir), skipregistry.SkipTypeLint)
-		test, _ := reader.IsSkipped(ctx, skipregistry.DirectoryPath(dir), skipregistry.SkipTypeTest)
-		skipLint = skipLint || lint
-		skipTest = skipTest || test
-
-		if dir == root || dir == filepath.Dir(dir) {
-			return skipLint, skipTest
-		}
-	}
-}
-
-// isWithinDir reports whether path is dir itself or lies below it.
-func isWithinDir(path, dir string) bool {
-	rel, err := filepath.Rel(dir, path)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+	skips := skipregistry.Effective(
+		ctx, reader, skipregistry.DirectoryPath(fileDir), skipregistry.DirectoryPath(root),
+	)
+	return skips.Lint.Skipped, skips.Test.Skipped
 }

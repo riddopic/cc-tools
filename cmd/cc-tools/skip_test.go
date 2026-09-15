@@ -5,6 +5,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 
@@ -236,6 +238,34 @@ func TestShowStatus(t *testing.T) {
 		outputStr := stdout.String()
 		assert.Contains(t, outputStr, "SKIPPED")
 		assert.Contains(t, outputStr, "Active")
+		assert.Contains(t, outputStr, "Linting: set on this directory")
+	})
+
+	t.Run("skip at repo root is inherited by a nested directory", func(t *testing.T) {
+		root := t.TempDir()
+		// A worktree's .git is a file pointing at the main repository, not a directory.
+		require.NoError(t, os.WriteFile(filepath.Join(root, ".git"), []byte("gitdir: /elsewhere\n"), 0o600))
+		nested := filepath.Join(root, "src", "pkg")
+		require.NoError(t, os.MkdirAll(nested, 0o750))
+
+		registry := skipregistry.NewRegistry(newTestMockStorage())
+		ctx := context.Background()
+
+		t.Chdir(root)
+		rootDir, err := os.Getwd()
+		require.NoError(t, err)
+		addOut, _ := newSkipTestTerminal(t)
+		require.NoError(t, addSkip(ctx, addOut, registry, skipregistry.SkipTypeAll))
+
+		t.Chdir(nested)
+		out, stdout := newSkipTestTerminal(t)
+		require.NoError(t, showStatus(ctx, out, registry))
+
+		outputStr := stdout.String()
+		assert.NotContains(t, outputStr, "No skips configured")
+		assert.NotContains(t, outputStr, "Active")
+		assert.Contains(t, outputStr, "Linting: inherited from "+rootDir)
+		assert.Contains(t, outputStr, "Testing: inherited from "+rootDir)
 	})
 }
 
