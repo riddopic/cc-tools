@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-09-15
+
+### Fixed
+
+- `validate` resolves commands from the repository root (nearest `.git`), so an edit inside a nested package with its own `pyproject.toml` runs the repository's lint and test targets instead of the bare `ruff`/`pytest` on PATH
+- A nested Python directory runs ruff, flake8, pylint, or pytest only when it declares that tool's own config
+- Blocking messages give the working directory for both the lint and the test command
+- Skip registry entries apply to the edited file's directory and every ancestor up to the repository root, so `cc-tools skip` at a worktree root covers nested packages
+- `task install` removes the installed binary before copying, avoiding a macOS code-signature kill (exit 137) that made every hook fail with no output
+
+### Changed
+
+- Brainstorming session directories restructured and spec review simplified
+- Writing-skills guidance expanded, and plan review replaced with self-review
+
+### Other
+
+- Resolved goconst and modernize lint findings
+- using-superpowers skill documents Copilot CLI and Gemini CLI tool mappings and the Codex `multi_agent` flag
+- 1321 tests with race detector coverage
+
 ## [0.1.7] - 2026-03-19
 
 ### Fixed
@@ -235,7 +256,8 @@ Initial release of cc-tools, a CLI companion for Claude Code.
 - Mockery v3.5 mock generation for all interfaces
 - Architecture design docs and implementation plans
 
-[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.8...HEAD
+[0.1.8]: https://github.com/riddopic/cc-tools/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/riddopic/cc-tools/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/riddopic/cc-tools/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/riddopic/cc-tools/compare/v0.1.4...v0.1.5

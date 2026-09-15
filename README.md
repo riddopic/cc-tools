@@ -4,7 +4,7 @@ A CLI companion for [Claude Code](https://docs.anthropic.com/en/docs/claude-code
 
 ## What it does
 
-cc-tools plugs into Claude Code's hook system to run handlers on every hook event — session lifecycle, tool use, notifications, and context compaction. When configured as a `PostToolUse` hook, the `validate` command intercepts file edits and runs your project's linter and test suite in parallel before accepting the change. If either fails, the tool call is blocked with a formatted error message.
+cc-tools plugs into Claude Code's hook system to run handlers on every hook event — session lifecycle, tool use, notifications, and context compaction. When configured as a `PostToolUse` hook, the `validate` command intercepts file edits and runs your project's linter and test suite in parallel before accepting the change. Commands are discovered from the edited file's directory up to the repository root, so an edit inside a nested package still runs the repository's own lint and test targets. If either fails, the tool call is blocked with a formatted error message.
 
 Beyond validation, cc-tools provides:
 
@@ -14,7 +14,7 @@ Beyond validation, cc-tools provides:
 - **Observation logging** — records tool use events for analysis
 - **Instinct learning** — observes tool usage, builds instincts with confidence scoring, evolves them into skills
 - **MCP management** — enable/disable MCP server integrations
-- **Skip registry** — per-directory skip rules for lint, test, or both
+- **Skip registry** — skip rules for lint, test, or both that cover a directory and everything beneath it, up to the repository root
 
 ## Install
 
@@ -121,7 +121,7 @@ cc-tools session alias set latest <session-id>
 cc-tools config set validate.timeout 120
 cc-tools config list
 
-# Skip validation in the current directory
+# Skip validation in the current directory and everything beneath it
 cc-tools skip lint
 cc-tools skip list
 
