@@ -42,6 +42,16 @@ func TestFindRepoRoot(t *testing.T) {
 			expectErr: false,
 		},
 		{
+			name:     "stops at a worktree root whose .git is a file",
+			startDir: "/home/user/worktrees/feature/src/pkg",
+			mockFS: newMockFS(statForPaths(
+				"/home/user/worktrees/feature/.git",
+				"/home/user/worktrees/feature/src/pkg/pyproject.toml",
+			), nil, identityAbs()),
+			expected:  "/home/user/worktrees/feature",
+			expectErr: false,
+		},
+		{
 			name:      "falls back to the nearest project marker outside a git repo",
 			startDir:  "/home/user/proj/lib",
 			mockFS:    newMockFS(statForPaths("/home/user/proj/pyproject.toml"), nil, identityAbs()),
