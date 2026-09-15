@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 
 	"github.com/riddopic/cc-tools/internal/hookcmd"
 	"github.com/riddopic/cc-tools/internal/shared"
@@ -79,11 +80,16 @@ func checkSkipsFromInput(ctx context.Context, input *hookcmd.HookInput, debug bo
 		return false, false
 	}
 
-	// Get directory from file path
-	fileDir := filepath.Dir(filePath)
+	fileDir, err := filepath.Abs(filepath.Dir(filePath))
+	if err != nil {
+		if debug {
+			_, _ = fmt.Fprintf(stderr, "Failed to get absolute path: %v\n", err)
+		}
+		return false, false
+	}
 
-	// Find the project root - same as we do for discovering lint/test commands
-	projectRoot, err := shared.FindProjectRoot(fileDir, nil)
+	// Resolve the same root validate runs commands from
+	projectRoot, err := shared.FindRepoRoot(fileDir, nil)
 	if err != nil {
 		if debug {
 			_, _ = fmt.Fprintf(stderr, "Failed to find project root: %v\n", err)
@@ -92,33 +98,47 @@ func checkSkipsFromInput(ctx context.Context, input *hookcmd.HookInput, debug bo
 		projectRoot = fileDir
 	}
 
-	// Convert to absolute path
-	absProjectRoot, err := filepath.Abs(projectRoot)
-	if err != nil {
-		if debug {
-			_, _ = fmt.Fprintf(stderr, "Failed to get absolute path: %v\n", err)
-		}
-		return false, false
-	}
-
-	// Check skip registry for the project root
-	storage := skipregistry.DefaultStorage()
-	registry := skipregistry.NewRegistry(storage)
-
-	skipLint, _ := registry.IsSkipped(ctx, skipregistry.DirectoryPath(absProjectRoot), skipregistry.SkipTypeLint)
-	skipTest, _ := registry.IsSkipped(ctx, skipregistry.DirectoryPath(absProjectRoot), skipregistry.SkipTypeTest)
+	registry := skipregistry.NewRegistry(skipregistry.DefaultStorage())
+	skipLint, skipTest := skippedTypes(ctx, registry, fileDir, projectRoot)
 
 	if debug {
 		_, _ = fmt.Fprintf(stderr, "File: %s\n", filePath)
-		_, _ = fmt.Fprintf(stderr, "Project root: %s\n", absProjectRoot)
-		_, _ = fmt.Fprintf(stderr, "Checking skips for project root: %s\n", absProjectRoot)
+		_, _ = fmt.Fprintf(stderr, "Checking skips for project root: %s (walking up from %s)\n", projectRoot, fileDir)
 		if skipLint {
-			_, _ = fmt.Fprintf(stderr, "Skipping lint for project: %s\n", absProjectRoot)
+			_, _ = fmt.Fprintf(stderr, "Skipping lint for: %s\n", filePath)
 		}
 		if skipTest {
-			_, _ = fmt.Fprintf(stderr, "Skipping test for project: %s\n", absProjectRoot)
+			_, _ = fmt.Fprintf(stderr, "Skipping test for: %s\n", filePath)
 		}
 	}
 
 	return skipLint, skipTest
+}
+
+// skippedTypes reports which validations are skipped for files in fileDir. A
+// skip registered on fileDir or on any ancestor up to and including root
+// applies, so `cc-tools skip` at a repository root also covers packages with
+// their own manifests nested below it. Registry read errors skip nothing.
+func skippedTypes(ctx context.Context, reader skipregistry.Reader, fileDir, root string) (bool, bool) {
+	if !isWithinDir(fileDir, root) {
+		root = fileDir
+	}
+
+	var skipLint, skipTest bool
+	for dir := fileDir; ; dir = filepath.Dir(dir) {
+		lint, _ := reader.IsSkipped(ctx, skipregistry.DirectoryPath(dir), skipregistry.SkipTypeLint)
+		test, _ := reader.IsSkipped(ctx, skipregistry.DirectoryPath(dir), skipregistry.SkipTypeTest)
+		skipLint = skipLint || lint
+		skipTest = skipTest || test
+
+		if dir == root || dir == filepath.Dir(dir) {
+			return skipLint, skipTest
+		}
+	}
+}
+
+// isWithinDir reports whether path is dir itself or lies below it.
+func isWithinDir(path, dir string) bool {
+	rel, err := filepath.Rel(dir, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }

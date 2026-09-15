@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/riddopic/cc-tools/internal/hookcmd"
+	"github.com/riddopic/cc-tools/internal/skipregistry"
 )
 
 // MustMarshalJSON creates a [json.RawMessage] from a map (test helper).
@@ -275,6 +276,15 @@ func CheckSkipsFromInputForTest(
 	stderr io.Writer,
 ) (bool, bool) {
 	return checkSkipsFromInput(ctx, input, debug, stderr)
+}
+
+// SkippedTypesForTest exposes skippedTypes for external test packages.
+func SkippedTypesForTest(
+	ctx context.Context,
+	reader skipregistry.Reader,
+	fileDir, root string,
+) (bool, bool) {
+	return skippedTypes(ctx, reader, fileDir, root)
 }
 
 // SetCleanupOnExit sets the cleanupOnExit field on a LockManager for testing.
