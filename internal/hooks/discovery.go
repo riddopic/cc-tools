@@ -2,6 +2,7 @@ package hooks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -23,6 +24,35 @@ const (
 	goModFile           = "go.mod"
 	pythonProjectSource = "Python project"
 )
+
+// errNotExecutable marks a scripts/ candidate that exists but lacks the
+// executable bit, so probing continues to the next candidate name.
+var errNotExecutable = errors.New("script is not executable")
+
+// targetNames returns the target, task, recipe, and script names probed for
+// cmdType, most specific first. The generic names are aliases projects commonly
+// use for a combined check. The two lists are kept disjoint so a single generic
+// target is never discovered as both the lint and the test command and then run
+// twice in parallel.
+func targetNames(cmdType CommandType) []string {
+	if cmdType == CommandTypeTest {
+		return []string{string(CommandTypeTest), "tests"}
+	}
+
+	return []string{string(CommandTypeLint), "check", "verify", "validate", "ci"}
+}
+
+// firstMatchingTarget returns the first candidate for which probe reports no
+// error, or an empty string when none match.
+func firstMatchingTarget(candidates []string, probe func(string) error) string {
+	for _, candidate := range candidates {
+		if probe(candidate) == nil {
+			return candidate
+		}
+	}
+
+	return ""
+}
 
 // DiscoveredCommand represents a discovered command.
 type DiscoveredCommand struct {
@@ -125,38 +155,66 @@ func (cd *CommandDiscovery) DiscoverCommand(
 	return nil, fmt.Errorf("no command found for type %s", cmdType)
 }
 
+// buildfileProbe describes one build-file family: the filenames to look for,
+// the command that runs a target, and the arguments preceding the target name.
+type buildfileProbe struct {
+	filenames []string
+	command   string
+	args      func(path string) []string
+}
+
+// checkBuildfile looks for the first candidate target defined in any of the
+// probe's build files, preferring the exact name over the generic aliases.
+func (cd *CommandDiscovery) checkBuildfile(
+	ctx context.Context,
+	dir string,
+	cmdType CommandType,
+	probe buildfileProbe,
+) *DiscoveredCommand {
+	for _, filename := range probe.filenames {
+		path := filepath.Join(dir, filename)
+		if _, err := cd.deps.FS.Stat(path); err != nil {
+			continue
+		}
+
+		target := firstMatchingTarget(targetNames(cmdType), func(candidate string) error {
+			timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(cd.timeout)*time.Second)
+			defer cancel()
+			_, err := cd.deps.Runner.RunContext(
+				timeoutCtx, dir, probe.command, append(probe.args(path), candidate)...,
+			)
+
+			return err
+		})
+		if target == "" {
+			cd.debugf("%s: no %s target found in %s", probe.command, cmdType, path)
+
+			continue
+		}
+
+		return &DiscoveredCommand{
+			Type:       cmdType,
+			Command:    probe.command,
+			Args:       []string{target},
+			WorkingDir: dir,
+			Source:     filename,
+		}
+	}
+
+	return nil
+}
+
 // checkMakefile checks for Makefile targets.
 func (cd *CommandDiscovery) checkMakefile(
 	ctx context.Context,
 	dir string,
 	cmdType CommandType,
 ) *DiscoveredCommand {
-	makefiles := []string{"Makefile", "makefile"}
-
-	for _, makefile := range makefiles {
-		path := filepath.Join(dir, makefile)
-		if _, err := cd.deps.FS.Stat(path); err != nil {
-			continue
-		}
-
-		target := string(cmdType)
-		// Check if target exists using make -n (dry run)
-		timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(cd.timeout)*time.Second)
-		_, err := cd.deps.Runner.RunContext(timeoutCtx, dir, "make", "-f", path, "-n", target)
-		cancel()
-		if err == nil {
-			return &DiscoveredCommand{
-				Type:       cmdType,
-				Command:    "make",
-				Args:       []string{target},
-				WorkingDir: dir,
-				Source:     makefile,
-			}
-		}
-		cd.debugf("make: target %q not found in %s", target, path)
-	}
-
-	return nil
+	return cd.checkBuildfile(ctx, dir, cmdType, buildfileProbe{
+		filenames: []string{"Makefile", "makefile"},
+		command:   "make",
+		args:      func(path string) []string { return []string{"-f", path, "-n"} },
+	})
 }
 
 // checkTaskfile checks for Taskfile tasks.
@@ -165,32 +223,11 @@ func (cd *CommandDiscovery) checkTaskfile(
 	dir string,
 	cmdType CommandType,
 ) *DiscoveredCommand {
-	taskfiles := []string{"Taskfile.yml", "Taskfile.yaml"}
-
-	for _, taskfile := range taskfiles {
-		path := filepath.Join(dir, taskfile)
-		if _, err := cd.deps.FS.Stat(path); err != nil {
-			continue
-		}
-
-		task := string(cmdType)
-		// Check if task exists using task --dry
-		timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(cd.timeout)*time.Second)
-		_, err := cd.deps.Runner.RunContext(timeoutCtx, dir, "task", "--taskfile", path, "--dry", task)
-		cancel()
-		if err == nil {
-			return &DiscoveredCommand{
-				Type:       cmdType,
-				Command:    "task",
-				Args:       []string{task},
-				WorkingDir: dir,
-				Source:     taskfile,
-			}
-		}
-		cd.debugf("task: target %q not found in %s", task, path)
-	}
-
-	return nil
+	return cd.checkBuildfile(ctx, dir, cmdType, buildfileProbe{
+		filenames: []string{"Taskfile.yml", "Taskfile.yaml"},
+		command:   "task",
+		args:      func(path string) []string { return []string{"--taskfile", path, "--dry"} },
+	})
 }
 
 // checkJustfile checks for justfile recipes.
@@ -199,32 +236,11 @@ func (cd *CommandDiscovery) checkJustfile(
 	dir string,
 	cmdType CommandType,
 ) *DiscoveredCommand {
-	justfiles := []string{"justfile", "Justfile", ".justfile"}
-
-	for _, justfile := range justfiles {
-		path := filepath.Join(dir, justfile)
-		if _, err := cd.deps.FS.Stat(path); err != nil {
-			continue
-		}
-
-		recipe := string(cmdType)
-		// Check if recipe exists using just --show
-		timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(cd.timeout)*time.Second)
-		_, err := cd.deps.Runner.RunContext(timeoutCtx, dir, "just", "--justfile", path, "--show", recipe)
-		cancel()
-		if err == nil {
-			return &DiscoveredCommand{
-				Type:       cmdType,
-				Command:    "just",
-				Args:       []string{recipe},
-				WorkingDir: dir,
-				Source:     justfile,
-			}
-		}
-		cd.debugf("just: recipe %q not found in %s", recipe, path)
-	}
-
-	return nil
+	return cd.checkBuildfile(ctx, dir, cmdType, buildfileProbe{
+		filenames: []string{"justfile", "Justfile", ".justfile"},
+		command:   "just",
+		args:      func(path string) []string { return []string{"--justfile", path, "--show"} },
+	})
 }
 
 // checkPackageJSON checks for npm/yarn/pnpm scripts.
@@ -238,14 +254,18 @@ func (cd *CommandDiscovery) checkPackageJSON(
 		return nil
 	}
 
-	// Use jq to check if script exists
-	script := string(cmdType)
-	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(cd.timeout)*time.Second)
-	defer cancel()
+	// Use jq to check which candidate script exists
+	script := firstMatchingTarget(targetNames(cmdType), func(candidate string) error {
+		timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(cd.timeout)*time.Second)
+		defer cancel()
+		_, err := cd.deps.Runner.RunContext(timeoutCtx, dir, "jq", "-e",
+			fmt.Sprintf(".scripts.%q", candidate), packagePath)
 
-	if _, err := cd.deps.Runner.RunContext(timeoutCtx, dir, "jq", "-e",
-		fmt.Sprintf(".scripts.\"%s\"", script), packagePath); err != nil {
-		cd.debugf("package.json: script %q not found in %s", script, packagePath)
+		return err
+	})
+	if script == "" {
+		cd.debugf("package.json: no %s script found in %s", cmdType, packagePath)
+
 		return nil
 	}
 
@@ -267,22 +287,27 @@ func (cd *CommandDiscovery) checkScriptsDir(
 	dir string,
 	cmdType CommandType,
 ) *DiscoveredCommand {
-	scriptPath := filepath.Join(dir, "scripts", string(cmdType))
+	script := firstMatchingTarget(targetNames(cmdType), func(candidate string) error {
+		info, err := cd.deps.FS.Stat(filepath.Join(dir, "scripts", candidate))
+		if err != nil {
+			return err
+		}
+		// Check if it's executable
+		if info.Mode()&0o111 == 0 {
+			cd.debugf("scripts/: %s exists but is not executable", candidate)
 
-	info, err := cd.deps.FS.Stat(scriptPath)
-	if err != nil {
+			return errNotExecutable
+		}
+
 		return nil
-	}
-
-	// Check if it's executable
-	if info.Mode()&0o111 == 0 {
-		cd.debugf("scripts/: %s exists but is not executable", scriptPath)
+	})
+	if script == "" {
 		return nil
 	}
 
 	return &DiscoveredCommand{
 		Type:       cmdType,
-		Command:    "./scripts/" + string(cmdType),
+		Command:    "./scripts/" + script,
 		Args:       []string{},
 		WorkingDir: dir,
 		Source:     "scripts/",
