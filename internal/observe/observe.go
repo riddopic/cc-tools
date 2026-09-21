@@ -44,6 +44,13 @@ func NewObserver(dir string, maxFileSizeMB int) *Observer {
 // It checks file size before writing and rotates if over maxFileSizeMB.
 // Returns nil if observation recording is disabled.
 func (o *Observer) Record(event Event) error {
+	return o.appendJSONL(observationsFile, event)
+}
+
+// appendJSONL appends value as a JSON line to filename inside the observer's
+// directory, rotating first when the file has grown past maxFileSizeMB.
+// Returns nil if observation recording is disabled.
+func (o *Observer) appendJSONL(filename string, value any) error {
 	if o.isDisabled() {
 		return nil
 	}
@@ -52,13 +59,13 @@ func (o *Observer) Record(event Event) error {
 		return fmt.Errorf("create observe directory: %w", err)
 	}
 
-	filePath := filepath.Join(o.dir, observationsFile)
+	filePath := filepath.Join(o.dir, filename)
 
 	if err := RotateIfNeeded(filePath, o.maxFileSizeMB); err != nil {
-		return fmt.Errorf("rotate observations file: %w", err)
+		return fmt.Errorf("rotate %s: %w", filename, err)
 	}
 
-	data, err := json.Marshal(event)
+	data, err := json.Marshal(value)
 	if err != nil {
 		return fmt.Errorf("marshal event: %w", err)
 	}
@@ -68,7 +75,7 @@ func (o *Observer) Record(event Event) error {
 	// #nosec G304 -- filePath is built from a controlled directory.
 	f, err := os.OpenFile(filePath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
-		return fmt.Errorf("open observations file: %w", err)
+		return fmt.Errorf("open %s: %w", filename, err)
 	}
 	defer f.Close()
 

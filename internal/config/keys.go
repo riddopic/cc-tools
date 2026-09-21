@@ -32,6 +32,7 @@ const (
 	keyDriftEnabled   = "drift.enabled"
 	keyDriftMinEdits  = "drift.min_edits"
 	keyDriftThreshold = "drift.threshold"
+	keyDriftLogEvals  = "drift.log_evals"
 
 	keyStopReminderEnabled  = "stop_reminder.enabled"
 	keyStopReminderInterval = "stop_reminder.interval"
@@ -74,6 +75,9 @@ const (
 	defaultDriftEnabled   = true
 	defaultDriftMinEdits  = 6
 	defaultDriftThreshold = 0.2
+	// defaultDriftLogEvals is off: eval logging writes prompt text to disk and
+	// is meant for a deliberate measurement run, not permanent collection.
+	defaultDriftLogEvals = false
 
 	defaultStopReminderEnabled  = true
 	defaultStopReminderInterval = 20
@@ -135,6 +139,7 @@ func GetDefaultConfig() *Values {
 			Enabled:   defaultDriftEnabled,
 			MinEdits:  defaultDriftMinEdits,
 			Threshold: defaultDriftThreshold,
+			LogEvals:  defaultDriftLogEvals,
 		},
 		StopReminder: StopReminderValues{
 			Enabled:  defaultStopReminderEnabled,
@@ -225,6 +230,7 @@ func allKeys() []string {
 		keyDriftEnabled,
 		keyDriftMinEdits,
 		keyDriftThreshold,
+		keyDriftLogEvals,
 		keyStopReminderEnabled,
 		keyStopReminderInterval,
 		keyStopReminderWarnAt,

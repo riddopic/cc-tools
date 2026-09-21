@@ -7,10 +7,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/riddopic/cc-tools/internal/config"
 	"github.com/riddopic/cc-tools/internal/hookcmd"
+	"github.com/riddopic/cc-tools/internal/observe"
 )
 
 // Compile-time interface check.
@@ -50,12 +52,20 @@ func WithDriftStateDir(dir string) DriftOption {
 	}
 }
 
+// WithDriftEvalDir overrides the evaluation log directory for testing.
+func WithDriftEvalDir(dir string) DriftOption {
+	return func(h *DriftHandler) {
+		h.evalDir = dir
+	}
+}
+
 // DriftHandler detects when a session drifts away from its original intent.
 // It fires on UserPromptSubmit events, tracking keywords from the first prompt
 // and warning when subsequent prompts diverge significantly.
 type DriftHandler struct {
 	cfg      *config.Values
 	stateDir string
+	evalDir  string
 }
 
 // NewDriftHandler creates a new DriftHandler.
@@ -63,6 +73,7 @@ func NewDriftHandler(cfg *config.Values, opts ...DriftOption) *DriftHandler {
 	h := &DriftHandler{
 		cfg:      cfg,
 		stateDir: "",
+		evalDir:  "",
 	}
 	for _, opt := range opts {
 		opt(h)
@@ -117,14 +128,35 @@ func (h *DriftHandler) Handle(_ context.Context, input *hookcmd.HookInput) (*Res
 		return &Response{ExitCode: 0}, nil
 	}
 
-	return h.evaluate(prompt, state), nil
+	return h.evaluate(input.SessionID, prompt, state), nil
 }
 
-// evaluate scores the prompt against the stored intent and returns the
-// advisory warning when the score falls below the threshold.
-func (h *DriftHandler) evaluate(prompt string, state *driftState) *Response {
-	overlap := keywordOverlap(state.Keywords, extractKeywords(prompt))
-	if len(state.Keywords) < minIntentKeywords || overlap >= h.cfg.Drift.Threshold {
+// evaluate scores the prompt against the stored intent, records the evaluation
+// when eval logging is on, and returns the advisory warning when the score
+// falls below the threshold.
+func (h *DriftHandler) evaluate(
+	sessionID hookcmd.SessionID,
+	prompt string,
+	state *driftState,
+) *Response {
+	promptKeywords := extractKeywords(prompt)
+	overlap := keywordOverlap(state.Keywords, promptKeywords)
+	warned := len(state.Keywords) >= minIntentKeywords && overlap < h.cfg.Drift.Threshold
+
+	h.logEval(observe.DriftEval{
+		Timestamp:      time.Now(),
+		SessionID:      string(sessionID),
+		Intent:         state.Intent,
+		Prompt:         prompt,
+		IntentKeywords: state.Keywords,
+		PromptKeywords: promptKeywords,
+		Overlap:        overlap,
+		Threshold:      h.cfg.Drift.Threshold,
+		Edits:          state.Edits,
+		Warned:         warned,
+	})
+
+	if !warned {
 		return &Response{ExitCode: 0}
 	}
 
@@ -135,6 +167,25 @@ func (h *DriftHandler) evaluate(prompt string, state *driftState) *Response {
 			state.Intent,
 		),
 	}
+}
+
+// logEval appends the evaluation to the drift eval log when enabled. Logging is
+// best effort: a measurement run must never fail a user's prompt.
+func (h *DriftHandler) logEval(eval observe.DriftEval) {
+	if !h.cfg.Drift.LogEvals {
+		return
+	}
+
+	dir := h.evalDir
+	if dir == "" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return
+		}
+		dir = filepath.Join(homeDir, ".cache", "cc-tools", "observations")
+	}
+
+	_ = observe.NewObserver(dir, h.cfg.Observe.MaxFileSizeMB).RecordDriftEval(eval)
 }
 
 // initIntent creates a new drift state from the given prompt. The stored intent

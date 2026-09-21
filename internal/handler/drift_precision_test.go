@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/riddopic/cc-tools/internal/handler"
 	"github.com/riddopic/cc-tools/internal/hookcmd"
+	"github.com/riddopic/cc-tools/internal/observe"
 )
 
 // loadDriftState reads the persisted drift state for a session.
@@ -121,4 +123,77 @@ func TestDriftHandler_SparseIntentSuppressesWarning(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Empty(t, resp.Stderr)
+}
+
+// TestDriftHandler_LogsEvaluationWhenEnabled verifies that a scored prompt is
+// appended to the eval log with everything needed to hand-label it later.
+func TestDriftHandler_LogsEvaluationWhenEnabled(t *testing.T) {
+	t.Parallel()
+
+	stateDir := t.TempDir()
+	evalDir := t.TempDir()
+	sessionID := hookcmd.SessionID("eval-log")
+
+	intentKeywords := []string{"refactor", "auth", "middleware", "session", "token", "validation"}
+	seedDriftState(t, stateDir, sessionID, &driftTestState{
+		Intent:   "refactor the auth middleware and session token validation",
+		Keywords: intentKeywords,
+		Edits:    6,
+	})
+
+	cfg := driftConfig(true, 6, 0.2)
+	cfg.Drift.LogEvals = true
+
+	h := handler.NewDriftHandler(cfg,
+		handler.WithDriftStateDir(stateDir),
+		handler.WithDriftEvalDir(evalDir),
+	)
+	_, err := h.Handle(context.Background(), &hookcmd.HookInput{
+		SessionID: sessionID,
+		Prompt:    "deploy the marketing site to production",
+	})
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(filepath.Join(evalDir, "drift-evals.jsonl"))
+	require.NoError(t, err)
+
+	var eval observe.DriftEval
+	require.NoError(t, json.Unmarshal(bytes.TrimSpace(data), &eval))
+
+	assert.Equal(t, string(sessionID), eval.SessionID)
+	assert.Equal(t, "deploy the marketing site to production", eval.Prompt)
+	assert.Equal(t, intentKeywords, eval.IntentKeywords)
+	assert.InDelta(t, 0.2, eval.Threshold, 0.001)
+	assert.Equal(t, 7, eval.Edits)
+	assert.True(t, eval.Warned)
+	assert.InDelta(t, 0.0, eval.Overlap, 0.001)
+}
+
+// TestDriftHandler_DoesNotLogEvaluationByDefault keeps prompt text off disk
+// unless the user has explicitly opted in to a measurement run.
+func TestDriftHandler_DoesNotLogEvaluationByDefault(t *testing.T) {
+	t.Parallel()
+
+	stateDir := t.TempDir()
+	evalDir := t.TempDir()
+	sessionID := hookcmd.SessionID("eval-off")
+
+	seedDriftState(t, stateDir, sessionID, &driftTestState{
+		Intent:   "refactor the auth middleware",
+		Keywords: []string{"refactor", "auth", "middleware"},
+		Edits:    6,
+	})
+
+	h := handler.NewDriftHandler(driftConfig(true, 6, 0.2),
+		handler.WithDriftStateDir(stateDir),
+		handler.WithDriftEvalDir(evalDir),
+	)
+	_, err := h.Handle(context.Background(), &hookcmd.HookInput{
+		SessionID: sessionID,
+		Prompt:    "deploy the marketing site",
+	})
+	require.NoError(t, err)
+
+	_, statErr := os.Stat(filepath.Join(evalDir, "drift-evals.jsonl"))
+	assert.ErrorIs(t, statErr, os.ErrNotExist)
 }

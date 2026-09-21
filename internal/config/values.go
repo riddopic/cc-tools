@@ -87,6 +87,9 @@ type DriftValues struct {
 	Enabled   bool    `json:"enabled"`
 	MinEdits  int     `json:"min_edits"`
 	Threshold float64 `json:"threshold"`
+	// LogEvals appends every scored prompt to drift-evals.jsonl for offline
+	// precision measurement. Off by default: it writes prompt text to disk.
+	LogEvals bool `json:"log_evals"`
 }
 
 // StopReminderValues represents stop event reminder settings.
@@ -236,6 +239,8 @@ func (v *Values) getExtendedValue(key string) (string, bool, error) {
 		return strconv.Itoa(v.Drift.MinEdits), true, nil
 	case keyDriftThreshold:
 		return strconv.FormatFloat(v.Drift.Threshold, 'f', -1, 64), true, nil
+	case keyDriftLogEvals:
+		return strconv.FormatBool(v.Drift.LogEvals), true, nil
 	case keyStopReminderEnabled:
 		return strconv.FormatBool(v.StopReminder.Enabled), true, nil
 	case keyStopReminderInterval:
@@ -270,6 +275,8 @@ func (v *Values) setExtendedField(key, value string) (bool, error) {
 		return true, setIntField(&v.Drift.MinEdits, value)
 	case keyDriftThreshold:
 		return true, setFloatField(&v.Drift.Threshold, value)
+	case keyDriftLogEvals:
+		return true, setBoolField(&v.Drift.LogEvals, value)
 	case keyStopReminderEnabled:
 		return true, setBoolField(&v.StopReminder.Enabled, value)
 	case keyStopReminderInterval:
@@ -306,6 +313,8 @@ func (v *Values) resetExtended(key string, defaults *Values) bool {
 		v.Drift.MinEdits = defaults.Drift.MinEdits
 	case keyDriftThreshold:
 		v.Drift.Threshold = defaults.Drift.Threshold
+	case keyDriftLogEvals:
+		v.Drift.LogEvals = defaults.Drift.LogEvals
 	case keyStopReminderEnabled:
 		v.StopReminder.Enabled = defaults.StopReminder.Enabled
 	case keyStopReminderInterval:
@@ -346,6 +355,9 @@ func convertDriftFromMap(d *DriftValues, mapConfig map[string]any) {
 	}
 	if threshold, thresholdOk := section["threshold"].(float64); thresholdOk {
 		d.Threshold = threshold
+	}
+	if logEvals, logEvalsOk := section["log_evals"].(bool); logEvalsOk {
+		d.LogEvals = logEvals
 	}
 }
 
