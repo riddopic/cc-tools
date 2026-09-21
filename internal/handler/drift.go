@@ -21,6 +21,16 @@ const (
 	maxIntentLen = 200
 	// minKeywordLen is the minimum word length to qualify as a keyword.
 	minKeywordLen = 3
+	// intentScanWindow bounds how much of the opening prompt contributes
+	// keywords. Wide enough to cover a normal multi-sentence request, narrow
+	// enough that a pasted specification cannot flood the set until no later
+	// prompt could ever look like drift.
+	intentScanWindow = 1000
+	// minIntentKeywords is the smallest intent keyword set worth judging
+	// against. Below this there is too little signal to distinguish a new topic
+	// from different wording, so the handler stays silent instead of warning on
+	// every prompt for the rest of the session.
+	minIntentKeywords = 3
 )
 
 // driftState persists the original session intent across prompts.
@@ -103,33 +113,47 @@ func (h *DriftHandler) Handle(_ context.Context, input *hookcmd.HookInput) (*Res
 	state.Edits++
 	h.saveState(stateDir, input.SessionID, state)
 
-	minEdits := h.cfg.Drift.MinEdits
-	threshold := h.cfg.Drift.Threshold
-
-	if state.Edits < minEdits {
+	if state.Edits < h.cfg.Drift.MinEdits {
 		return &Response{ExitCode: 0}, nil
 	}
 
-	promptKeywords := extractKeywords(prompt)
-	overlap := keywordOverlap(state.Keywords, promptKeywords)
-
-	if overlap < threshold {
-		msg := fmt.Sprintf(
-			"[cc-tools] Possible drift detected — current work may be unrelated to original intent: %q\n",
-			state.Intent,
-		)
-		return &Response{ExitCode: 0, Stderr: msg}, nil
-	}
-
-	return &Response{ExitCode: 0}, nil
+	return h.evaluate(prompt, state), nil
 }
 
-// initIntent creates a new drift state from the given prompt.
+// evaluate scores the prompt against the stored intent and returns the
+// advisory warning when the score falls below the threshold.
+func (h *DriftHandler) evaluate(prompt string, state *driftState) *Response {
+	overlap := keywordOverlap(state.Keywords, extractKeywords(prompt))
+	if len(state.Keywords) < minIntentKeywords || overlap >= h.cfg.Drift.Threshold {
+		return &Response{ExitCode: 0}
+	}
+
+	return &Response{
+		ExitCode: 0,
+		Stderr: fmt.Sprintf(
+			"[cc-tools] Possible drift detected — current work may be unrelated to original intent: %q\n",
+			state.Intent,
+		),
+	}
+}
+
+// initIntent creates a new drift state from the given prompt. The stored intent
+// is the first sentence, used for display, but keywords come from a wider
+// window: a terse opening sentence such as "I want to refactor this." yields a
+// single keyword, after which every later prompt scores zero overlap and warns.
 func (h *DriftHandler) initIntent(prompt string) *driftState {
-	intent := firstSentence(prompt, maxIntentLen)
+	scan := prompt
+	for i := range scan {
+		if i >= intentScanWindow {
+			scan = scan[:i]
+
+			break
+		}
+	}
+
 	return &driftState{
-		Intent:   intent,
-		Keywords: extractKeywords(intent),
+		Intent:   firstSentence(prompt, maxIntentLen),
+		Keywords: distinct(extractKeywords(scan)),
 		Edits:    0,
 	}
 }
@@ -198,9 +222,26 @@ func extractKeywords(text string) []string {
 	return keywords
 }
 
-// keywordOverlap returns the ratio of prompt keywords found in the intent keywords.
+// distinct returns words with duplicates removed, preserving first-seen order.
+func distinct(words []string) []string {
+	seen := make(map[string]struct{}, len(words))
+	unique := make([]string, 0, len(words))
+	for _, w := range words {
+		if _, ok := seen[w]; ok {
+			continue
+		}
+		seen[w] = struct{}{}
+		unique = append(unique, w)
+	}
+	return unique
+}
+
+// keywordOverlap returns the fraction of the prompt's distinct keywords that
+// also appear in the intent. Duplicates are collapsed first, so repeating one
+// on-topic word cannot mask a prompt that is otherwise unrelated.
 func keywordOverlap(intentKW, promptKW []string) float64 {
-	if len(promptKW) == 0 {
+	unique := distinct(promptKW)
+	if len(unique) == 0 {
 		return 1.0 // Empty prompt doesn't indicate drift.
 	}
 	intentSet := make(map[string]struct{}, len(intentKW))
@@ -208,12 +249,12 @@ func keywordOverlap(intentKW, promptKW []string) float64 {
 		intentSet[kw] = struct{}{}
 	}
 	matches := 0
-	for _, kw := range promptKW {
+	for _, kw := range unique {
 		if _, ok := intentSet[kw]; ok {
 			matches++
 		}
 	}
-	return float64(matches) / float64(len(promptKW))
+	return float64(matches) / float64(len(unique))
 }
 
 // isPivotPhrase returns true if the prompt starts with an explicit intent change.
