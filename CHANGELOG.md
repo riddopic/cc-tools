@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-09-22
+
+### Added
+
+- `drift.log_evals` appends every scored prompt to `drift-evals.jsonl`: the intent it was judged against, both keyword sets, the computed overlap, the threshold, and whether it warned. Enough to hand-label a row without re-running anything, so the detector's false-positive rate can finally be measured. Off by default, since it writes prompt text to disk. It reuses the observation `Observer`, so rotation, `0600`, and the `.disabled` kill switch all apply, and it writes to its own file so the stream the learning prompts consume is unchanged
+
+### Fixed
+
+- Drift detection derived its keyword set from the first *sentence* of the opening prompt, so "I want to refactor this. The auth middleware needs work." reduced to the single keyword `refactor` and warned on nearly every prompt from the seventh onward. Keywords now come from a bounded window over the whole opening prompt; the displayed intent is still the first sentence
+- Repeating one on-topic word could mask an otherwise unrelated prompt, because overlap divided by the raw prompt keyword count instead of the distinct count
+- An opening prompt yielding fewer than three keywords now suppresses the warning entirely. A terse opener carries too little signal to tell a new topic from new wording, and warning every remaining turn is noise
+- `validate` discovers lint and test commands named `check`, `verify`, `validate`, `ci`, or `tests`, not only the literal `lint` and `test`. A project whose Makefile defined just `check` had no command discovered at all and silently skipped validation. The lint and test candidate lists are disjoint, so a single generic target is never discovered as both and run twice in parallel
+
+### Other
+
+- Makefile, Taskfile, and justfile discovery share one `checkBuildfile` helper instead of three near-identical copies
+- graft code-graph tooling and serena project configuration
+- 1354 tests with race detector coverage
+
 ## [0.1.9] - 2026-09-15
 
 ### Added
@@ -268,7 +287,8 @@ Initial release of cc-tools, a CLI companion for Claude Code.
 - Mockery v3.5 mock generation for all interfaces
 - Architecture design docs and implementation plans
 
-[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.9...HEAD
+[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.10...HEAD
+[0.1.10]: https://github.com/riddopic/cc-tools/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/riddopic/cc-tools/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/riddopic/cc-tools/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/riddopic/cc-tools/compare/v0.1.6...v0.1.7

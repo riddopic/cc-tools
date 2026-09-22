@@ -159,7 +159,7 @@ Configuration covers 11 groups with 31 keys total:
 | `learning.*` | 2 | Skill extraction from sessions |
 | `pre_commit_reminder.*` | 2 | Pre-commit check reminders |
 | `package_manager.*` | 1 | Preferred package manager override |
-| `drift.*` | 3 | Session topic drift detection |
+| `drift.*` | 4 | Session topic drift detection |
 | `stop_reminder.*` | 3 | Periodic session length reminders |
 | `instinct.*` | 7 | Instinct storage, confidence, and evolution |
 
