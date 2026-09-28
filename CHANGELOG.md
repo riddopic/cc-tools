@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-09-29
+
 ### Changed
 
 - Hook output now follows the Claude Code hooks protocol. Context for Claude is sent as `hookSpecificOutput.additionalContext` and messages for you as `systemMessage`. Before this, the compact, stop-reminder, drift and pre-commit messages went to stderr with exit code 0, which Claude Code writes only to its debug log, so neither you nor Claude ever saw them. Compact, stop and drift reminders now show up in your transcript without using Claude's context; the pre-commit reminder now reaches Claude before `git commit`
@@ -304,7 +306,8 @@ Initial release of cc-tools, a CLI companion for Claude Code.
 - Mockery v3.5 mock generation for all interfaces
 - Architecture design docs and implementation plans
 
-[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.10...HEAD
+[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.11...HEAD
+[0.1.11]: https://github.com/riddopic/cc-tools/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/riddopic/cc-tools/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/riddopic/cc-tools/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/riddopic/cc-tools/compare/v0.1.7...v0.1.8

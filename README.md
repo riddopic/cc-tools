@@ -4,7 +4,7 @@ A CLI companion for [Claude Code](https://docs.anthropic.com/en/docs/claude-code
 
 ## What it does
 
-cc-tools plugs into Claude Code's hook system to run handlers on every hook event — session lifecycle, tool use, notifications, and context compaction. When configured as a `PostToolUse` hook, the `validate` command intercepts file edits and runs your project's linter and test suite in parallel before accepting the change. Commands are discovered from the edited file's directory up to the repository root, so an edit inside a nested package still runs the repository's own lint and test targets. If either fails, the tool call is blocked with a formatted error message.
+cc-tools plugs into Claude Code's hook system to run handlers on every hook event — session lifecycle, tool use, notifications, and context compaction. When configured as a `PostToolUse` hook, the `validate` command intercepts file edits and runs your project's linter and test suite in parallel before accepting the change. Commands are discovered from the edited file's directory up to the repository root, so an edit inside a nested package still runs the repository's own lint and test targets. If either fails, Claude receives the failing command and its trimmed output as feedback so it can fix the problem without rerunning it; passing runs stay silent so they don't use Claude's context.
 
 Beyond validation, cc-tools provides:
 
