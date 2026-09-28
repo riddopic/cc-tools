@@ -11,7 +11,6 @@ func NewDefaultRegistry(cfg *config.Values) *Registry {
 	r := NewRegistry()
 
 	r.Register(hookcmd.EventSessionStart,
-		NewSuperpowersHandler(),
 		NewPkgManagerHandler(cfg),
 		NewSessionContextHandler(),
 	)

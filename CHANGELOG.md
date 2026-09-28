@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Changed
+
+- Hook output now follows the Claude Code hooks protocol. Context for Claude is sent as `hookSpecificOutput.additionalContext` and messages for you as `systemMessage`. Before this, the compact, stop-reminder, drift and pre-commit messages went to stderr with exit code 0, which Claude Code writes only to its debug log, so neither you nor Claude ever saw them. Compact, stop and drift reminders now show up in your transcript without using Claude's context; the pre-commit reminder now reaches Claude before `git commit`
+- When several handlers answer the same event, all of their output is merged. Previously only the first handler's output was kept
+- `cc-tools validate` no longer tells Claude "Validations pass" after every edit, which it also said when no lint or test command was found. On failure it now includes the failing command's output (ANSI codes removed, first 20 and last 40 lines, at most 3,000 characters) so Claude can fix the problem without rerunning the command
+- The package-manager handler appends `export PREFERRED_PACKAGE_MANAGER=…` to `$CLAUDE_ENV_FILE`, the file Claude Code sources before each Bash command. It no longer creates `.claude/.env` in the working directory, a file nothing read
+
+### Removed
+
+- The SessionStart injection of the `using-superpowers` skill. The skill is still available through Claude Code's normal skill listing
+- The unused `hookcmd.Dispatch`/`RunHandlers` dispatcher and the ANSI `output.HookFormatter`
+
+### Fixed
+
+- The previous-session context never worked: SessionEnd always saved an empty summary, and the transcript parser looked for record types real transcripts don't use. Sessions now record their working directory and a short summary (the opening request and up to five modified files, at most 400 characters). A fresh session start or `/clear` only injects the summary of the latest session from the same project; resume, fork and compaction inject nothing
+- The session store read Claude Code's own `<pid>.json` files in `~/.claude/sessions` as sessions. Because those names sort after dated ones, one of them was returned as the most recent session
+
 ## [0.1.10] - 2026-09-22
 
 ### Added

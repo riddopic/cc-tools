@@ -1,4 +1,4 @@
-// Package hookcmd dispatches Claude Code hook events to registered handlers.
+// Package hookcmd parses Claude Code hook event input and names its events.
 package hookcmd
 
 import (

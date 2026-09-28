@@ -106,7 +106,7 @@ func TestWriteToEnvFile(t *testing.T) {
 			name:            "creates file and writes correct content",
 			existingContent: "",
 			manager:         "pnpm",
-			wantContent:     "PREFERRED_PACKAGE_MANAGER=pnpm\n",
+			wantContent:     "export PREFERRED_PACKAGE_MANAGER=pnpm\n",
 		},
 		{
 			name:            "preserves existing PREFERRED_PACKAGE_MANAGER",
@@ -118,13 +118,25 @@ func TestWriteToEnvFile(t *testing.T) {
 			name:            "appends when other vars exist but no PREFERRED_PACKAGE_MANAGER",
 			existingContent: "SOME_VAR=value\n",
 			manager:         "yarn",
-			wantContent:     "SOME_VAR=value\nPREFERRED_PACKAGE_MANAGER=yarn\n",
+			wantContent:     "SOME_VAR=value\nexport PREFERRED_PACKAGE_MANAGER=yarn\n",
 		},
 		{
 			name:            "written content has correct format for bun",
 			existingContent: "",
 			manager:         "bun",
-			wantContent:     "PREFERRED_PACKAGE_MANAGER=bun\n",
+			wantContent:     "export PREFERRED_PACKAGE_MANAGER=bun\n",
+		},
+		{
+			name:            "preserves existing exported PREFERRED_PACKAGE_MANAGER",
+			existingContent: "export PREFERRED_PACKAGE_MANAGER=bun\n",
+			manager:         "npm",
+			wantContent:     "export PREFERRED_PACKAGE_MANAGER=bun\n",
+		},
+		{
+			name:            "adds newline before appending to unterminated file",
+			existingContent: "export OTHER=1",
+			manager:         "npm",
+			wantContent:     "export OTHER=1\nexport PREFERRED_PACKAGE_MANAGER=npm\n",
 		},
 	}
 
@@ -225,7 +237,7 @@ func TestWriteToEnvFile_Idempotent(t *testing.T) {
 
 	got, err := os.ReadFile(envFile)
 	require.NoError(t, err)
-	assert.Equal(t, "PREFERRED_PACKAGE_MANAGER=bun\n", string(got),
+	assert.Equal(t, "export PREFERRED_PACKAGE_MANAGER=bun\n", string(got),
 		"file should contain exactly one entry after multiple writes")
 }
 

@@ -58,38 +58,56 @@ func DetectWithPreferred(projectDir, preferred string) string {
 	return Detect(projectDir)
 }
 
-// WriteToEnvFile writes the PREFERRED_PACKAGE_MANAGER to the specified env file
-// so it persists across Bash commands in the Claude Code session.
-// If the file already contains a PREFERRED_PACKAGE_MANAGER line, the existing
-// value is preserved to respect the user's choice.
+// WriteToEnvFile appends an exported PREFERRED_PACKAGE_MANAGER to the given
+// env file. Claude Code sources the file named by CLAUDE_ENV_FILE before each
+// Bash command, so the variable must be exported to reach child processes.
+// If the file already sets the variable, the existing value is preserved to
+// respect the user's choice. The write is an append because other SessionStart
+// hooks may add to the same file concurrently.
 func WriteToEnvFile(envFilePath, manager string) error {
-	prefix := envVarName + "="
-
-	data, err := os.ReadFile(envFilePath)
+	data, err := os.ReadFile(envFilePath) // #nosec G304 -- path supplied by Claude Code
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("read env file %s: %w", envFilePath, err)
 	}
 
-	if err == nil {
-		scanner := bufio.NewScanner(strings.NewReader(string(data)))
-		for scanner.Scan() {
-			if strings.HasPrefix(scanner.Text(), prefix) {
-				return nil // already set — respect existing value
-			}
-		}
+	if setsEnvVar(string(data)) {
+		return nil
 	}
 
-	var content string
+	line := "export " + envVarName + "=" + manager + "\n"
 	if len(data) > 0 && !strings.HasSuffix(string(data), "\n") {
-		content = string(data) + "\n" + prefix + manager + "\n"
-	} else {
-		content = string(data) + prefix + manager + "\n"
+		line = "\n" + line
 	}
 
 	//nolint:gosec // File permissions 0644 are appropriate for env files
-	if writeErr := os.WriteFile(envFilePath, []byte(content), 0o644); writeErr != nil {
+	f, err := os.OpenFile(envFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return fmt.Errorf("open env file %s: %w", envFilePath, err)
+	}
+
+	if _, writeErr := f.WriteString(line); writeErr != nil {
+		_ = f.Close()
 		return fmt.Errorf("write env file %s: %w", envFilePath, writeErr)
 	}
 
+	if closeErr := f.Close(); closeErr != nil {
+		return fmt.Errorf("close env file %s: %w", envFilePath, closeErr)
+	}
+
 	return nil
+}
+
+// setsEnvVar reports whether env file content already assigns the variable,
+// with or without an export prefix.
+func setsEnvVar(content string) bool {
+	prefix := envVarName + "="
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	for scanner.Scan() {
+		line := strings.TrimPrefix(strings.TrimSpace(scanner.Text()), "export ")
+		if strings.HasPrefix(line, prefix) {
+			return true
+		}
+	}
+
+	return false
 }

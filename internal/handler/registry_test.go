@@ -56,7 +56,6 @@ func TestRegistry_Dispatch_SingleHandler(t *testing.T) {
 		resp: &handler.Response{
 			ExitCode: 0,
 			Stdout: &handler.HookOutput{
-				Continue:      true,
 				SystemMessage: "hello",
 			},
 		},
@@ -100,11 +99,32 @@ func TestRegistry_Dispatch_MergesMultipleHandlers(t *testing.T) {
 	resp := r.Dispatch(context.Background(), input)
 
 	require.NotNil(t, resp)
-	// First handler's stdout wins.
 	require.NotNil(t, resp.Stdout)
 	assert.Equal(t, "from first", resp.Stdout.SystemMessage)
 	// Stderr concatenated.
 	assert.Contains(t, resp.Stderr, "log from second")
+}
+
+func TestRegistry_Dispatch_MergesAllOutputs(t *testing.T) {
+	t.Parallel()
+	r := handler.NewRegistry()
+	r.Register(hookcmd.EventSessionStart,
+		&stubHandler{name: "a", resp: handler.ContextResponse(hookcmd.EventSessionStart, "skill text"), err: nil},
+		&stubHandler{name: "b", resp: handler.UserMessageResponse("note one"), err: nil},
+		&stubHandler{name: "c", resp: handler.ContextResponse(hookcmd.EventSessionStart, "previous session"), err: nil},
+		&stubHandler{name: "d", resp: handler.UserMessageResponse("note two"), err: nil},
+		&stubHandler{name: "e", resp: handler.ContextResponse(hookcmd.EventSessionStart, ""), err: nil},
+	)
+
+	resp := r.Dispatch(context.Background(), &hookcmd.HookInput{HookEventName: hookcmd.EventSessionStart})
+
+	// Later handlers must not be silently dropped: every context and message
+	// reaches Claude Code, in registration order.
+	require.NotNil(t, resp.Stdout)
+	require.NotNil(t, resp.Stdout.HookSpecificOutput)
+	assert.Equal(t, hookcmd.EventSessionStart, resp.Stdout.HookSpecificOutput.HookEventName)
+	assert.Equal(t, "skill text\n\nprevious session", resp.AdditionalContext())
+	assert.Equal(t, "note one\nnote two", resp.SystemMessage())
 }
 
 func TestRegistry_Dispatch_MaxExitCode(t *testing.T) {

@@ -160,13 +160,13 @@ func (h *DriftHandler) evaluate(
 		return &Response{ExitCode: 0}
 	}
 
-	return &Response{
-		ExitCode: 0,
-		Stderr: fmt.Sprintf(
-			"[cc-tools] Possible drift detected — current work may be unrelated to original intent: %q\n",
-			state.Intent,
-		),
-	}
+	// The warning is advisory for the user, who chose the new direction;
+	// injecting it into Claude's context would spend tokens on every drifting
+	// prompt without changing what Claude should do.
+	return UserMessageResponse(fmt.Sprintf(
+		"[cc-tools] Possible drift detected — current work may be unrelated to original intent: %q",
+		state.Intent,
+	))
 }
 
 // logEval appends the evaluation to the drift eval log when enabled. Logging is

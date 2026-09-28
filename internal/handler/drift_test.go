@@ -25,44 +25,44 @@ func TestDriftHandler_Handle(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name       string
-		cfg        *config.Values
-		seedState  *driftTestState
-		prompt     string
-		wantStderr string
-		wantErr    bool
+		name        string
+		cfg         *config.Values
+		seedState   *driftTestState
+		prompt      string
+		wantMessage string
+		wantErr     bool
 	}{
 		{
-			name:       "nil config returns exit 0",
-			cfg:        nil,
-			seedState:  nil,
-			prompt:     "fix the bug",
-			wantStderr: "",
-			wantErr:    false,
+			name:        "nil config returns exit 0",
+			cfg:         nil,
+			seedState:   nil,
+			prompt:      "fix the bug",
+			wantMessage: "",
+			wantErr:     false,
 		},
 		{
-			name:       "disabled drift returns exit 0",
-			cfg:        driftConfig(false, 6, 0.2),
-			seedState:  nil,
-			prompt:     "fix the bug",
-			wantStderr: "",
-			wantErr:    false,
+			name:        "disabled drift returns exit 0",
+			cfg:         driftConfig(false, 6, 0.2),
+			seedState:   nil,
+			prompt:      "fix the bug",
+			wantMessage: "",
+			wantErr:     false,
 		},
 		{
-			name:       "empty prompt returns exit 0",
-			cfg:        driftConfig(true, 6, 0.2),
-			seedState:  nil,
-			prompt:     "",
-			wantStderr: "",
-			wantErr:    false,
+			name:        "empty prompt returns exit 0",
+			cfg:         driftConfig(true, 6, 0.2),
+			seedState:   nil,
+			prompt:      "",
+			wantMessage: "",
+			wantErr:     false,
 		},
 		{
-			name:       "first prompt establishes intent",
-			cfg:        driftConfig(true, 6, 0.2),
-			seedState:  nil,
-			prompt:     "refactor the authentication module",
-			wantStderr: "",
-			wantErr:    false,
+			name:        "first prompt establishes intent",
+			cfg:         driftConfig(true, 6, 0.2),
+			seedState:   nil,
+			prompt:      "refactor the authentication module",
+			wantMessage: "",
+			wantErr:     false,
 		},
 		{
 			name: "below min edits skips drift check",
@@ -72,9 +72,9 @@ func TestDriftHandler_Handle(t *testing.T) {
 				Keywords: []string{"refactor", "authentication", "module"},
 				Edits:    3,
 			},
-			prompt:     "completely unrelated topic about cooking",
-			wantStderr: "",
-			wantErr:    false,
+			prompt:      "completely unrelated topic about cooking",
+			wantMessage: "",
+			wantErr:     false,
 		},
 		{
 			name: "above threshold overlap no warning",
@@ -84,9 +84,9 @@ func TestDriftHandler_Handle(t *testing.T) {
 				Keywords: []string{"refactor", "authentication", "module"},
 				Edits:    5,
 			},
-			prompt:     "refactor authentication module again",
-			wantStderr: "",
-			wantErr:    false,
+			prompt:      "refactor authentication module again",
+			wantMessage: "",
+			wantErr:     false,
 		},
 		{
 			name: "below threshold overlap triggers warning",
@@ -96,9 +96,9 @@ func TestDriftHandler_Handle(t *testing.T) {
 				Keywords: []string{"refactor", "authentication", "module"},
 				Edits:    5,
 			},
-			prompt:     "update the database migration scripts for postgres",
-			wantStderr: "Possible drift detected",
-			wantErr:    false,
+			prompt:      "update the database migration scripts for postgres",
+			wantMessage: "Possible drift detected",
+			wantErr:     false,
 		},
 		{
 			name: "pivot phrase resets intent",
@@ -108,9 +108,9 @@ func TestDriftHandler_Handle(t *testing.T) {
 				Keywords: []string{"refactor", "authentication", "module"},
 				Edits:    10,
 			},
-			prompt:     "now let's work on the database layer",
-			wantStderr: "",
-			wantErr:    false,
+			prompt:      "now let's work on the database layer",
+			wantMessage: "",
+			wantErr:     false,
 		},
 		{
 			name: "empty prompt keywords return no drift",
@@ -120,9 +120,9 @@ func TestDriftHandler_Handle(t *testing.T) {
 				Keywords: []string{"refactor", "authentication", "module"},
 				Edits:    10,
 			},
-			prompt:     "ok",
-			wantStderr: "",
-			wantErr:    false,
+			prompt:      "ok",
+			wantMessage: "",
+			wantErr:     false,
 		},
 	}
 
@@ -152,10 +152,10 @@ func TestDriftHandler_Handle(t *testing.T) {
 			require.NotNil(t, resp)
 			assert.Equal(t, 0, resp.ExitCode)
 
-			if tt.wantStderr != "" {
-				assert.Contains(t, resp.Stderr, tt.wantStderr)
+			if tt.wantMessage != "" {
+				assert.Contains(t, resp.SystemMessage(), tt.wantMessage)
 			} else {
-				assert.Empty(t, resp.Stderr)
+				assert.Empty(t, resp.SystemMessage())
 			}
 		})
 	}
@@ -175,7 +175,7 @@ func TestDriftHandler_IntentPersistence(t *testing.T) {
 		Prompt:    "implement user authentication with JWT tokens",
 	})
 	require.NoError(t, err)
-	assert.Empty(t, resp.Stderr)
+	assert.Empty(t, resp.SystemMessage())
 
 	// Verify state file was created.
 	statePath := filepath.Join(stateDir, "drift-"+string(sessionID)+".json")
@@ -311,7 +311,7 @@ func TestDriftHandler_CorruptStateFile(t *testing.T) {
 		Prompt:    "start fresh after corrupt state",
 	})
 	require.NoError(t, handleErr)
-	assert.Empty(t, resp.Stderr)
+	assert.Empty(t, resp.SystemMessage())
 
 	// Verify state was re-initialized (corrupt state treated as empty).
 	data, readErr := os.ReadFile(filepath.Join(stateDir, "drift-"+string(sessionID)+".json"))

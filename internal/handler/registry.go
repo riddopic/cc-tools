@@ -47,9 +47,7 @@ func (r *Registry) Dispatch(ctx context.Context, input *hookcmd.HookInput) *Resp
 			merged.ExitCode = resp.ExitCode
 		}
 
-		if resp.Stdout != nil && merged.Stdout == nil {
-			merged.Stdout = resp.Stdout
-		}
+		merged.Stdout = mergeOutput(merged.Stdout, resp.Stdout)
 
 		if resp.Stderr != "" {
 			merged.Stderr += resp.Stderr
@@ -57,6 +55,50 @@ func (r *Registry) Dispatch(ctx context.Context, input *hookcmd.HookInput) *Resp
 	}
 
 	return merged
+}
+
+// mergeOutput combines two handlers' stdout. Claude Code reads a single JSON
+// object per hook invocation, so dropping all but the first handler's output
+// would silently discard context and messages from the rest.
+func mergeOutput(a, b *HookOutput) *HookOutput {
+	if a == nil {
+		return b
+	}
+
+	if b == nil {
+		return a
+	}
+
+	return &HookOutput{
+		SystemMessage:      joinNonEmpty("\n", a.SystemMessage, b.SystemMessage),
+		HookSpecificOutput: mergeSpecific(a.HookSpecificOutput, b.HookSpecificOutput),
+	}
+}
+
+func mergeSpecific(a, b *HookSpecificOutput) *HookSpecificOutput {
+	if a == nil {
+		return b
+	}
+
+	if b == nil {
+		return a
+	}
+
+	return &HookSpecificOutput{
+		HookEventName:     a.HookEventName,
+		AdditionalContext: joinNonEmpty("\n\n", a.AdditionalContext, b.AdditionalContext),
+	}
+}
+
+func joinNonEmpty(sep, a, b string) string {
+	switch {
+	case a == "":
+		return b
+	case b == "":
+		return a
+	default:
+		return a + sep + b
+	}
 }
 
 // dispatchOne calls a single handler with panic recovery. If the handler

@@ -21,6 +21,7 @@ type Session struct {
 	Version       string    `json:"version"`
 	ID            string    `json:"id"`
 	Date          string    `json:"date"`
+	Cwd           string    `json:"cwd,omitempty"`
 	Started       time.Time `json:"started"`
 	Ended         time.Time `json:"ended,omitzero"`
 	Title         string    `json:"title"`
@@ -139,6 +140,37 @@ func (s *Store) List(limit int) ([]*Session, error) {
 	return entries, nil
 }
 
+// Latest returns the most recently ended session accepted by match, or nil
+// if none is. It scans newest-first and stops once it passes the matching
+// session's date, so recalling a recent session does not read every file in a
+// store that grows by one file per session.
+func (s *Store) Latest(match func(*Session) bool) (*Session, error) {
+	matches, err := filepath.Glob(filepath.Join(s.dir, "*.json"))
+	if err != nil {
+		return nil, fmt.Errorf("glob session files: %w", err)
+	}
+
+	var best *Session
+
+	for _, path := range slices.Backward(matches) {
+		sess, readErr := s.readSessionFile(path)
+		if readErr != nil || sess.ID == "" {
+			continue
+		}
+
+		// Filenames sort by date, so an older date means no later match.
+		if best != nil && sess.Date < best.Date {
+			break
+		}
+
+		if match(sess) && (best == nil || sess.Ended.After(best.Ended)) {
+			best = sess
+		}
+	}
+
+	return best, nil
+}
+
 // FindByDate returns sessions whose date field starts with the given prefix.
 func (s *Store) FindByDate(date string) ([]*Session, error) {
 	entries, err := s.readAllSessions()
@@ -211,6 +243,12 @@ func (s *Store) readAllSessions() ([]*Session, error) {
 	for _, match := range matches {
 		sess, readErr := s.readSessionFile(match)
 		if readErr != nil {
+			continue
+		}
+
+		// Save never writes an empty ID, so an ID-less file belongs to someone
+		// else, such as Claude Code's per-process files in ~/.claude/sessions.
+		if sess.ID == "" {
 			continue
 		}
 

@@ -149,7 +149,7 @@ func TestSuggestCompactHandler_SuggestsAtThreshold(t *testing.T) {
 	}
 
 	require.NotNil(t, lastResp)
-	assert.Contains(t, lastResp.Stderr, "/compact",
+	assert.Contains(t, lastResp.SystemMessage(), "/compact",
 		"should suggest /compact at threshold")
 }
 
@@ -173,7 +173,7 @@ func TestSuggestCompactHandler_BelowThreshold(t *testing.T) {
 		resp, err := h.Handle(context.Background(), input)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		assert.Empty(t, resp.Stderr, "no suggestion below threshold")
+		assert.Empty(t, resp.SystemMessage(), "no suggestion below threshold")
 	}
 }
 
@@ -200,17 +200,17 @@ func TestSuggestCompactHandler_ReminderInterval(t *testing.T) {
 	}
 
 	// Calls 1 and 2: below threshold, no suggestion.
-	assert.Empty(t, responses[0].Stderr, "call 1: no suggestion")
-	assert.Empty(t, responses[1].Stderr, "call 2: no suggestion")
+	assert.Empty(t, responses[0].SystemMessage(), "call 1: no suggestion")
+	assert.Empty(t, responses[1].SystemMessage(), "call 2: no suggestion")
 
 	// Call 3: hits threshold, should suggest.
-	assert.NotEmpty(t, responses[2].Stderr, "call 3: suggestion at threshold")
+	assert.NotEmpty(t, responses[2].SystemMessage(), "call 3: suggestion at threshold")
 
 	// Call 4: 1 past threshold, interval=2, no suggestion.
-	assert.Empty(t, responses[3].Stderr, "call 4: no suggestion between intervals")
+	assert.Empty(t, responses[3].SystemMessage(), "call 4: no suggestion between intervals")
 
 	// Call 5: 2 past threshold, interval=2, should suggest.
-	assert.NotEmpty(t, responses[4].Stderr, "call 5: suggestion at reminder interval")
+	assert.NotEmpty(t, responses[4].SystemMessage(), "call 5: suggestion at reminder interval")
 }
 
 func TestSuggestCompactHandler_SeparateSessions(t *testing.T) {
@@ -237,7 +237,7 @@ func TestSuggestCompactHandler_SeparateSessions(t *testing.T) {
 	for range 2 {
 		resp, err := h.Handle(context.Background(), inputA)
 		require.NoError(t, err)
-		assert.Empty(t, resp.Stderr, "session-a below threshold")
+		assert.Empty(t, resp.SystemMessage(), "session-a below threshold")
 	}
 
 	// 3 calls on session-b — independent counter hits threshold at call 3.
@@ -247,7 +247,7 @@ func TestSuggestCompactHandler_SeparateSessions(t *testing.T) {
 		require.NoError(t, err)
 		lastB = resp
 	}
-	assert.NotEmpty(t, lastB.Stderr, "session-b should hit threshold independently")
+	assert.NotEmpty(t, lastB.SystemMessage(), "session-b should hit threshold independently")
 
 	// Verify session-a counter file contains "2".
 	counterA := filepath.Join(stateDir, "cc-tools-compact-session-a.count")
@@ -304,7 +304,7 @@ func TestSuggestCompactHandler_ZeroThreshold(t *testing.T) {
 		resp, err := h.Handle(context.Background(), input)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		assert.Empty(t, resp.Stderr, "zero threshold should never suggest")
+		assert.Empty(t, resp.SystemMessage(), "zero threshold should never suggest")
 	}
 }
 
@@ -332,9 +332,9 @@ func TestSuggestCompactHandler_SuggestionMessage(t *testing.T) {
 	}
 
 	require.NotNil(t, lastResp)
-	assert.Contains(t, lastResp.Stderr, "2 tool calls",
+	assert.Contains(t, lastResp.SystemMessage(), "2 tool calls",
 		"message should mention tool call count")
-	assert.Contains(t, lastResp.Stderr, "/compact",
+	assert.Contains(t, lastResp.SystemMessage(), "/compact",
 		"message should mention /compact")
 }
 
@@ -709,7 +709,7 @@ func TestPreCommitReminderHandler_Disabled(t *testing.T) {
 	resp, err := h.Handle(context.Background(), input)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Empty(t, resp.Stderr, "no reminder when disabled")
+	assert.Empty(t, resp.AdditionalContext(), "no reminder when disabled")
 }
 
 func TestPreCommitReminderHandler_NonBashTool(t *testing.T) {
@@ -727,7 +727,7 @@ func TestPreCommitReminderHandler_NonBashTool(t *testing.T) {
 	resp, err := h.Handle(context.Background(), input)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Empty(t, resp.Stderr, "no reminder for non-Bash tools")
+	assert.Empty(t, resp.AdditionalContext(), "no reminder for non-Bash tools")
 }
 
 func TestPreCommitReminderHandler_GitCommitDetected(t *testing.T) {
@@ -748,8 +748,11 @@ func TestPreCommitReminderHandler_GitCommitDetected(t *testing.T) {
 	resp, err := h.Handle(context.Background(), input)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Contains(t, resp.Stderr, "task pre-commit",
+	assert.Contains(t, resp.AdditionalContext(), "task pre-commit",
 		"should remind about pre-commit command")
+	require.NotNil(t, resp.Stdout)
+	require.NotNil(t, resp.Stdout.HookSpecificOutput)
+	assert.Equal(t, hookcmd.EventPreToolUse, resp.Stdout.HookSpecificOutput.HookEventName)
 }
 
 func TestPreCommitReminderHandler_DefaultCommand(t *testing.T) {
@@ -769,7 +772,7 @@ func TestPreCommitReminderHandler_DefaultCommand(t *testing.T) {
 	resp, err := h.Handle(context.Background(), input)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Contains(t, resp.Stderr, "task pre-commit",
+	assert.Contains(t, resp.AdditionalContext(), "task pre-commit",
 		"should use default command when not configured")
 }
 
@@ -791,7 +794,7 @@ func TestPreCommitReminderHandler_NoGitCommit(t *testing.T) {
 	resp, err := h.Handle(context.Background(), input)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Empty(t, resp.Stderr, "no reminder for non-commit git commands")
+	assert.Empty(t, resp.AdditionalContext(), "no reminder for non-commit git commands")
 }
 
 func TestPreCommitReminderHandler_GitCommitAmFlag(t *testing.T) {
@@ -812,7 +815,7 @@ func TestPreCommitReminderHandler_GitCommitAmFlag(t *testing.T) {
 	resp, err := h.Handle(context.Background(), input)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Contains(t, resp.Stderr, "task pre-commit",
+	assert.Contains(t, resp.AdditionalContext(), "task pre-commit",
 		"should remind about pre-commit for git commit -am")
 }
 
@@ -834,7 +837,7 @@ func TestPreCommitReminderHandler_ChainedGitCommit(t *testing.T) {
 	resp, err := h.Handle(context.Background(), input)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Contains(t, resp.Stderr, "task pre-commit",
+	assert.Contains(t, resp.AdditionalContext(), "task pre-commit",
 		"should remind about pre-commit for chained git commit")
 }
 
@@ -856,9 +859,9 @@ func TestPreCommitReminderHandler_CustomCommand(t *testing.T) {
 	resp, err := h.Handle(context.Background(), input)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Contains(t, resp.Stderr, "make check",
+	assert.Contains(t, resp.AdditionalContext(), "make check",
 		"should use custom pre-commit command")
-	assert.NotContains(t, resp.Stderr, "task pre-commit",
+	assert.NotContains(t, resp.AdditionalContext(), "task pre-commit",
 		"should not contain default command when custom is configured")
 }
 

@@ -18,93 +18,6 @@ import (
 )
 
 // ---------------------------------------------------------------------
-// SuperpowersHandler
-// ---------------------------------------------------------------------
-
-func TestSuperpowersHandler_Name(t *testing.T) {
-	t.Parallel()
-	h := handler.NewSuperpowersHandler()
-	assert.Equal(t, "superpowers", h.Name())
-}
-
-func TestSuperpowersHandler_Handle_NoSkillFile(t *testing.T) {
-	t.Parallel()
-	h := handler.NewSuperpowersHandler()
-	input := &hookcmd.HookInput{
-		HookEventName: hookcmd.EventSessionStart,
-		Cwd:           t.TempDir(),
-	}
-
-	resp, err := h.Handle(context.Background(), input)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	assert.Equal(t, 0, resp.ExitCode)
-	assert.Nil(t, resp.Stdout, "no output when skill file is absent")
-}
-
-func TestSuperpowersHandler_Handle_WithSkillFile(t *testing.T) {
-	t.Parallel()
-
-	tmpDir := t.TempDir()
-	skillDir := filepath.Join(tmpDir, ".claude", "skills", "using-superpowers")
-	require.NoError(t, os.MkdirAll(skillDir, 0o755))
-	require.NoError(t, os.WriteFile(
-		filepath.Join(skillDir, "SKILL.md"),
-		[]byte("Use /superpowers to discover skills."),
-		0o600,
-	))
-
-	h := handler.NewSuperpowersHandler()
-	input := &hookcmd.HookInput{
-		HookEventName: hookcmd.EventSessionStart,
-		Cwd:           tmpDir,
-	}
-
-	resp, err := h.Handle(context.Background(), input)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	assert.Equal(t, 0, resp.ExitCode)
-	require.NotNil(t, resp.Stdout, "should produce output when skill file exists")
-	assert.NotNil(t, resp.Stdout.HookSpecificOutput, "should populate hookSpecificOutput")
-}
-
-func TestSuperpowersHandler_Handle_MultipleSkills(t *testing.T) {
-	t.Parallel()
-
-	tmpDir := t.TempDir()
-
-	// Create two skill directories; include using-superpowers which is the
-	// one the injector actually reads.
-	for _, name := range []string{"using-superpowers", "skill-b"} {
-		skillDir := filepath.Join(tmpDir, ".claude", "skills", name)
-		require.NoError(t, os.MkdirAll(skillDir, 0o755))
-		require.NoError(t, os.WriteFile(
-			filepath.Join(skillDir, "SKILL.md"),
-			[]byte("Skill "+name+" content."),
-			0o600,
-		))
-	}
-
-	h := handler.NewSuperpowersHandler()
-	input := &hookcmd.HookInput{
-		HookEventName: hookcmd.EventSessionStart,
-		Cwd:           tmpDir,
-	}
-
-	resp, err := h.Handle(context.Background(), input)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	assert.Equal(t, 0, resp.ExitCode)
-	require.NotNil(t, resp.Stdout)
-	require.NotNil(t, resp.Stdout.HookSpecificOutput)
-}
-
-func TestSuperpowersHandler_ImplementsHandler(t *testing.T) {
-	t.Parallel()
-	var _ handler.Handler = handler.NewSuperpowersHandler()
-}
-
-// ---------------------------------------------------------------------
 // PkgManagerHandler
 // ---------------------------------------------------------------------
 
@@ -117,7 +30,7 @@ func TestPkgManagerHandler_Name(t *testing.T) {
 func TestPkgManagerHandler_Handle_CreatesEnvFile(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
-	h := handler.NewPkgManagerHandler(nil)
+	h := handler.NewPkgManagerHandler(nil, handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")))
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -128,8 +41,8 @@ func TestPkgManagerHandler_Handle_CreatesEnvFile(t *testing.T) {
 	require.NotNil(t, resp)
 	assert.Equal(t, 0, resp.ExitCode)
 
-	// Verify .claude/.env was created.
-	envFile := filepath.Join(tmpDir, ".claude", ".env")
+	// Verify the session env file was written.
+	envFile := filepath.Join(tmpDir, "claude.env")
 	data, readErr := os.ReadFile(envFile)
 	require.NoError(t, readErr, "env file should exist")
 	assert.Contains(t, string(data), "PREFERRED_PACKAGE_MANAGER=")
@@ -142,7 +55,7 @@ func TestPkgManagerHandler_Handle_DetectsYarn(t *testing.T) {
 	// Create a yarn.lock file so detection picks yarn.
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "yarn.lock"), []byte(""), 0o600))
 
-	h := handler.NewPkgManagerHandler(nil)
+	h := handler.NewPkgManagerHandler(nil, handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")))
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -153,7 +66,7 @@ func TestPkgManagerHandler_Handle_DetectsYarn(t *testing.T) {
 	require.NotNil(t, resp)
 	assert.Equal(t, 0, resp.ExitCode)
 
-	envFile := filepath.Join(tmpDir, ".claude", ".env")
+	envFile := filepath.Join(tmpDir, "claude.env")
 	data, readErr := os.ReadFile(envFile)
 	require.NoError(t, readErr)
 	assert.Contains(t, string(data), "PREFERRED_PACKAGE_MANAGER=yarn")
@@ -167,7 +80,7 @@ func TestPkgManagerHandler_Handle_DetectsNpm(t *testing.T) {
 		filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0o600,
 	))
 
-	h := handler.NewPkgManagerHandler(nil)
+	h := handler.NewPkgManagerHandler(nil, handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")))
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -177,7 +90,7 @@ func TestPkgManagerHandler_Handle_DetectsNpm(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	envFile := filepath.Join(tmpDir, ".claude", ".env")
+	envFile := filepath.Join(tmpDir, "claude.env")
 	data, readErr := os.ReadFile(envFile)
 	require.NoError(t, readErr)
 	assert.Contains(t, string(data), "PREFERRED_PACKAGE_MANAGER=npm")
@@ -191,7 +104,7 @@ func TestPkgManagerHandler_Handle_DetectsPnpm(t *testing.T) {
 		filepath.Join(tmpDir, "pnpm-lock.yaml"), []byte(""), 0o600,
 	))
 
-	h := handler.NewPkgManagerHandler(nil)
+	h := handler.NewPkgManagerHandler(nil, handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")))
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -201,7 +114,7 @@ func TestPkgManagerHandler_Handle_DetectsPnpm(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	envFile := filepath.Join(tmpDir, ".claude", ".env")
+	envFile := filepath.Join(tmpDir, "claude.env")
 	data, readErr := os.ReadFile(envFile)
 	require.NoError(t, readErr)
 	assert.Contains(t, string(data), "PREFERRED_PACKAGE_MANAGER=pnpm")
@@ -215,7 +128,7 @@ func TestPkgManagerHandler_Handle_DetectsBun(t *testing.T) {
 		filepath.Join(tmpDir, "bun.lock"), []byte(""), 0o600,
 	))
 
-	h := handler.NewPkgManagerHandler(nil)
+	h := handler.NewPkgManagerHandler(nil, handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")))
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -225,7 +138,7 @@ func TestPkgManagerHandler_Handle_DetectsBun(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	envFile := filepath.Join(tmpDir, ".claude", ".env")
+	envFile := filepath.Join(tmpDir, "claude.env")
 	data, readErr := os.ReadFile(envFile)
 	require.NoError(t, readErr)
 	assert.Contains(t, string(data), "PREFERRED_PACKAGE_MANAGER=bun")
@@ -234,7 +147,7 @@ func TestPkgManagerHandler_Handle_DetectsBun(t *testing.T) {
 func TestPkgManagerHandler_Handle_NoStdout(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
-	h := handler.NewPkgManagerHandler(nil)
+	h := handler.NewPkgManagerHandler(nil, handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")))
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -255,7 +168,7 @@ func TestPkgManagerHandler_Handle_ConfigPreferredOverridesLockFile(t *testing.T)
 	cfg := config.GetDefaultConfig()
 	cfg.PackageManager.Preferred = "bun"
 
-	h := handler.NewPkgManagerHandler(cfg)
+	h := handler.NewPkgManagerHandler(cfg, handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")))
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -266,7 +179,7 @@ func TestPkgManagerHandler_Handle_ConfigPreferredOverridesLockFile(t *testing.T)
 	require.NotNil(t, resp)
 	assert.Equal(t, 0, resp.ExitCode)
 
-	envFile := filepath.Join(tmpDir, ".claude", ".env")
+	envFile := filepath.Join(tmpDir, "claude.env")
 	data, readErr := os.ReadFile(envFile)
 	require.NoError(t, readErr)
 	assert.Contains(t, string(data), "PREFERRED_PACKAGE_MANAGER=bun",
@@ -283,7 +196,7 @@ func TestPkgManagerHandler_Handle_EmptyConfigFallsBackToDetection(t *testing.T) 
 	cfg := config.GetDefaultConfig()
 	// Preferred is empty — should fall through to lock file detection.
 
-	h := handler.NewPkgManagerHandler(cfg)
+	h := handler.NewPkgManagerHandler(cfg, handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")))
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -293,11 +206,27 @@ func TestPkgManagerHandler_Handle_EmptyConfigFallsBackToDetection(t *testing.T) 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	envFile := filepath.Join(tmpDir, ".claude", ".env")
+	envFile := filepath.Join(tmpDir, "claude.env")
 	data, readErr := os.ReadFile(envFile)
 	require.NoError(t, readErr)
 	assert.Contains(t, string(data), "PREFERRED_PACKAGE_MANAGER=pnpm",
 		"empty config preferred should fall back to lock file detection")
+}
+
+func TestPkgManagerHandler_Handle_NoEnvFileIsNoop(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Without CLAUDE_ENV_FILE there is nowhere Claude Code will read the value
+	// from, so the handler must not litter the project with a .claude/.env.
+	h := handler.NewPkgManagerHandler(nil, handler.WithEnvFilePath(""))
+	resp, err := h.Handle(context.Background(), &hookcmd.HookInput{
+		HookEventName: hookcmd.EventSessionStart,
+		Cwd:           tmpDir,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.NoDirExists(t, filepath.Join(tmpDir, ".claude"))
 }
 
 func TestPkgManagerHandler_ImplementsHandler(t *testing.T) {
@@ -322,6 +251,7 @@ func TestSessionContextHandler_Handle_NoSessions(t *testing.T) {
 	h := handler.NewSessionContextHandler(handler.WithHomeDir(tmpHome))
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
+		Cwd:           "/proj",
 	}
 
 	resp, err := h.Handle(context.Background(), input)
@@ -344,6 +274,7 @@ func TestSessionContextHandler_Handle_WithPreviousSession(t *testing.T) {
 		Date:          "2025-01-15",
 		Started:       time.Now(),
 		Ended:         time.Time{},
+		Cwd:           "/proj",
 		Title:         "Test session",
 		Summary:       "Worked on refactoring",
 		ToolsUsed:     nil,
@@ -354,6 +285,7 @@ func TestSessionContextHandler_Handle_WithPreviousSession(t *testing.T) {
 	h := handler.NewSessionContextHandler(handler.WithHomeDir(tmpHome))
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
+		Cwd:           "/proj",
 	}
 
 	resp, err := h.Handle(context.Background(), input)
@@ -361,10 +293,10 @@ func TestSessionContextHandler_Handle_WithPreviousSession(t *testing.T) {
 	require.NotNil(t, resp)
 	assert.Equal(t, 0, resp.ExitCode)
 	require.NotNil(t, resp.Stdout, "should produce output when previous session exists")
-	assert.True(t, resp.Stdout.Continue)
-	require.NotEmpty(t, resp.Stdout.AdditionalContext)
-	assert.Contains(t, resp.Stdout.AdditionalContext[0], "Worked on refactoring")
-	assert.Contains(t, resp.Stdout.AdditionalContext[0], "2025-01-15")
+	require.NotNil(t, resp.Stdout.HookSpecificOutput)
+	assert.Equal(t, hookcmd.EventSessionStart, resp.Stdout.HookSpecificOutput.HookEventName)
+	assert.Contains(t, resp.AdditionalContext(), "Worked on refactoring")
+	assert.Contains(t, resp.AdditionalContext(), "2025-01-15")
 }
 
 func TestSessionContextHandler_Handle_SessionWithEmptySummary(t *testing.T) {
@@ -379,6 +311,7 @@ func TestSessionContextHandler_Handle_SessionWithEmptySummary(t *testing.T) {
 		Date:          "2025-01-15",
 		Started:       time.Now(),
 		Ended:         time.Time{},
+		Cwd:           "/proj",
 		Title:         "No summary session",
 		Summary:       "",
 		ToolsUsed:     nil,
@@ -389,6 +322,7 @@ func TestSessionContextHandler_Handle_SessionWithEmptySummary(t *testing.T) {
 	h := handler.NewSessionContextHandler(handler.WithHomeDir(tmpHome))
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
+		Cwd:           "/proj",
 	}
 
 	resp, err := h.Handle(context.Background(), input)
@@ -412,6 +346,7 @@ func TestSessionContextHandler_Handle_WithAliases(t *testing.T) {
 		Date:          "2025-01-15",
 		Started:       time.Now(),
 		Ended:         time.Time{},
+		Cwd:           "/proj",
 		Title:         "Aliased session",
 		Summary:       "Has aliases",
 		ToolsUsed:     nil,
@@ -431,6 +366,7 @@ func TestSessionContextHandler_Handle_WithAliases(t *testing.T) {
 	h := handler.NewSessionContextHandler(handler.WithHomeDir(tmpHome))
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
+		Cwd:           "/proj",
 	}
 
 	resp, err := h.Handle(context.Background(), input)
@@ -454,6 +390,7 @@ func TestSessionContextHandler_Handle_MultipleSessionsUsesRecent(t *testing.T) {
 		Date:          "2025-01-10",
 		Started:       time.Date(2025, 1, 10, 9, 0, 0, 0, time.UTC),
 		Ended:         time.Time{},
+		Cwd:           "/proj",
 		Title:         "Older session",
 		Summary:       "Old work done here",
 		ToolsUsed:     nil,
@@ -466,6 +403,7 @@ func TestSessionContextHandler_Handle_MultipleSessionsUsesRecent(t *testing.T) {
 		Date:          "2025-01-15",
 		Started:       time.Date(2025, 1, 15, 14, 0, 0, 0, time.UTC),
 		Ended:         time.Time{},
+		Cwd:           "/proj",
 		Title:         "Newer session",
 		Summary:       "Recent work done here",
 		ToolsUsed:     nil,
@@ -476,15 +414,108 @@ func TestSessionContextHandler_Handle_MultipleSessionsUsesRecent(t *testing.T) {
 	h := handler.NewSessionContextHandler(handler.WithHomeDir(tmpHome))
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
+		Cwd:           "/proj",
 	}
 
 	resp, err := h.Handle(context.Background(), input)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.NotNil(t, resp.Stdout)
-	require.NotEmpty(t, resp.Stdout.AdditionalContext)
-	assert.Contains(t, resp.Stdout.AdditionalContext[0], "Recent work done here",
+	assert.Contains(t, resp.AdditionalContext(), "Recent work done here",
 		"should use most recent session's summary")
+}
+
+func TestSessionContextHandler_Handle_BySource(t *testing.T) {
+	t.Parallel()
+	tmpHome := t.TempDir()
+
+	store := session.NewStore(filepath.Join(tmpHome, ".claude", "sessions"))
+	require.NoError(t, store.Save(&session.Session{
+		Version:       "1",
+		ID:            "prior-session",
+		Date:          "2025-01-15",
+		Started:       time.Now(),
+		Ended:         time.Time{},
+		Cwd:           "/proj",
+		Title:         "Prior",
+		Summary:       "Prior work",
+		ToolsUsed:     nil,
+		FilesModified: nil,
+		MessageCount:  0,
+	}))
+
+	tests := []struct {
+		source     string
+		wantInject bool
+	}{
+		{source: "", wantInject: true},
+		{source: "startup", wantInject: true},
+		{source: "clear", wantInject: true},
+		// On resume/fork the "previous" session is this conversation, and after
+		// compaction Claude already has its own summary of the session.
+		{source: "resume", wantInject: false},
+		{source: "fork", wantInject: false},
+		{source: "compact", wantInject: false},
+	}
+
+	for _, tt := range tests {
+		t.Run("source="+tt.source, func(t *testing.T) {
+			t.Parallel()
+			h := handler.NewSessionContextHandler(handler.WithHomeDir(tmpHome))
+			input := &hookcmd.HookInput{HookEventName: hookcmd.EventSessionStart, Cwd: "/proj", Source: tt.source}
+
+			resp, err := h.Handle(context.Background(), input)
+			require.NoError(t, err)
+			if tt.wantInject {
+				assert.Contains(t, resp.AdditionalContext(), "Prior work")
+			} else {
+				assert.Empty(t, resp.AdditionalContext())
+			}
+		})
+	}
+}
+
+func TestSessionContextHandler_Handle_ScopedToProject(t *testing.T) {
+	t.Parallel()
+	tmpHome := t.TempDir()
+	store := session.NewStore(filepath.Join(tmpHome, ".claude", "sessions"))
+
+	save := func(id, date, cwd, summary string) {
+		require.NoError(t, store.Save(&session.Session{
+			Version:       "1",
+			ID:            id,
+			Date:          date,
+			Cwd:           cwd,
+			Started:       time.Now(),
+			Ended:         time.Now(),
+			Title:         id,
+			Summary:       summary,
+			ToolsUsed:     nil,
+			FilesModified: nil,
+			MessageCount:  0,
+		}))
+	}
+	save("mine", "2025-01-10", "/proj/mine", `Request: "Fix the parser".`)
+	save("legacy", "2025-01-12", "", "legacy file without a project")
+	save("mine-empty", "2025-01-13", "/proj/mine", "")
+	save("other", "2025-01-15", "/proj/other", "other project work")
+
+	h := handler.NewSessionContextHandler(handler.WithHomeDir(tmpHome))
+
+	resp, err := h.Handle(context.Background(), &hookcmd.HookInput{
+		HookEventName: hookcmd.EventSessionStart,
+		Cwd:           "/proj/mine",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, `Previous session in this project (2025-01-10): Request: "Fix the parser".`,
+		resp.AdditionalContext(), "newest summarized session from the same project wins")
+
+	resp, err = h.Handle(context.Background(), &hookcmd.HookInput{
+		HookEventName: hookcmd.EventSessionStart,
+		Cwd:           "/proj/unknown",
+	})
+	require.NoError(t, err)
+	assert.Empty(t, resp.AdditionalContext(), "no context from other projects or legacy files")
 }
 
 func TestSessionContextHandler_ImplementsHandler(t *testing.T) {

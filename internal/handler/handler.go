@@ -28,13 +28,63 @@ type Response struct {
 }
 
 // HookOutput is the JSON written to stdout per the Claude Code hooks protocol.
+// Only fields Claude Code honors are modeled: stderr on exit code 0 reaches
+// neither Claude nor the user, so anything meant to be read must go here.
 type HookOutput struct {
-	Continue           bool           `json:"continue,omitempty"`
-	StopReason         string         `json:"stopReason,omitempty"`
-	SuppressOutput     bool           `json:"suppressOutput,omitempty"`
-	SystemMessage      string         `json:"systemMessage,omitempty"`
-	HookSpecificOutput map[string]any `json:"hookSpecificOutput,omitempty"`
-	AdditionalContext  []string       `json:"additionalContext,omitempty"`
-	PermissionDecision string         `json:"permissionDecision,omitempty"`
-	UpdatedInput       map[string]any `json:"updatedInput,omitempty"`
+	// SystemMessage is shown to the user and never sent to Claude.
+	SystemMessage string `json:"systemMessage,omitempty"`
+	// HookSpecificOutput carries context that Claude Code injects into
+	// Claude's context window as a system reminder.
+	HookSpecificOutput *HookSpecificOutput `json:"hookSpecificOutput,omitempty"`
+}
+
+// HookSpecificOutput is the event-scoped part of [HookOutput].
+type HookSpecificOutput struct {
+	HookEventName     string `json:"hookEventName"`
+	AdditionalContext string `json:"additionalContext,omitempty"`
+}
+
+// ContextResponse returns a response that adds text to Claude's context for
+// the given event. Every token here is billed on each later request in the
+// session, so keep the text short and factual.
+func ContextResponse(event, text string) *Response {
+	return &Response{
+		ExitCode: 0,
+		Stdout: &HookOutput{
+			SystemMessage: "",
+			HookSpecificOutput: &HookSpecificOutput{
+				HookEventName:     event,
+				AdditionalContext: text,
+			},
+		},
+		Stderr: "",
+	}
+}
+
+// UserMessageResponse returns a response that shows text to the user without
+// spending any of Claude's context.
+func UserMessageResponse(text string) *Response {
+	return &Response{
+		ExitCode: 0,
+		Stdout:   &HookOutput{SystemMessage: text, HookSpecificOutput: nil},
+		Stderr:   "",
+	}
+}
+
+// SystemMessage returns the user-facing message, or "" if there is none.
+func (r *Response) SystemMessage() string {
+	if r == nil || r.Stdout == nil {
+		return ""
+	}
+
+	return r.Stdout.SystemMessage
+}
+
+// AdditionalContext returns the text added to Claude's context, or "".
+func (r *Response) AdditionalContext() string {
+	if r == nil || r.Stdout == nil || r.Stdout.HookSpecificOutput == nil {
+		return ""
+	}
+
+	return r.Stdout.HookSpecificOutput.AdditionalContext
 }

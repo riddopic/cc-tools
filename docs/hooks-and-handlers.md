@@ -43,7 +43,7 @@ The `cc-tools hook` command is the primary event dispatcher. Here is the sequenc
 3. cc-tools loads configuration from disk via `config.NewManager()` and builds the default handler registry.
 4. The registry looks up all handlers registered for that event name.
 5. Each handler runs in sequence and returns a `Response` containing an exit code, optional stdout JSON, and optional stderr text.
-6. Responses are merged: the highest exit code wins, the first non-nil stdout wins, and all stderr strings are concatenated.
+6. Responses are merged: the highest exit code wins, `systemMessage` values are joined with newlines, `additionalContext` values are joined with blank lines, and stderr strings are concatenated.
 7. cc-tools writes the merged response to stdout (JSON) and stderr (text), then exits with the merged exit code.
 
 If stdin is empty or the JSON is malformed, `cc-tools hook` exits silently with code 0. Hooks must never block Claude Code due to input errors.
@@ -54,21 +54,17 @@ The exit code determines how Claude Code reacts to the hook response:
 
 | Exit Code | Meaning |
 |-----------|---------|
-| `0` | Success. Claude Code continues normally. |
+| `0` | Success. Claude Code reads stdout JSON. Stderr goes to Claude Code's debug log only; neither Claude nor you see it. |
 | `2` | Block the action. Stderr text is shown to Claude as feedback. |
 
-The stdout JSON (`HookOutput` in `internal/handler/handler.go`) can include these fields:
+The stdout JSON (`HookOutput` in `internal/handler/handler.go`) models only the fields cc-tools uses:
 
-| Field | Purpose |
-|-------|---------|
-| `systemMessage` | Inject a system-level message into the conversation |
-| `additionalContext` | Append context strings to the current turn |
-| `suppressOutput` | Suppress the tool's output from the conversation |
-| `hookSpecificOutput` | Arbitrary key-value data for hook-specific behavior |
-| `permissionDecision` | Grant or deny a permission request |
-| `updatedInput` | Modify the tool's input before execution |
-| `continue` | Signal whether to continue processing |
-| `stopReason` | Reason string when stopping generation |
+| Field | Who reads it | Purpose |
+|-------|--------------|---------|
+| `systemMessage` | You | Warnings and reminders shown in the transcript. Costs no context tokens. |
+| `hookSpecificOutput.additionalContext` | Claude | Text Claude Code injects into Claude's context as a system reminder. It is re-sent with every later request, so keep it short and factual. |
+
+Handlers build these with `handler.UserMessageResponse` and `handler.ContextResponse` rather than filling the struct by hand.
 
 ## Handler Registry Architecture
 
@@ -84,9 +80,8 @@ These run once at the beginning of every Claude Code session.
 
 | Handler | What It Does |
 |---------|--------------|
-| **SuperpowersHandler** | Injects system context (skill discovery information) at session start |
-| **PkgManagerHandler** | Detects the project's package manager (npm, yarn, pnpm, cargo, etc.) and injects context about available commands |
-| **SessionContextHandler** | Stores session metadata (session ID, start time, working directory) for later retrieval |
+| **PkgManagerHandler** | Detects the project's package manager and appends `export PREFERRED_PACKAGE_MANAGER=<name>` to `$CLAUDE_ENV_FILE`, which Claude Code sources before each Bash command. Does nothing when `CLAUDE_ENV_FILE` is unset. |
+| **SessionContextHandler** | On a fresh start or `/clear`, adds a short summary of the most recent session in the same project to Claude's context. Skipped on resume, fork, and compaction, where Claude already has that history. |
 
 ### SessionEnd Handlers
 
@@ -102,9 +97,9 @@ These run before every tool execution. They can inject context, log events, or b
 
 | Handler | What It Does |
 |---------|--------------|
-| **SuggestCompactHandler** | Monitors tool call count and suggests context compaction when a threshold is reached. Configurable via `compact.threshold` and `compact.reminder_interval`. |
+| **SuggestCompactHandler** | Monitors tool call count and shows you a `/compact` suggestion (`systemMessage`) when a threshold is reached. Configurable via `compact.threshold` and `compact.reminder_interval`. |
 | **ObserveHandler** (pre phase) | Logs tool usage events to `~/.cache/cc-tools/observations/observations.jsonl` for the instinct learning system |
-| **PreCommitReminderHandler** | Reminds you to run `task pre-commit` before git commit operations. Configurable via `pre_commit_reminder.enabled` and `pre_commit_reminder.command`. |
+| **PreCommitReminderHandler** | Before a `git commit` Bash call, tells Claude (`additionalContext`) which pre-commit command the project runs. Configurable via `pre_commit_reminder.enabled` and `pre_commit_reminder.command`. |
 
 ### PostToolUse Handlers
 
@@ -136,7 +131,7 @@ These run when you submit a prompt.
 
 | Handler | What It Does |
 |---------|--------------|
-| **DriftHandler** | Tracks session intent from the first prompt, extracts keywords, and warns when subsequent prompts diverge significantly. Recognizes pivot phrases ("now let's", "switch to") to reset intent. Configurable via `drift.enabled`, `drift.min_edits`, `drift.threshold`. |
+| **DriftHandler** | Tracks session intent from the first prompt, extracts keywords, and shows you a warning (`systemMessage`) when subsequent prompts diverge significantly. Recognizes pivot phrases ("now let's", "switch to") to reset intent. Configurable via `drift.enabled`, `drift.min_edits`, `drift.threshold`. |
 
 ### Stop Handlers
 
@@ -144,7 +139,7 @@ These run when Claude Code stops generating.
 
 | Handler | What It Does |
 |---------|--------------|
-| **StopReminderHandler** | Tracks response count per session and emits rotating reminders at configurable intervals. Configurable via `stop_reminder.enabled`, `stop_reminder.interval`, `stop_reminder.warn_at`. |
+| **StopReminderHandler** | Tracks response count per session and shows you rotating reminders (`systemMessage`) at configurable intervals. Configurable via `stop_reminder.enabled`, `stop_reminder.interval`, `stop_reminder.warn_at`. |
 
 ### Notification Handlers
 
@@ -168,7 +163,7 @@ Here is the validation sequence:
 4. Acquires a per-project lock with a configurable cooldown to avoid redundant back-to-back runs.
 5. Discovers lint and test commands for the project by inspecting Taskfile, Makefile, package.json, and other build system files.
 6. Runs lint and test commands in parallel with a configurable timeout.
-7. Returns exit code 0 if both pass, or exit code 2 (block) with a descriptive error message if either fails.
+7. Returns exit code 0 with no output if both pass or no command was found. If either fails, it returns exit code 2 with a plain-text message per failing command: the command to rerun, followed by its output with ANSI codes stripped, trimmed to the first 20 and last 40 lines and capped at 3,000 characters.
 
 Configuration is resolved with this precedence: environment variables > config file > command-line flags.
 
@@ -253,7 +248,7 @@ The following diagram shows how events flow through the two execution paths duri
 ```
 Claude Code Session
     |
-    +-- SessionStart ----------> cc-tools hook --> Superpowers, PkgManager, SessionContext
+    +-- SessionStart ----------> cc-tools hook --> PkgManager, SessionContext
     +-- PreToolUse ------------> cc-tools hook --> CompactSuggest, Observe, PreCommitReminder
     +-- PostToolUse (edit) ----> cc-tools validate --> Lint + Test (parallel)
     +-- PostToolUse (*) -------> cc-tools hook --> Observe

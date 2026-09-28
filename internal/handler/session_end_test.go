@@ -73,9 +73,9 @@ func TestSessionEndHandler_WithTranscript(t *testing.T) {
 	transcriptDir := t.TempDir()
 	transcriptPath := filepath.Join(transcriptDir, "transcript.jsonl")
 	lines := []string{
-		`{"type":"human","content":"hello"}`,
-		`{"type":"human","content":"fix it"}`,
-		`{"type":"tool_use","name":"Edit","input":{"file_path":"/tmp/test.go"}}`,
+		`{"type":"user","message":{"role":"user","content":"hello"}}`,
+		`{"type":"user","message":{"role":"user","content":"fix it"}}`,
+		`{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","input":{"file_path":"/tmp/test.go"}}]}}`,
 	}
 	require.NoError(t, os.WriteFile(transcriptPath, []byte(
 		lines[0]+"\n"+lines[1]+"\n"+lines[2]+"\n",
@@ -106,7 +106,7 @@ func TestSessionEndHandler_LearningSignal(t *testing.T) {
 
 	var b strings.Builder
 	for range 15 {
-		b.WriteString("{\"type\":\"human\",\"content\":\"message\"}\n")
+		b.WriteString("{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"message\"}}\n")
 	}
 	content := b.String()
 	require.NoError(t, os.WriteFile(transcriptPath, []byte(content), 0o600))
@@ -140,7 +140,7 @@ func TestSessionEndHandler_DefaultMinSessionLength(t *testing.T) {
 
 	var b strings.Builder
 	for range 10 {
-		b.WriteString("{\"type\":\"human\",\"content\":\"msg\"}\n")
+		b.WriteString("{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"msg\"}}\n")
 	}
 	content := b.String()
 	require.NoError(t, os.WriteFile(transcriptPath, []byte(content), 0o600))
@@ -171,7 +171,7 @@ func TestSessionEndHandler_ShortSessionNoSignal(t *testing.T) {
 
 	var b strings.Builder
 	for range 3 {
-		b.WriteString("{\"type\":\"human\",\"content\":\"short msg\"}\n")
+		b.WriteString("{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"short msg\"}}\n")
 	}
 	require.NoError(t, os.WriteFile(transcriptPath, []byte(b.String()), 0o600))
 
@@ -203,10 +203,10 @@ func TestSessionEndHandler_SessionMetadata(t *testing.T) {
 	transcriptDir := t.TempDir()
 	transcriptPath := filepath.Join(transcriptDir, "transcript.jsonl")
 	content := strings.Join([]string{
-		`{"type":"human","content":"hello"}`,
-		`{"type":"tool_use","name":"Edit","input":{"file_path":"/tmp/foo.go"}}`,
-		`{"type":"tool_use","name":"Bash","input":{"command":"go test"}}`,
-		`{"type":"human","content":"thanks"}`,
+		`{"type":"user","message":{"role":"user","content":"hello"}}`,
+		`{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","input":{"file_path":"/tmp/foo.go"}}]}}`,
+		`{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash","input":{"command":"go test"}}]}}`,
+		`{"type":"user","message":{"role":"user","content":"thanks"}}`,
 	}, "\n") + "\n"
 	require.NoError(t, os.WriteFile(transcriptPath, []byte(content), 0o600))
 
@@ -217,6 +217,7 @@ func TestSessionEndHandler_SessionMetadata(t *testing.T) {
 		HookEventName:  hookcmd.EventSessionEnd,
 		SessionID:      "metadata-session",
 		TranscriptPath: transcriptPath,
+		Cwd:            "/tmp",
 	}
 
 	resp, err := h.Handle(context.Background(), input)
@@ -238,6 +239,8 @@ func TestSessionEndHandler_SessionMetadata(t *testing.T) {
 	assert.Equal(t, "metadata-session", saved["id"])
 	assert.NotEmpty(t, saved["date"], "should include date")
 	assert.NotEmpty(t, saved["title"], "should include title")
+	assert.Equal(t, "/tmp", saved["cwd"], "should record the project directory")
+	assert.Equal(t, `Request: "hello". Files modified: foo.go.`, saved["summary"])
 }
 
 func TestSessionEndHandler_ImplementsHandler(t *testing.T) {

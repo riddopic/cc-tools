@@ -62,8 +62,9 @@ func NewSuggestCompactHandler(cfg *config.Values, opts ...SuggestCompactOption) 
 // Name returns the handler identifier.
 func (h *SuggestCompactHandler) Name() string { return "suggest-compact" }
 
-// Handle records a tool call and writes a /compact suggestion to stderr
-// when the session threshold is reached.
+// Handle records a tool call and shows the user a /compact suggestion when the
+// session threshold is reached. Only the user can run /compact, so the
+// suggestion is a system message rather than context for Claude.
 func (h *SuggestCompactHandler) Handle(_ context.Context, input *hookcmd.HookInput) (*Response, error) {
 	if h.cfg == nil {
 		return &Response{ExitCode: 0}, nil
@@ -84,10 +85,12 @@ func (h *SuggestCompactHandler) Handle(_ context.Context, input *hookcmd.HookInp
 	var buf bytes.Buffer
 	s.RecordCall(input.SessionID, &buf)
 
-	return &Response{
-		ExitCode: 0,
-		Stderr:   buf.String(),
-	}, nil
+	msg := strings.TrimSpace(buf.String())
+	if msg == "" {
+		return &Response{ExitCode: 0}, nil
+	}
+
+	return UserMessageResponse(msg), nil
 }
 
 // ---------------------------------------------------------------------
@@ -166,8 +169,8 @@ func (h *ObserveHandler) Handle(_ context.Context, input *hookcmd.HookInput) (*R
 // PreCommitReminderHandler
 // ---------------------------------------------------------------------
 
-// PreCommitReminderHandler writes a reminder to stderr when a git commit
-// command is detected.
+// PreCommitReminderHandler adds a reminder to Claude's context when a git
+// commit command is detected.
 type PreCommitReminderHandler struct {
 	cfg *config.Values
 }
@@ -180,8 +183,9 @@ func NewPreCommitReminderHandler(cfg *config.Values) *PreCommitReminderHandler {
 // Name returns the handler identifier.
 func (h *PreCommitReminderHandler) Name() string { return "pre-commit-reminder" }
 
-// Handle checks if the tool input contains a git commit command and writes
-// a reminder to run the pre-commit command.
+// Handle checks if the tool input contains a git commit command and tells
+// Claude which pre-commit command the project expects. Claude is the one
+// running the commit, so the reminder goes to its context, not the user.
 func (h *PreCommitReminderHandler) Handle(_ context.Context, input *hookcmd.HookInput) (*Response, error) {
 	if h.cfg == nil || !h.cfg.PreCommit.Enabled {
 		return &Response{ExitCode: 0}, nil
@@ -201,8 +205,6 @@ func (h *PreCommitReminderHandler) Handle(_ context.Context, input *hookcmd.Hook
 		reminder = defaultPreCommitCommand
 	}
 
-	return &Response{
-		ExitCode: 0,
-		Stderr:   fmt.Sprintf("Reminder: Run '%s' (fmt + lint + test) before committing.\n", reminder),
-	}, nil
+	return ContextResponse(hookcmd.EventPreToolUse,
+		fmt.Sprintf("This project runs '%s' (fmt + lint + test) before every commit.", reminder)), nil
 }

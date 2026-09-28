@@ -51,14 +51,11 @@ func TestWriteHookResponse(t *testing.T) {
 			response: &handler.Response{
 				ExitCode: 0,
 				Stdout: &handler.HookOutput{
-					Continue:           true,
-					StopReason:         "",
-					SuppressOutput:     false,
-					SystemMessage:      "",
-					HookSpecificOutput: nil,
-					AdditionalContext:  nil,
-					PermissionDecision: "",
-					UpdatedInput:       nil,
+					SystemMessage: "",
+					HookSpecificOutput: &handler.HookSpecificOutput{
+						HookEventName:     "SessionStart",
+						AdditionalContext: "context",
+					},
 				},
 				Stderr: "",
 			},
@@ -84,14 +81,8 @@ func TestWriteHookResponse(t *testing.T) {
 			response: &handler.Response{
 				ExitCode: 1,
 				Stdout: &handler.HookOutput{
-					Continue:           false,
-					StopReason:         "",
-					SuppressOutput:     true,
-					SystemMessage:      "",
+					SystemMessage:      "note",
 					HookSpecificOutput: nil,
-					AdditionalContext:  nil,
-					PermissionDecision: "",
-					UpdatedInput:       nil,
 				},
 				Stderr: "blocked",
 			},
@@ -127,8 +118,7 @@ func TestWriteHookResponse(t *testing.T) {
 				var parsed handler.HookOutput
 				unmarshalErr := json.Unmarshal([]byte(outputLine), &parsed)
 				require.NoError(t, unmarshalErr)
-				assert.Equal(t, tt.response.Stdout.Continue, parsed.Continue)
-				assert.Equal(t, tt.response.Stdout.SuppressOutput, parsed.SuppressOutput)
+				assert.Equal(t, *tt.response.Stdout, parsed)
 			} else {
 				assert.Equal(t, tt.wantStdout, stdout.String())
 			}

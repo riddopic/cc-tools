@@ -25,74 +25,74 @@ func TestStopReminderHandler_Handle(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name       string
-		cfg        *config.Values
-		seedCount  int
-		wantStderr string
-		wantErr    bool
+		name        string
+		cfg         *config.Values
+		seedCount   int
+		wantMessage string
+		wantErr     bool
 	}{
 		{
-			name:       "nil config returns exit 0",
-			cfg:        nil,
-			seedCount:  0,
-			wantStderr: "",
-			wantErr:    false,
+			name:        "nil config returns exit 0",
+			cfg:         nil,
+			seedCount:   0,
+			wantMessage: "",
+			wantErr:     false,
 		},
 		{
-			name:       "disabled returns exit 0",
-			cfg:        stopConfig(false, 20, 50),
-			seedCount:  0,
-			wantStderr: "",
-			wantErr:    false,
+			name:        "disabled returns exit 0",
+			cfg:         stopConfig(false, 20, 50),
+			seedCount:   0,
+			wantMessage: "",
+			wantErr:     false,
 		},
 		{
-			name:       "below interval no reminder",
-			cfg:        stopConfig(true, 20, 50),
-			seedCount:  5,
-			wantStderr: "",
-			wantErr:    false,
+			name:        "below interval no reminder",
+			cfg:         stopConfig(true, 20, 50),
+			seedCount:   5,
+			wantMessage: "",
+			wantErr:     false,
 		},
 		{
-			name:       "at interval emits first reminder",
-			cfg:        stopConfig(true, 20, 50),
-			seedCount:  19,
-			wantStderr: "running /compact",
-			wantErr:    false,
+			name:        "at interval emits first reminder",
+			cfg:         stopConfig(true, 20, 50),
+			seedCount:   19,
+			wantMessage: "running /compact",
+			wantErr:     false,
 		},
 		{
-			name:       "at second interval emits second reminder",
-			cfg:        stopConfig(true, 20, 50),
-			seedCount:  39,
-			wantStderr: "committing progress",
-			wantErr:    false,
+			name:        "at second interval emits second reminder",
+			cfg:         stopConfig(true, 20, 50),
+			seedCount:   39,
+			wantMessage: "committing progress",
+			wantErr:     false,
 		},
 		{
-			name:       "at third interval emits third reminder",
-			cfg:        stopConfig(true, 20, 100),
-			seedCount:  59,
-			wantStderr: "checkpoint",
-			wantErr:    false,
+			name:        "at third interval emits third reminder",
+			cfg:         stopConfig(true, 20, 100),
+			seedCount:   59,
+			wantMessage: "checkpoint",
+			wantErr:     false,
 		},
 		{
-			name:       "at warn threshold emits strong warning",
-			cfg:        stopConfig(true, 20, 50),
-			seedCount:  49,
-			wantStderr: "strongly consider wrapping up",
-			wantErr:    false,
+			name:        "at warn threshold emits strong warning",
+			cfg:         stopConfig(true, 20, 50),
+			seedCount:   49,
+			wantMessage: "strongly consider wrapping up",
+			wantErr:     false,
 		},
 		{
-			name:       "above warn threshold still warns",
-			cfg:        stopConfig(true, 20, 50),
-			seedCount:  55,
-			wantStderr: "strongly consider wrapping up",
-			wantErr:    false,
+			name:        "above warn threshold still warns",
+			cfg:         stopConfig(true, 20, 50),
+			seedCount:   55,
+			wantMessage: "strongly consider wrapping up",
+			wantErr:     false,
 		},
 		{
-			name:       "warn at zero disables strong warning",
-			cfg:        stopConfig(true, 20, 0),
-			seedCount:  59,
-			wantStderr: "checkpoint",
-			wantErr:    false,
+			name:        "warn at zero disables strong warning",
+			cfg:         stopConfig(true, 20, 0),
+			seedCount:   59,
+			wantMessage: "checkpoint",
+			wantErr:     false,
 		},
 	}
 
@@ -121,10 +121,10 @@ func TestStopReminderHandler_Handle(t *testing.T) {
 			require.NotNil(t, resp)
 			assert.Equal(t, 0, resp.ExitCode)
 
-			if tt.wantStderr != "" {
-				assert.Contains(t, resp.Stderr, tt.wantStderr)
+			if tt.wantMessage != "" {
+				assert.Contains(t, resp.SystemMessage(), tt.wantMessage)
 			} else {
-				assert.Empty(t, resp.Stderr)
+				assert.Empty(t, resp.SystemMessage())
 			}
 		})
 	}
@@ -173,7 +173,7 @@ func TestStopReminderHandler_CorruptCounterFile(t *testing.T) {
 		SessionID: sessionID,
 	})
 	require.NoError(t, handleErr)
-	assert.Empty(t, resp.Stderr)
+	assert.Empty(t, resp.SystemMessage())
 
 	// Verify counter was reset to 1 (corrupt treated as 0, then incremented).
 	data, readErr := os.ReadFile(filepath.Join(stateDir, "stop-"+string(sessionID)+".count"))
@@ -195,7 +195,7 @@ func TestStopReminderHandler_IntervalZeroNoReminder(t *testing.T) {
 		SessionID: sessionID,
 	})
 	require.NoError(t, err)
-	assert.Empty(t, resp.Stderr)
+	assert.Empty(t, resp.SystemMessage())
 }
 
 func TestStopReminderHandler_CounterPath_SafeSessionID(t *testing.T) {

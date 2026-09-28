@@ -67,9 +67,10 @@ func (h *StopReminderHandler) Handle(_ context.Context, input *hookcmd.HookInput
 	count++
 	h.writeCount(stateDir, input.SessionID, count)
 
-	msg := h.reminderMessage(count)
-	if msg != "" {
-		return &Response{ExitCode: 0, Stderr: msg}, nil
+	// The reminders are for the user; routing them through Claude's context
+	// on a Stop event would force an extra model turn.
+	if msg := h.reminderMessage(count); msg != "" {
+		return UserMessageResponse(msg), nil
 	}
 
 	return &Response{ExitCode: 0}, nil
@@ -81,7 +82,7 @@ func (h *StopReminderHandler) reminderMessage(count int) string {
 
 	if warnAt > 0 && count >= warnAt {
 		return fmt.Sprintf(
-			"[cc-tools] Session has %d+ responses — strongly consider wrapping up and committing progress.\n",
+			"[cc-tools] Session has %d+ responses — strongly consider wrapping up and committing progress.",
 			warnAt,
 		)
 	}
@@ -101,9 +102,9 @@ func reminderIndex(count, interval int) int {
 
 func stopReminders() []string {
 	return []string{
-		"[cc-tools] Consider running /compact — context is getting heavy.\n",
-		"[cc-tools] Long session — consider committing progress and capturing learnings.\n",
-		"[cc-tools] Extended session — review your work and consider a checkpoint.\n",
+		"[cc-tools] Consider running /compact — context is getting heavy.",
+		"[cc-tools] Long session — consider committing progress and capturing learnings.",
+		"[cc-tools] Extended session — review your work and consider a checkpoint.",
 	}
 }
 

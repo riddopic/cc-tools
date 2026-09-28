@@ -434,6 +434,79 @@ func TestStore_ListEmptyDirectory(t *testing.T) {
 	assert.Empty(t, listed)
 }
 
+func TestStore_ListIgnoresForeignJSONFiles(t *testing.T) {
+	dir := t.TempDir()
+	store := session.NewStore(dir)
+
+	require.NoError(t, store.Save(&session.Session{
+		Version:       "",
+		ID:            "real-session",
+		Date:          "2025-01-15",
+		Started:       time.Now(),
+		Ended:         time.Time{},
+		Title:         "Real",
+		Summary:       "real work",
+		ToolsUsed:     nil,
+		FilesModified: nil,
+		MessageCount:  0,
+	}))
+
+	// Claude Code keeps per-process files such as "96854.json" in
+	// ~/.claude/sessions. They sort after date-prefixed names, so without
+	// filtering List(1) would return one of them instead of a real session.
+	foreign := `{"pid":96854,"sessionId":"b4e080f1","cwd":"/tmp","version":"2.1.284"}`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "96854.json"), []byte(foreign), 0o600))
+
+	listed, err := store.List(1)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.Equal(t, "real-session", listed[0].ID)
+}
+
+func saveAt(t *testing.T, store *session.Store, id, date, cwd string, ended time.Time) {
+	t.Helper()
+	require.NoError(t, store.Save(&session.Session{
+		Version:       "",
+		ID:            id,
+		Date:          date,
+		Cwd:           cwd,
+		Started:       ended,
+		Ended:         ended,
+		Title:         id,
+		Summary:       "summary " + id,
+		ToolsUsed:     nil,
+		FilesModified: nil,
+		MessageCount:  0,
+	}))
+}
+
+func TestStore_Latest(t *testing.T) {
+	dir := t.TempDir()
+	store := session.NewStore(dir)
+	day := func(d, h int) time.Time { return time.Date(2025, 1, d, h, 0, 0, 0, time.UTC) }
+
+	saveAt(t, store, "old-a", "2025-01-10", "/proj/a", day(10, 9))
+	// Same day: IDs sort "zzz" after "aaa", but "aaa" ended later.
+	saveAt(t, store, "zzz-a", "2025-01-12", "/proj/a", day(12, 9))
+	saveAt(t, store, "aaa-a", "2025-01-12", "/proj/a", day(12, 17))
+	saveAt(t, store, "new-b", "2025-01-15", "/proj/b", day(15, 9))
+
+	inA := func(s *session.Session) bool { return s.Cwd == "/proj/a" }
+
+	got, err := store.Latest(inA)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "aaa-a", got.ID, "latest by end time, not filename, within a day")
+
+	none, err := store.Latest(func(s *session.Session) bool { return s.Cwd == "/proj/c" })
+	require.NoError(t, err)
+	assert.Nil(t, none)
+
+	empty, err := session.NewStore(filepath.Join(dir, "missing")).Latest(inA)
+	require.NoError(t, err)
+	assert.Nil(t, empty)
+}
+
 func TestStore_LoadReturnsNotFoundForNonexistentDirectory(t *testing.T) {
 	store := session.NewStore(filepath.Join(t.TempDir(), "nonexistent"))
 

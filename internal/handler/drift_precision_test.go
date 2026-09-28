@@ -76,7 +76,7 @@ func TestDriftHandler_RelatedFollowUpDoesNotWarn(t *testing.T) {
 		Prompt:    "update the session token validation",
 	})
 	require.NoError(t, err)
-	assert.Empty(t, resp.Stderr)
+	assert.Empty(t, resp.SystemMessage())
 }
 
 // TestDriftHandler_RepeatedKeywordDoesNotMaskDrift ensures a prompt cannot
@@ -99,7 +99,7 @@ func TestDriftHandler_RepeatedKeywordDoesNotMaskDrift(t *testing.T) {
 		Prompt:    "alpha alpha alpha alpha zulu yankee xray whiskey victor",
 	})
 	require.NoError(t, err)
-	assert.Contains(t, resp.Stderr, "Possible drift detected")
+	assert.Contains(t, resp.SystemMessage(), "Possible drift detected")
 }
 
 // TestDriftHandler_SparseIntentSuppressesWarning covers what a wider keyword
@@ -122,7 +122,7 @@ func TestDriftHandler_SparseIntentSuppressesWarning(t *testing.T) {
 		Prompt:    "run the linter and check for gosec findings",
 	})
 	require.NoError(t, err)
-	assert.Empty(t, resp.Stderr)
+	assert.Empty(t, resp.SystemMessage())
 }
 
 // TestDriftHandler_LogsEvaluationWhenEnabled verifies that a scored prompt is
