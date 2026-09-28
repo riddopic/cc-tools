@@ -38,7 +38,7 @@ func TestValidateWithSkipCheck_RealIntegration(t *testing.T) {
 				},
 			},
 			debug:        false,
-			wantExitCode: 2,
+			wantExitCode: 0,
 			wantInStderr: nil,
 		},
 		{
@@ -55,7 +55,7 @@ func TestValidateWithSkipCheck_RealIntegration(t *testing.T) {
 				},
 			},
 			debug:        true,
-			wantExitCode: 2,
+			wantExitCode: 0,
 			wantInStderr: []string{
 				"Checking skips for project root",
 			},

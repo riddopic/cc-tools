@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/riddopic/cc-tools/internal/hookcmd"
-	"github.com/riddopic/cc-tools/internal/output"
 	"github.com/riddopic/cc-tools/internal/shared"
 )
 
@@ -19,6 +19,7 @@ type SkipConfig struct {
 }
 
 // ValidationResult represents the result of a single validation (lint or test).
+// Message holds the trimmed command output when the validation failed.
 type ValidationResult struct {
 	Type     CommandType
 	Success  bool
@@ -40,47 +41,40 @@ type ValidateResult struct {
 	BothPassed bool
 }
 
-// FormatMessage returns the appropriate user message based on validation results.
+// FormatMessage returns the feedback for Claude when validation fails, or an
+// empty string when there is nothing to act on. Each failing command gets a
+// one-line header naming how to rerun it, followed by its trimmed output so
+// Claude can fix the problem without rerunning the command.
 func (vr *ValidateResult) FormatMessage() string {
-	formatter := output.NewHookFormatter()
-
-	// Both passed
 	if vr.BothPassed {
-		return formatter.FormatValidationPass()
+		return ""
 	}
 
-	// Determine what failed
-	lintFailed := vr.LintResult != nil && !vr.LintResult.Success
-	testFailed := vr.TestResult != nil && !vr.TestResult.Success
-
-	// Both failed
-	if lintFailed && testFailed {
-		lintCmd := vr.LintResult.Command.String()
-		testCmd := vr.TestResult.Command.String()
-		return formatter.FormatBlockingError(
-			"⛔ BLOCKING: Lint and test failures. Run 'cd %s && %s' and 'cd %s && %s'",
-			vr.LintResult.Command.WorkingDir, lintCmd,
-			vr.TestResult.Command.WorkingDir, testCmd)
+	var sections []string
+	for _, s := range []string{
+		failureSection("Lint failed", vr.LintResult),
+		failureSection("Tests failed", vr.TestResult),
+	} {
+		if s != "" {
+			sections = append(sections, s)
+		}
 	}
 
-	// Only lint failed
-	if lintFailed {
-		cmdStr := vr.LintResult.Command.String()
-		return formatter.FormatBlockingError(
-			"⛔ BLOCKING: Run 'cd %s && %s' to fix lint failures",
-			vr.LintResult.Command.WorkingDir, cmdStr)
+	return strings.Join(sections, "\n\n")
+}
+
+// failureSection renders one failed validation, or "" if it did not fail.
+func failureSection(label string, result *ValidationResult) string {
+	if result == nil || result.Success || result.Command == nil {
+		return ""
 	}
 
-	// Only test failed
-	if testFailed {
-		cmdStr := vr.TestResult.Command.String()
-		return formatter.FormatBlockingError(
-			"⛔ BLOCKING: Run 'cd %s && %s' to fix test failures",
-			vr.TestResult.Command.WorkingDir, cmdStr)
+	header := fmt.Sprintf("%s: cd %s && %s", label, result.Command.WorkingDir, result.Command.String())
+	if result.Message == "" {
+		return header
 	}
 
-	// Neither command was found (both nil results)
-	return ""
+	return header + "\n" + result.Message
 }
 
 // ParallelValidateExecutor implements ValidateExecutor with parallel execution.
@@ -225,10 +219,24 @@ func (pve *ParallelValidateExecutor) executeCommand(
 		Type:     cmdType,
 		Success:  execResult.Success,
 		ExitCode: execResult.ExitCode,
-		Message:  "",
+		Message:  pve.failureDetail(execResult),
 		Command:  cmd,
 		Error:    execResult.Error,
 	}
+}
+
+// failureDetail summarizes a failed command's output for Claude. Successful
+// runs return "" so passing output is never sent back.
+func (pve *ParallelValidateExecutor) failureDetail(result *ExecutorResult) string {
+	if result.Success {
+		return ""
+	}
+
+	if result.TimedOut {
+		return fmt.Sprintf("timed out after %ds", pve.timeout)
+	}
+
+	return summarizeOutput(result.Stdout + "\n" + result.Stderr)
 }
 
 // RunValidateHookWithSkip is the main entry point for the validate hook with skip configuration.

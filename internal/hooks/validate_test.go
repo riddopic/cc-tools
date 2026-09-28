@@ -32,8 +32,8 @@ func TestValidateResult_FormatMessage(t *testing.T) {
 				TestResult: nil,
 				BothPassed: true,
 			},
-			wantEmpty:    false,
-			wantContains: []string{"Validations pass"},
+			wantEmpty:    true,
+			wantContains: nil,
 		},
 		{
 			name: "lint failed only",
@@ -42,7 +42,7 @@ func TestValidateResult_FormatMessage(t *testing.T) {
 					Type:     hooks.CommandTypeLint,
 					Success:  false,
 					ExitCode: 1,
-					Message:  "",
+					Message:  "main.go:3: unused variable",
 					Command: &hooks.DiscoveredCommand{
 						Type:       hooks.CommandTypeLint,
 						Command:    "make",
@@ -69,7 +69,7 @@ func TestValidateResult_FormatMessage(t *testing.T) {
 				BothPassed: false,
 			},
 			wantEmpty:    false,
-			wantContains: []string{"BLOCKING", "lint failures", "make lint"},
+			wantContains: []string{"Lint failed: cd /project && make lint", "main.go:3: unused variable"},
 		},
 		{
 			name: "test failed only",
@@ -105,7 +105,7 @@ func TestValidateResult_FormatMessage(t *testing.T) {
 				BothPassed: false,
 			},
 			wantEmpty:    false,
-			wantContains: []string{"BLOCKING", "test failures", "make test"},
+			wantContains: []string{"Tests failed: cd /project && make test"},
 		},
 		{
 			name: "both failed",
@@ -141,7 +141,7 @@ func TestValidateResult_FormatMessage(t *testing.T) {
 				BothPassed: false,
 			},
 			wantEmpty:    false,
-			wantContains: []string{"BLOCKING", "Lint and test failures", "make lint", "make test"},
+			wantContains: []string{"Lint failed: cd /project && make lint", "Tests failed: cd /project && make test"},
 		},
 		{
 			name: "no commands found",
@@ -150,8 +150,8 @@ func TestValidateResult_FormatMessage(t *testing.T) {
 				TestResult: nil,
 				BothPassed: true,
 			},
-			wantEmpty:    false,
-			wantContains: []string{"Validations pass"},
+			wantEmpty:    true,
+			wantContains: nil,
 		},
 		{
 			name: "only lint found and passed",
@@ -173,28 +173,20 @@ func TestValidateResult_FormatMessage(t *testing.T) {
 				TestResult: nil,
 				BothPassed: true,
 			},
-			wantEmpty:    false,
-			wantContains: []string{"Validations pass"},
+			wantEmpty:    true,
+			wantContains: nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			message := tt.result.FormatMessage()
-			message = stripANSI(message)
 
+			assert.NotContains(t, message, "\x1b", "hook output must not contain ANSI escapes")
+			assert.NotContains(t, message, "BLOCKING")
 			assertFormatMessageResult(t, message, tt.wantEmpty, tt.wantContains)
 		})
 	}
-}
-
-// stripANSI removes common ANSI color codes from a string.
-func stripANSI(s string) string {
-	s = strings.ReplaceAll(s, "\033[0;33m", "")
-	s = strings.ReplaceAll(s, "\033[0;31m", "")
-	s = strings.ReplaceAll(s, "\033[0;32m", "")
-	s = strings.ReplaceAll(s, "\033[0m", "")
-	return s
 }
 
 // assertFormatMessageResult verifies the FormatMessage output against expected conditions.
@@ -433,7 +425,7 @@ func TestRunValidateHook(t *testing.T) {
 					successOutput("OK"),
 				)
 			},
-			wantExitCode: 2,
+			wantExitCode: 0,
 		},
 		{
 			name: "validation failures",
@@ -625,4 +617,90 @@ func TestParallelValidateExecutor_DiscoveryErrorsLoggedInDebugMode(t *testing.T)
 			}
 		})
 	}
+}
+
+func editInput(path string) *hookcmd.HookInput {
+	return &hookcmd.HookInput{
+		HookEventName: "PostToolUse",
+		ToolName:      "Edit",
+		ToolInput:     hooks.MustMarshalJSON(map[string]any{"file_path": path}),
+	}
+}
+
+func TestRunValidateHook_SuccessIsSilent(t *testing.T) {
+	testDeps := hooks.CreateTestDependencies()
+	setupGitMakefileProjectFS(testDeps)
+	testDeps.MockRunner.RunContextFunc = makeDiscoveryAndExecRunner(successOutput("OK"), successOutput("OK"))
+
+	exitCode := hooks.RunValidateHook(context.Background(), editInput("/project/main.go"), false, 10, 0,
+		testDeps.Dependencies)
+
+	assert.Equal(t, 0, exitCode)
+	assert.Empty(t, testDeps.MockStderr.String())
+	assert.Empty(t, testDeps.MockStdout.String())
+}
+
+func TestRunValidateHook_NoCommandsIsSilent(t *testing.T) {
+	testDeps := hooks.CreateTestDependencies()
+	testDeps.MockFS.StatFunc = func(path string) (os.FileInfo, error) {
+		if strings.HasSuffix(path, ".git") {
+			return hooks.NewMockFileInfo(".git", 0, 0, time.Time{}, true), nil
+		}
+		return nil, os.ErrNotExist
+	}
+	testDeps.MockRunner.RunContextFunc = func(_ context.Context, _, _ string, _ ...string) (*hooks.CommandOutput, error) {
+		return nil, errors.New("command not found")
+	}
+
+	exitCode := hooks.RunValidateHook(context.Background(), editInput("/project/main.go"), false, 10, 0,
+		testDeps.Dependencies)
+
+	assert.Equal(t, 0, exitCode)
+	assert.Empty(t, testDeps.MockStderr.String())
+}
+
+func TestRunValidateHook_FailureIncludesCommandOutput(t *testing.T) {
+	testDeps := hooks.CreateTestDependencies()
+	setupGitMakefileProjectFS(testDeps)
+	testDeps.MockRunner.RunContextFunc = makeDiscoveryAndExecRunner(
+		func() (*hooks.CommandOutput, error) {
+			return &hooks.CommandOutput{
+				Stdout: []byte("\x1b[31mmain.go:12:2: ineffectual assignment to err\x1b[0m\n"),
+				Stderr: []byte("make: *** [lint] Error 1\n"),
+			}, errors.New("exit status 2")
+		},
+		successOutput("OK"),
+	)
+
+	exitCode := hooks.RunValidateHook(context.Background(), editInput("/project/main.go"), false, 10, 0,
+		testDeps.Dependencies)
+
+	assert.Equal(t, hooks.ExitCodeShowMessage, exitCode)
+	stderr := testDeps.MockStderr.String()
+	assert.Contains(t, stderr, "Lint failed: cd /project && make lint")
+	assert.Contains(t, stderr, "main.go:12:2: ineffectual assignment to err")
+	assert.Contains(t, stderr, "make: *** [lint] Error 1")
+	assert.NotContains(t, stderr, "Tests failed")
+	assert.NotContains(t, stderr, "\x1b")
+}
+
+func TestParallelValidateExecutor_TimeoutMessage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("waits for a 1s command timeout")
+	}
+
+	testDeps := hooks.CreateTestDependencies()
+	setupMakefileFS(testDeps)
+	testDeps.MockRunner.RunContextFunc = makeDiscoveryAndExecRunner(nil, func() (*hooks.CommandOutput, error) {
+		time.Sleep(1500 * time.Millisecond)
+		return &hooks.CommandOutput{Stdout: []byte("partial noise"), Stderr: nil}, errors.New("killed")
+	})
+
+	executor := hooks.NewParallelValidateExecutor("/project", 1, false, nil, testDeps.Dependencies)
+	result, err := executor.ExecuteValidations(context.Background(), "/project", "/project")
+	require.NoError(t, err)
+	require.NotNil(t, result.TestResult)
+
+	assert.Equal(t, "timed out after 1s", result.TestResult.Message)
+	assert.Contains(t, result.FormatMessage(), "Tests failed: cd /project && make test\ntimed out after 1s")
 }

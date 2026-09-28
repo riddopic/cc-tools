@@ -301,3 +301,6 @@ func (l *LockManager) LockFileForTest() string {
 func NewRealCommandRunner() CommandRunner {
 	return &realCommandRunner{}
 }
+
+// SummarizeOutput exposes summarizeOutput for testing.
+func SummarizeOutput(raw string) string { return summarizeOutput(raw) }
