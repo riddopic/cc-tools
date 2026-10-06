@@ -35,7 +35,13 @@ const envVarName = "PREFERRED_PACKAGE_MANAGER"
 // Detect returns the preferred package manager for the given project directory.
 // Detection priority: PREFERRED_PACKAGE_MANAGER env var, then lock file, then default "npm".
 func Detect(projectDir string) string {
-	if envVal := os.Getenv(envVarName); envVal != "" {
+	return DetectWithEnv(projectDir, os.Getenv)
+}
+
+// DetectWithEnv is Detect with the environment read through getenv, so callers
+// can isolate detection from the process environment.
+func DetectWithEnv(projectDir string, getenv func(string) string) string {
+	if envVal := getenv(envVarName); envVal != "" {
 		return envVal
 	}
 

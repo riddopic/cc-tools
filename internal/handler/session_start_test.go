@@ -21,6 +21,10 @@ import (
 // PkgManagerHandler
 // ---------------------------------------------------------------------
 
+// noEnv stands in for [os.Getenv] so a PREFERRED_PACKAGE_MANAGER exported in the
+// developer's shell cannot override lock file detection under test.
+func noEnv(string) string { return "" }
+
 func TestPkgManagerHandler_Name(t *testing.T) {
 	t.Parallel()
 	h := handler.NewPkgManagerHandler(nil)
@@ -30,7 +34,10 @@ func TestPkgManagerHandler_Name(t *testing.T) {
 func TestPkgManagerHandler_Handle_CreatesEnvFile(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
-	h := handler.NewPkgManagerHandler(nil, handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")))
+	h := handler.NewPkgManagerHandler(nil,
+		handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")),
+		handler.WithPkgManagerGetenv(noEnv),
+	)
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -55,7 +62,10 @@ func TestPkgManagerHandler_Handle_DetectsYarn(t *testing.T) {
 	// Create a yarn.lock file so detection picks yarn.
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "yarn.lock"), []byte(""), 0o600))
 
-	h := handler.NewPkgManagerHandler(nil, handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")))
+	h := handler.NewPkgManagerHandler(nil,
+		handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")),
+		handler.WithPkgManagerGetenv(noEnv),
+	)
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -80,7 +90,10 @@ func TestPkgManagerHandler_Handle_DetectsNpm(t *testing.T) {
 		filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0o600,
 	))
 
-	h := handler.NewPkgManagerHandler(nil, handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")))
+	h := handler.NewPkgManagerHandler(nil,
+		handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")),
+		handler.WithPkgManagerGetenv(noEnv),
+	)
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -104,7 +117,10 @@ func TestPkgManagerHandler_Handle_DetectsPnpm(t *testing.T) {
 		filepath.Join(tmpDir, "pnpm-lock.yaml"), []byte(""), 0o600,
 	))
 
-	h := handler.NewPkgManagerHandler(nil, handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")))
+	h := handler.NewPkgManagerHandler(nil,
+		handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")),
+		handler.WithPkgManagerGetenv(noEnv),
+	)
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -128,7 +144,10 @@ func TestPkgManagerHandler_Handle_DetectsBun(t *testing.T) {
 		filepath.Join(tmpDir, "bun.lock"), []byte(""), 0o600,
 	))
 
-	h := handler.NewPkgManagerHandler(nil, handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")))
+	h := handler.NewPkgManagerHandler(nil,
+		handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")),
+		handler.WithPkgManagerGetenv(noEnv),
+	)
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -144,10 +163,42 @@ func TestPkgManagerHandler_Handle_DetectsBun(t *testing.T) {
 	assert.Contains(t, string(data), "PREFERRED_PACKAGE_MANAGER=bun")
 }
 
+func TestPkgManagerHandler_Handle_EnvVarOverridesLockFile(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "yarn.lock"), []byte(""), 0o600))
+
+	getenv := func(key string) string {
+		if key == "PREFERRED_PACKAGE_MANAGER" {
+			return "bun"
+		}
+		return ""
+	}
+	h := handler.NewPkgManagerHandler(nil,
+		handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")),
+		handler.WithPkgManagerGetenv(getenv),
+	)
+	input := &hookcmd.HookInput{
+		HookEventName: hookcmd.EventSessionStart,
+		Cwd:           tmpDir,
+	}
+
+	_, err := h.Handle(context.Background(), input)
+	require.NoError(t, err)
+
+	data, readErr := os.ReadFile(filepath.Join(tmpDir, "claude.env"))
+	require.NoError(t, readErr)
+	assert.Contains(t, string(data), "PREFERRED_PACKAGE_MANAGER=bun")
+}
+
 func TestPkgManagerHandler_Handle_NoStdout(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
-	h := handler.NewPkgManagerHandler(nil, handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")))
+	h := handler.NewPkgManagerHandler(nil,
+		handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")),
+		handler.WithPkgManagerGetenv(noEnv),
+	)
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -168,7 +219,10 @@ func TestPkgManagerHandler_Handle_ConfigPreferredOverridesLockFile(t *testing.T)
 	cfg := config.GetDefaultConfig()
 	cfg.PackageManager.Preferred = "bun"
 
-	h := handler.NewPkgManagerHandler(cfg, handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")))
+	h := handler.NewPkgManagerHandler(cfg,
+		handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")),
+		handler.WithPkgManagerGetenv(noEnv),
+	)
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -196,7 +250,10 @@ func TestPkgManagerHandler_Handle_EmptyConfigFallsBackToDetection(t *testing.T) 
 	cfg := config.GetDefaultConfig()
 	// Preferred is empty — should fall through to lock file detection.
 
-	h := handler.NewPkgManagerHandler(cfg, handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")))
+	h := handler.NewPkgManagerHandler(cfg,
+		handler.WithEnvFilePath(filepath.Join(tmpDir, "claude.env")),
+		handler.WithPkgManagerGetenv(noEnv),
+	)
 	input := &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
@@ -219,7 +276,10 @@ func TestPkgManagerHandler_Handle_NoEnvFileIsNoop(t *testing.T) {
 
 	// Without CLAUDE_ENV_FILE there is nowhere Claude Code will read the value
 	// from, so the handler must not litter the project with a .claude/.env.
-	h := handler.NewPkgManagerHandler(nil, handler.WithEnvFilePath(""))
+	h := handler.NewPkgManagerHandler(nil,
+		handler.WithEnvFilePath(""),
+		handler.WithPkgManagerGetenv(noEnv),
+	)
 	resp, err := h.Handle(context.Background(), &hookcmd.HookInput{
 		HookEventName: hookcmd.EventSessionStart,
 		Cwd:           tmpDir,
