@@ -134,6 +134,9 @@ func newTestValues(timeout, cooldown int) *config.Values {
 			Interval: config.ExportDefaultStopReminderInterval(),
 			WarnAt:   config.ExportDefaultStopReminderWarnAt(),
 		},
+		State: config.StateValues{
+			MaxAgeDays: config.ExportDefaultStateMaxAgeDays(),
+		},
 	}
 }
 
@@ -2490,4 +2493,77 @@ func TestInstinctConfigSetGet(t *testing.T) {
 			assert.Equal(t, tt.wantValue, value2)
 		})
 	}
+}
+
+func TestStateMaxAgeDays(t *testing.T) {
+	ctx := context.Background()
+	key := config.ExportKeyStateMaxAgeDays()
+
+	t.Run("default", func(t *testing.T) {
+		m := config.NewManagerWithPath(filepath.Join(t.TempDir(), "config.json"))
+		require.NoError(t, m.EnsureConfig(ctx))
+
+		cfg, err := m.GetConfig(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, 7, config.ExportDefaultStateMaxAgeDays())
+		assert.Equal(t, config.ExportDefaultStateMaxAgeDays(), cfg.State.MaxAgeDays)
+		assert.Equal(t, "7", config.ExportGetDefaultValue(config.ExportGetDefaultConfig(), key))
+
+		got, found, err := m.GetInt(ctx, key)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, 7, got)
+	})
+
+	t.Run("set and get", func(t *testing.T) {
+		configPath := filepath.Join(t.TempDir(), "config.json")
+		m := config.NewManagerWithPath(configPath)
+		require.NoError(t, m.EnsureConfig(ctx))
+		require.NoError(t, m.Set(ctx, key, "14"))
+
+		value, found, err := m.GetValue(ctx, key)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, "14", value)
+
+		m2 := config.NewManagerWithPath(configPath)
+		require.NoError(t, m2.EnsureConfig(ctx))
+		got, found, err := m2.GetInt(ctx, key)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, 14, got)
+	})
+
+	t.Run("set rejects non-integer", func(t *testing.T) {
+		m := config.NewManagerWithPath(filepath.Join(t.TempDir(), "config.json"))
+		require.NoError(t, m.EnsureConfig(ctx))
+		require.Error(t, m.Set(ctx, key, "soon"))
+	})
+
+	t.Run("reset", func(t *testing.T) {
+		m := config.NewManagerWithPath(filepath.Join(t.TempDir(), "config.json"))
+		require.NoError(t, m.EnsureConfig(ctx))
+		require.NoError(t, m.Set(ctx, key, "30"))
+		require.NoError(t, m.Reset(ctx, key))
+
+		value, found, err := m.GetValue(ctx, key)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, "7", value)
+	})
+
+	t.Run("listed in all keys", func(t *testing.T) {
+		assert.Contains(t, config.ExportAllKeys(), key)
+	})
+
+	t.Run("converted from map", func(t *testing.T) {
+		m := config.NewManager()
+		config.ManagerConvertFromMap(m, map[string]any{
+			"state": map[string]any{"max_age_days": float64(3)},
+		})
+		got, found, err := m.GetInt(ctx, key)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, 3, got)
+	})
 }

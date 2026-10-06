@@ -185,6 +185,12 @@ func ExportDefaultInstinctMaxInstincts() int { return defaultInstinctMaxInstinct
 // ExportDefaultInstinctClusterThreshold returns the unexported default constant.
 func ExportDefaultInstinctClusterThreshold() int { return defaultInstinctClusterThreshold }
 
+// ExportKeyStateMaxAgeDays returns the unexported key constant.
+func ExportKeyStateMaxAgeDays() string { return keyStateMaxAgeDays }
+
+// ExportDefaultStateMaxAgeDays returns the unexported default constant.
+func ExportDefaultStateMaxAgeDays() int { return defaultStateMaxAgeDays }
+
 // ExportGetDefaultConfig exposes GetDefaultConfig for testing.
 func ExportGetDefaultConfig() *Values { return GetDefaultConfig() }
 

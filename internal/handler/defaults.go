@@ -13,6 +13,7 @@ func NewDefaultRegistry(cfg *config.Values) *Registry {
 	r.Register(hookcmd.EventSessionStart,
 		NewPkgManagerHandler(cfg),
 		NewSessionContextHandler(),
+		NewStatePruneHandler(cfg),
 	)
 
 	r.Register(hookcmd.EventSessionEnd,

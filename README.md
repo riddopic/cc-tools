@@ -147,7 +147,7 @@ cc-tools config set validate.timeout 120      # Change a value
 cc-tools config reset validate.timeout        # Reset to default
 ```
 
-Configuration covers 11 groups with 31 keys total:
+Configuration covers 12 groups with 33 keys total:
 
 | Group | Keys | Controls |
 |-------|------|----------|
@@ -161,6 +161,7 @@ Configuration covers 11 groups with 31 keys total:
 | `package_manager.*` | 1 | Preferred package manager override |
 | `drift.*` | 4 | Session topic drift detection |
 | `stop_reminder.*` | 3 | Periodic session length reminders |
+| `state.*` | 1 | Retention of per-session state files |
 | `instinct.*` | 7 | Instinct storage, confidence, and evolution |
 
 See [Configuration Reference](docs/configuration.md) for all keys, types, defaults, and examples.
@@ -171,7 +172,7 @@ See [Configuration Reference](docs/configuration.md) for all keys, types, defaul
 |----------|------|-------------|
 | [Getting Started](docs/getting-started.md) | Tutorial | Install, configure, and verify cc-tools from scratch |
 | [CLI Reference](docs/cli-reference.md) | Reference | Every command, flag, and environment variable |
-| [Configuration](docs/configuration.md) | Reference | All 31 configuration keys with types and defaults |
+| [Configuration](docs/configuration.md) | Reference | All 33 configuration keys with types and defaults |
 | [Hooks and Handlers](docs/hooks-and-handlers.md) | Explanation | How the hook system dispatches events to handlers |
 | [Instincts](docs/instincts.md) | Explanation | The learning system lifecycle — observation to evolution |
 | [Skills and Commands](docs/skills-and-commands.md) | Reference | All skills and slash commands with trigger contexts |

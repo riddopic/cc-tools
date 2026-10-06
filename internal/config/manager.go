@@ -89,6 +89,8 @@ func (m *Manager) GetInt(_ context.Context, key string) (int, bool, error) {
 		return m.config.StopReminder.Interval, true, nil
 	case keyStopReminderWarnAt:
 		return m.config.StopReminder.WarnAt, true, nil
+	case keyStateMaxAgeDays:
+		return m.config.State.MaxAgeDays, true, nil
 	case keyInstinctMaxInstincts:
 		return m.config.Instinct.MaxInstincts, true, nil
 	case keyInstinctClusterThreshold:
@@ -517,6 +519,9 @@ func (m *Manager) ensureDefaults() {
 	if m.config.StopReminder.WarnAt == 0 {
 		m.config.StopReminder.WarnAt = defaults.StopReminder.WarnAt
 	}
+	if m.config.State.MaxAgeDays == 0 {
+		m.config.State.MaxAgeDays = defaults.State.MaxAgeDays
+	}
 	ensureInstinctDefaults(&m.config.Instinct, &defaults.Instinct)
 }
 
@@ -559,6 +564,7 @@ func (m *Manager) convertFromMap(mapConfig map[string]any) {
 	convertPackageManagerFromMap(&m.config.PackageManager, mapConfig)
 	convertDriftFromMap(&m.config.Drift, mapConfig)
 	convertStopReminderFromMap(&m.config.StopReminder, mapConfig)
+	convertStateFromMap(&m.config.State, mapConfig)
 	convertInstinctFromMap(&m.config.Instinct, mapConfig)
 
 	if notifyMap, notifyOk := mapConfig["notify"].(map[string]any); notifyOk {

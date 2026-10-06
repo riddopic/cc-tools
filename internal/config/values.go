@@ -14,6 +14,7 @@ type Values struct {
 	PackageManager PackageManagerValues `json:"package_manager"`
 	Drift          DriftValues          `json:"drift"`
 	StopReminder   StopReminderValues   `json:"stop_reminder"`
+	State          StateValues          `json:"state"`
 	Instinct       InstinctValues       `json:"instinct"`
 }
 
@@ -97,6 +98,13 @@ type StopReminderValues struct {
 	Enabled  bool `json:"enabled"`
 	Interval int  `json:"interval"`
 	WarnAt   int  `json:"warn_at"`
+}
+
+// StateValues represents per-session state file retention settings.
+type StateValues struct {
+	// MaxAgeDays is how long per-session state files under ~/.cache/cc-tools
+	// are kept before the SessionStart prune removes them.
+	MaxAgeDays int `json:"max_age_days"`
 }
 
 // InstinctValues represents instinct management settings.
@@ -247,6 +255,8 @@ func (v *Values) getExtendedValue(key string) (string, bool, error) {
 		return strconv.Itoa(v.StopReminder.Interval), true, nil
 	case keyStopReminderWarnAt:
 		return strconv.Itoa(v.StopReminder.WarnAt), true, nil
+	case keyStateMaxAgeDays:
+		return strconv.Itoa(v.State.MaxAgeDays), true, nil
 	case keyInstinctPersonalPath:
 		return v.Instinct.PersonalPath, true, nil
 	case keyInstinctInheritedPath:
@@ -283,6 +293,8 @@ func (v *Values) setExtendedField(key, value string) (bool, error) {
 		return true, setIntField(&v.StopReminder.Interval, value)
 	case keyStopReminderWarnAt:
 		return true, setIntField(&v.StopReminder.WarnAt, value)
+	case keyStateMaxAgeDays:
+		return true, setIntField(&v.State.MaxAgeDays, value)
 	case keyInstinctPersonalPath:
 		v.Instinct.PersonalPath = value
 		return true, nil
@@ -321,6 +333,8 @@ func (v *Values) resetExtended(key string, defaults *Values) bool {
 		v.StopReminder.Interval = defaults.StopReminder.Interval
 	case keyStopReminderWarnAt:
 		v.StopReminder.WarnAt = defaults.StopReminder.WarnAt
+	case keyStateMaxAgeDays:
+		v.State.MaxAgeDays = defaults.State.MaxAgeDays
 	case keyInstinctPersonalPath:
 		v.Instinct.PersonalPath = defaults.Instinct.PersonalPath
 	case keyInstinctInheritedPath:
@@ -375,6 +389,17 @@ func convertStopReminderFromMap(sr *StopReminderValues, mapConfig map[string]any
 	}
 	if warnAt, warnAtOk := section["warn_at"].(float64); warnAtOk {
 		sr.WarnAt = int(warnAt)
+	}
+}
+
+// convertStateFromMap extracts state retention settings from a map config.
+func convertStateFromMap(st *StateValues, mapConfig map[string]any) {
+	section, sectionOk := mapConfig["state"].(map[string]any)
+	if !sectionOk {
+		return
+	}
+	if maxAge, maxAgeOk := section["max_age_days"].(float64); maxAgeOk {
+		st.MaxAgeDays = int(maxAge)
 	}
 }
 

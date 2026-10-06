@@ -72,6 +72,9 @@ func newTestConfig() *config.Values {
 			Interval: 0,
 			WarnAt:   0,
 		},
+		State: config.StateValues{
+			MaxAgeDays: 0,
+		},
 	}
 }
 

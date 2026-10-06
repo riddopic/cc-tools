@@ -82,6 +82,7 @@ These run once at the beginning of every Claude Code session.
 |---------|--------------|
 | **PkgManagerHandler** | Detects the project's package manager and appends `export PREFERRED_PACKAGE_MANAGER=<name>` to `$CLAUDE_ENV_FILE`, which Claude Code sources before each Bash command. Does nothing when `CLAUDE_ENV_FILE` is unset. |
 | **SessionContextHandler** | On a fresh start or `/clear`, adds a short summary of the most recent session in the same project to Claude's context. Skipped on resume, fork, and compaction, where Claude already has that history. |
+| **StatePruneHandler** | At most once every 24 hours, removes per-session state files (`drift/drift-*`, `stop/stop-*`, `compact/cc-tools-compact-*` under `~/.cache/cc-tools`) older than `state.max_age_days` (default 7). Keeps the current session's files, skips symlinks, ignores errors, and produces no output. |
 
 ### SessionEnd Handlers
 
@@ -248,7 +249,7 @@ The following diagram shows how events flow through the two execution paths duri
 ```
 Claude Code Session
     |
-    +-- SessionStart ----------> cc-tools hook --> PkgManager, SessionContext
+    +-- SessionStart ----------> cc-tools hook --> PkgManager, SessionContext, StatePrune
     +-- PreToolUse ------------> cc-tools hook --> CompactSuggest, Observe, PreCommitReminder
     +-- PostToolUse (edit) ----> cc-tools validate --> Lint + Test (parallel)
     +-- PostToolUse (*) -------> cc-tools hook --> Observe
