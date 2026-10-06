@@ -14,10 +14,12 @@ type Decision struct {
 	Source DirectoryPath
 }
 
-// EffectiveSkips holds the effective lint and test decisions for a directory.
+// EffectiveSkips holds the effective skip decisions for a directory.
 type EffectiveSkips struct {
 	Lint Decision
 	Test Decision
+	// Nudges reports whether advisory hook nudges are silenced.
+	Nudges Decision
 }
 
 // Effective resolves which validations are skipped for files in dir. An entry
@@ -58,6 +60,8 @@ func (s *EffectiveSkips) decide(skipType SkipType, source DirectoryPath) {
 		target = &s.Lint
 	case SkipTypeTest:
 		target = &s.Test
+	case SkipTypeNudges:
+		target = &s.Nudges
 	case SkipTypeAll:
 		return
 	}

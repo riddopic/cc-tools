@@ -290,7 +290,7 @@ cc-tools config reset
 
 ## skip
 
-Configure per-directory skip rules for linting and testing. Skips apply to the current working directory and are respected by `cc-tools validate`.
+Configure per-directory skip rules for linting, testing and advisory nudges. Skips apply to the current working directory and everything beneath it, up to the repository root. `cc-tools validate` respects the lint and test skips; `cc-tools hook` respects the nudges skip.
 
 ### Synopsis
 
@@ -318,10 +318,18 @@ cc-tools skip test
 
 #### skip all
 
-Skip both linting and testing in the current directory.
+Skip both linting and testing in the current directory. It does not silence nudges.
 
 ```
 cc-tools skip all
+```
+
+#### skip nudges
+
+Silence the advisory nudges (drift warning, stop reminder and `/compact` suggestion) for sessions in the current directory. Use it for directories where `/loop` coordinators or fleet runners work unattended. Blocking and validating hooks still run. See [Unattended Mode](hooks-and-handlers.md#unattended-mode).
+
+```
+cc-tools skip nudges
 ```
 
 #### skip list
@@ -334,7 +342,7 @@ cc-tools skip list
 
 #### skip status
 
-Show the skip status (active or skipped) for linting and testing in the current directory.
+Show the skip status (active or skipped) for linting, testing and nudges in the current directory, including skips inherited from a parent directory.
 
 ```
 cc-tools skip status
@@ -345,6 +353,9 @@ cc-tools skip status
 ```bash
 # Skip linting in a generated code directory
 cd ~/projects/generated-api && cc-tools skip lint
+
+# Silence nudges where a fleet runner works unattended
+cd ~/projects/fleet-worktree && cc-tools skip nudges
 
 # Check what is skipped in the current directory
 cc-tools skip status
@@ -383,9 +394,17 @@ Remove the test skip for the current directory.
 cc-tools unskip test
 ```
 
+#### unskip nudges
+
+Restore the advisory nudges for the current directory.
+
+```
+cc-tools unskip nudges
+```
+
 #### unskip all
 
-Remove all skips for the current directory. This is the same behavior as running `unskip` with no subcommand.
+Remove all skips for the current directory, including nudges. This is the same behavior as running `unskip` with no subcommand.
 
 ```
 cc-tools unskip all

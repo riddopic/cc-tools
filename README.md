@@ -15,6 +15,7 @@ Beyond validation, cc-tools provides:
 - **Instinct learning** — observes tool usage, builds instincts with confidence scoring, evolves them into skills
 - **MCP management** — enable/disable MCP server integrations
 - **Skip registry** — skip rules for lint, test, or both that cover a directory and everything beneath it, up to the repository root
+- **Unattended mode** — silences the drift, stop-reminder and compact nudges in loops, fleet runners and subagents (`CC_TOOLS_UNATTENDED=1`, a subagent payload, or `cc-tools skip nudges`)
 
 ## Install
 
@@ -37,7 +38,7 @@ cc-tools <command> [arguments]
 | `validate` | Run lint and test in parallel (reads JSON from stdin) |
 | `session` | List, search, and manage session metadata and aliases |
 | `config` | Get, set, list, and reset application settings |
-| `skip` | Configure directories to skip validation (lint, test, or all) |
+| `skip` | Configure directories to skip validation (lint, test, or all) or silence nudges (nudges) |
 | `unskip` | Remove skip settings from directories |
 | `mcp` | Manage Claude MCP servers (list, enable, disable) |
 | `debug` | Configure debug logging (enable, disable, status, list, filename) |
@@ -125,6 +126,7 @@ cc-tools config list
 cc-tools skip lint
 cc-tools skip list
 cc-tools skip status   # Effective skips here, including ones inherited from a parent directory
+cc-tools skip nudges   # Silence advisory nudges for unattended sessions here
 
 # Manage MCP servers
 cc-tools mcp list

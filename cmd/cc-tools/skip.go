@@ -23,6 +23,7 @@ func newSkipCmd() *cobra.Command {
 		newSkipLintCmd(),
 		newSkipTestCmd(),
 		newSkipAllCmd(),
+		newSkipNudgesCmd(),
 		newSkipListCmd(),
 		newSkipStatusCmd(),
 	)
@@ -38,6 +39,7 @@ func newUnskipCmd() *cobra.Command {
 		newUnskipLintCmd(),
 		newUnskipTestCmd(),
 		newUnskipAllCmd(),
+		newUnskipNudgesCmd(),
 	)
 	// Default behavior when called without subcommand: clear all skips.
 	cmd.RunE = func(_ *cobra.Command, _ []string) error {
@@ -75,6 +77,18 @@ func newSkipAllCmd() *cobra.Command {
 		Example: "  cc-tools skip all",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return addSkip(context.Background(), newTerminal(), newSkipRegistry(), skipregistry.SkipTypeAll)
+		},
+	}
+}
+
+func newSkipNudgesCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "nudges",
+		Short:   "Silence advisory hook nudges in the current directory",
+		Long:    "Silence the drift, stop-reminder and compact nudges for sessions in this directory and below.",
+		Example: "  cc-tools skip nudges",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return addSkip(context.Background(), newTerminal(), newSkipRegistry(), skipregistry.SkipTypeNudges)
 		},
 	}
 }
@@ -133,6 +147,17 @@ func newUnskipAllCmd() *cobra.Command {
 	}
 }
 
+func newUnskipNudgesCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "nudges",
+		Short:   "Restore advisory hook nudges in the current directory",
+		Example: "  cc-tools unskip nudges",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return removeSkip(context.Background(), newTerminal(), newSkipRegistry(), skipregistry.SkipTypeNudges)
+		},
+	}
+}
+
 func addSkip(
 	ctx context.Context,
 	out *output.Terminal,
@@ -155,6 +180,8 @@ func addSkip(
 		_ = out.Success("✓ Testing will be skipped in %s", dir)
 	case skipregistry.SkipTypeAll:
 		_ = out.Success("✓ Linting and testing will be skipped in %s", dir)
+	case skipregistry.SkipTypeNudges:
+		_ = out.Success("✓ Advisory nudges will be silenced in %s", dir)
 	}
 
 	return nil
@@ -180,6 +207,8 @@ func removeSkip(
 		_ = out.Success("✓ Linting will no longer be skipped in %s", dir)
 	case skipregistry.SkipTypeTest:
 		_ = out.Success("✓ Testing will no longer be skipped in %s", dir)
+	case skipregistry.SkipTypeNudges:
+		_ = out.Success("✓ Advisory nudges will no longer be silenced in %s", dir)
 	case skipregistry.SkipTypeAll:
 		// This case won't occur as we expand SkipTypeAll earlier
 	}
@@ -267,7 +296,7 @@ func showStatus(
 	skips := skipregistry.Effective(
 		ctx, registry, skipregistry.DirectoryPath(dir), skipregistry.DirectoryPath(root),
 	)
-	if !skips.Lint.Skipped && !skips.Test.Skipped {
+	if !skips.Lint.Skipped && !skips.Test.Skipped && !skips.Nudges.Skipped {
 		_ = out.Info("No skips configured for %s", dir)
 		return nil
 	}
@@ -278,11 +307,13 @@ func showStatus(
 	)
 	table.AddRow([]string{"Linting", decisionStatus(skips.Lint)})
 	table.AddRow([]string{"Testing", decisionStatus(skips.Test)})
+	table.AddRow([]string{"Nudges", decisionStatus(skips.Nudges)})
 
 	_ = out.Info("Skip status for %s:", dir)
 	_ = out.Write(table.Render())
 	writeDecisionSource(out, "Linting", skips.Lint, dir)
 	writeDecisionSource(out, "Testing", skips.Test, dir)
+	writeDecisionSource(out, "Nudges", skips.Nudges, dir)
 
 	return nil
 }

@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 ### Added
 
 - Stale per-session state files are now pruned. The drift, stop-reminder and compact handlers write one file per session under `~/.cache/cc-tools` and never removed them. At most once a day, session start now deletes those files when they are older than `state.max_age_days` (new key, default 7). The current session's files, symlinks and any other files are left alone
+- Unattended mode. The drift warning, stop reminder and `/compact` suggestion are silenced when `CC_TOOLS_UNATTENDED` or `AMS_UNATTENDED` is `1` or `true`, when the hook payload carries `agent_id` or `agent_type` (a subagent), or when `cc-tools skip nudges` covers the session's directory. The handlers still run, so counters and the drift eval log keep working. Blocking and validating hooks are unaffected
+- `cc-tools skip nudges` and `cc-tools unskip nudges`, with nudges shown in `skip list` and `skip status`. `skip all` still covers lint and test only
+- `agent_id` and `agent_type` fields on the parsed hook input
 
 ### Fixed
 

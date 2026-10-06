@@ -155,6 +155,10 @@ The prune touches only these files, and only regular files (never symlinks or di
 
 The time of the last prune is recorded in the mtime of `~/.cache/cc-tools/.last-prune`. Delete that file to force a prune on the next session start.
 
+## Unattended Mode
+
+Set `CC_TOOLS_UNATTENDED=1` (or `AMS_UNATTENDED=1`) in the environment of an unattended session to silence the drift, stop-reminder and compact nudges. Subagent events and directories marked with `cc-tools skip nudges` are silenced too. Blocking and validating hooks are unaffected. See [Unattended Mode](hooks-and-handlers.md#unattended-mode).
+
 ## Instinct Management
 
 Controls the instinct learning system that captures, evolves, and applies behavioral patterns from your sessions.

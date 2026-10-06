@@ -3,6 +3,7 @@ package skipregistry_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/riddopic/cc-tools/internal/skipregistry"
@@ -513,6 +514,12 @@ func TestParseSkipType(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name:    "parse nudges",
+			input:   "nudges",
+			want:    skipregistry.SkipTypeNudges,
+			wantErr: false,
+		},
+		{
 			name:    "invalid type",
 			input:   "invalid",
 			want:    "",
@@ -529,6 +536,34 @@ func TestParseSkipType(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("ParseSkipType() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExpandSkipType(t *testing.T) {
+	tests := []struct {
+		name  string
+		input skipregistry.SkipType
+		want  []skipregistry.SkipType
+	}{
+		{
+			name:  "all expands to lint and test only",
+			input: skipregistry.SkipTypeAll,
+			want:  []skipregistry.SkipType{skipregistry.SkipTypeLint, skipregistry.SkipTypeTest},
+		},
+		{
+			name:  "nudges stays as is",
+			input: skipregistry.SkipTypeNudges,
+			want:  []skipregistry.SkipType{skipregistry.SkipTypeNudges},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := skipregistry.ExpandSkipType(tt.input)
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("ExpandSkipType(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
 	}

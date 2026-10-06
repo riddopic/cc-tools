@@ -18,6 +18,9 @@ const (
 	SkipTypeTest SkipType = "test"
 	// SkipTypeAll indicates that both linting and testing should be skipped.
 	SkipTypeAll SkipType = "all"
+	// SkipTypeNudges indicates that advisory hook nudges should be silenced.
+	// It is not part of SkipTypeAll, which covers validations only.
+	SkipTypeNudges SkipType = "nudges"
 )
 
 // DirectoryPath represents an absolute directory path.
@@ -68,6 +71,8 @@ func ParseSkipType(s string) (SkipType, error) {
 		return SkipTypeTest, nil
 	case string(SkipTypeAll):
 		return SkipTypeAll, nil
+	case string(SkipTypeNudges):
+		return SkipTypeNudges, nil
 	default:
 		return "", fmt.Errorf("%w: %s", ErrInvalidSkipType, s)
 	}

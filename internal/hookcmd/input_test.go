@@ -155,6 +155,15 @@ func TestParseInput(t *testing.T) {
 	}
 }
 
+func TestParseInput_SubagentFields(t *testing.T) {
+	got, err := hookcmd.ParseInput(strings.NewReader(
+		`{"hook_event_name":"Stop","agent_id":"a-123","agent_type":"Explore"}`,
+	))
+	require.NoError(t, err)
+	assert.Equal(t, "a-123", got.AgentID)
+	assert.Equal(t, "Explore", got.AgentType)
+}
+
 func TestGetToolInputString(t *testing.T) {
 	tests := []struct {
 		name      string
