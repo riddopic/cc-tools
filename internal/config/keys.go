@@ -8,8 +8,7 @@ const (
 	keyValidateCooldown       = "validate.cooldown"
 	keyNotificationsNtfyTopic = "notifications.ntfy_topic"
 
-	keyCompactThreshold        = "compact.threshold"
-	keyCompactReminderInterval = "compact.reminder_interval"
+	keyCompactContextTokens = "compact.context_tokens"
 
 	keyNotifyQuietHoursEnabled = "notify.quiet_hours.enabled"
 	keyNotifyQuietHoursStart   = "notify.quiet_hours.start"
@@ -53,8 +52,7 @@ const (
 	defaultValidateTimeout  = 60
 	defaultValidateCooldown = 5
 
-	defaultCompactThreshold        = 50
-	defaultCompactReminderInterval = 25
+	defaultCompactContextTokens = 150000
 
 	defaultNotifyQuietHoursEnabled = true
 	defaultNotifyQuietHoursStart   = "21:00"
@@ -107,8 +105,7 @@ func GetDefaultConfig() *Values {
 			NtfyTopic: "",
 		},
 		Compact: CompactValues{
-			Threshold:        defaultCompactThreshold,
-			ReminderInterval: defaultCompactReminderInterval,
+			ContextTokens: defaultCompactContextTokens,
 		},
 		Notify: NotifyValues{
 			QuietHours: QuietHoursValues{
@@ -174,10 +171,8 @@ func getDefaultValue(defaults *Values, key string) string {
 		return strconv.Itoa(defaults.Validate.Cooldown)
 	case keyNotificationsNtfyTopic:
 		return defaults.Notifications.NtfyTopic
-	case keyCompactThreshold:
-		return strconv.Itoa(defaults.Compact.Threshold)
-	case keyCompactReminderInterval:
-		return strconv.Itoa(defaults.Compact.ReminderInterval)
+	case keyCompactContextTokens:
+		return strconv.Itoa(defaults.Compact.ContextTokens)
 	case keyNotifyQuietHoursEnabled:
 		return strconv.FormatBool(defaults.Notify.QuietHours.Enabled)
 	case keyNotifyQuietHoursStart:
@@ -219,8 +214,7 @@ func allKeys() []string {
 		keyValidateTimeout,
 		keyValidateCooldown,
 		keyNotificationsNtfyTopic,
-		keyCompactThreshold,
-		keyCompactReminderInterval,
+		keyCompactContextTokens,
 		keyNotifyQuietHoursEnabled,
 		keyNotifyQuietHoursStart,
 		keyNotifyQuietHoursEnd,

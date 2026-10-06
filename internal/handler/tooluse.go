@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -39,8 +38,8 @@ func WithCompactStateDir(dir string) SuggestCompactOption {
 	}
 }
 
-// SuggestCompactHandler records tool calls and suggests compaction when a
-// threshold is exceeded.
+// SuggestCompactHandler reads the session's context size from its transcript
+// and suggests compaction once the size reaches a token threshold.
 type SuggestCompactHandler struct {
 	cfg      *config.Values
 	stateDir string
@@ -62,30 +61,36 @@ func NewSuggestCompactHandler(cfg *config.Values, opts ...SuggestCompactOption) 
 // Name returns the handler identifier.
 func (h *SuggestCompactHandler) Name() string { return "suggest-compact" }
 
-// Handle records a tool call and shows the user a /compact suggestion when the
-// session threshold is reached. Only the user can run /compact, so the
-// suggestion is a system message rather than context for Claude.
+// Handle reads the session's context size and shows the user a /compact
+// suggestion once it reaches the configured token threshold. Only the user can
+// run /compact, so the suggestion is a system message rather than context for
+// Claude. Subagent tool calls are skipped so they never count against the
+// parent session.
 func (h *SuggestCompactHandler) Handle(_ context.Context, input *hookcmd.HookInput) (*Response, error) {
-	if h.cfg == nil {
+	if h.cfg == nil || h.cfg.Compact.ContextTokens <= 0 {
 		return &Response{ExitCode: 0}, nil
+	}
+
+	if input.AgentID != "" || input.AgentType != "" || input.TranscriptPath == "" {
+		return &Response{ExitCode: 0}, nil
+	}
+
+	tokens, err := compact.ContextTokens(input.TranscriptPath)
+	if err != nil {
+		return &Response{ExitCode: 0}, nil //nolint:nilerr // an unreadable transcript means no nudge
 	}
 
 	stateDir := h.stateDir
 	if stateDir == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return nil, fmt.Errorf("get home directory: %w", err)
+		homeDir, homeErr := os.UserHomeDir()
+		if homeErr != nil {
+			return nil, fmt.Errorf("get home directory: %w", homeErr)
 		}
 
 		stateDir = filepath.Join(homeDir, ".cache", "cc-tools", "compact")
 	}
 
-	s := compact.NewSuggestor(stateDir, h.cfg.Compact.Threshold, h.cfg.Compact.ReminderInterval)
-
-	var buf bytes.Buffer
-	s.RecordCall(input.SessionID, &buf)
-
-	msg := strings.TrimSpace(buf.String())
+	msg := compact.NewSuggestor(stateDir, h.cfg.Compact.ContextTokens).Check(input.SessionID, tokens)
 	if msg == "" {
 		return &Response{ExitCode: 0}, nil
 	}

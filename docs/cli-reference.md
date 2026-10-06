@@ -257,8 +257,7 @@ cc-tools config reset
 | --- | --- | --- |
 | `validate.timeout` | `60` | Validation timeout in seconds |
 | `validate.cooldown` | `5` | Cooldown between validation runs in seconds |
-| `compact.threshold` | `50` | Context compaction threshold |
-| `compact.reminder_interval` | `25` | Compaction reminder interval |
+| `compact.context_tokens` | `150000` | Context size in tokens that triggers a `/compact` suggestion |
 | `notify.quiet_hours.enabled` | `true` | Enable quiet hours for notifications |
 | `notify.quiet_hours.start` | `21:00` | Quiet hours start time |
 | `notify.quiet_hours.end` | `07:30` | Quiet hours end time |

@@ -1,7 +1,6 @@
 package compact_test
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,150 +11,114 @@ import (
 	"github.com/riddopic/cc-tools/internal/compact"
 )
 
-func TestSuggestor_RecordCall(t *testing.T) {
+func TestSuggestor_Check(t *testing.T) {
+	const threshold = 100_000
+
 	tests := []struct {
-		name       string
-		threshold  int
-		interval   int
-		calls      int
-		wantOutput bool
-		wantSubstr string
+		name   string
+		tokens []int
+		want   []bool
 	}{
 		{
-			name:       "first threshold hit triggers suggestion",
-			threshold:  5,
-			interval:   3,
-			calls:      5,
-			wantOutput: true,
-			wantSubstr: "/compact",
+			name:   "below threshold never nudges",
+			tokens: []int{10_000, 50_000, 99_999},
+			want:   []bool{false, false, false},
 		},
 		{
-			name:       "calls before threshold produce no suggestion",
-			threshold:  50,
-			interval:   10,
-			calls:      49,
-			wantOutput: false,
-			wantSubstr: "",
+			name:   "above threshold nudges once",
+			tokens: []int{120_000, 130_000, 140_000},
+			want:   []bool{true, false, false},
 		},
 		{
-			name:       "first reminder interval after threshold triggers suggestion",
-			threshold:  5,
-			interval:   3,
-			calls:      8,
-			wantOutput: true,
-			wantSubstr: "/compact",
+			name:   "exactly at threshold nudges",
+			tokens: []int{threshold},
+			want:   []bool{true},
 		},
 		{
-			name:       "second reminder interval triggers suggestion",
-			threshold:  5,
-			interval:   3,
-			calls:      11,
-			wantOutput: true,
-			wantSubstr: "/compact",
-		},
-		{
-			name:       "call between reminder intervals produces no suggestion",
-			threshold:  5,
-			interval:   3,
-			calls:      7,
-			wantOutput: false,
-			wantSubstr: "",
+			name:   "dropping below re-arms the nudge",
+			tokens: []int{120_000, 125_000, 30_000, 40_000, 110_000, 115_000},
+			want:   []bool{true, false, false, false, true, false},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			stateDir := t.TempDir()
-			s := compact.NewSuggestor(stateDir, tt.threshold, tt.interval)
+			s := compact.NewSuggestor(t.TempDir(), threshold)
 
-			var buf bytes.Buffer
-
-			for range tt.calls {
-				buf.Reset()
-				s.RecordCall("test-session", &buf)
-			}
-
-			if tt.wantOutput {
-				assert.Contains(t, buf.String(), tt.wantSubstr)
-			} else {
-				assert.Empty(t, buf.String())
+			for i, tokens := range tt.tokens {
+				msg := s.Check("test-session", tokens)
+				if tt.want[i] {
+					assert.Contains(t, msg, "/compact", "call %d", i)
+				} else {
+					assert.Empty(t, msg, "call %d", i)
+				}
 			}
 		})
 	}
 }
 
-func TestSuggestor_IndependentSessions(t *testing.T) {
-	stateDir := t.TempDir()
+func TestSuggestor_MessageReportsTokens(t *testing.T) {
+	s := compact.NewSuggestor(t.TempDir(), 100_000)
 
-	const threshold = 3
-
-	s := compact.NewSuggestor(stateDir, threshold, 5)
-
-	var buf bytes.Buffer
-
-	// Advance session A to threshold - 1.
-	for range threshold - 1 {
-		buf.Reset()
-		s.RecordCall("session-a", &buf)
-	}
-
-	assert.Empty(t, buf.String(), "session A should not suggest before threshold")
-
-	// Advance session B to threshold.
-	for range threshold {
-		buf.Reset()
-		s.RecordCall("session-b", &buf)
-	}
-
-	assert.Contains(t, buf.String(), "/compact",
-		"session B should suggest at threshold")
-
-	// Session A's next call should still not trigger (it is at threshold - 1 + 1 = threshold).
-	buf.Reset()
-	s.RecordCall("session-a", &buf)
-
-	assert.Contains(t, buf.String(), "/compact",
-		"session A should suggest when it reaches threshold independently")
+	assert.Equal(t,
+		"[cc-tools] Context is ~152k tokens. Consider running /compact to reduce context usage.",
+		s.Check("session", 152_345))
 }
 
-func TestSuggestor_SafeSessionID(t *testing.T) {
+func TestSuggestor_IndependentSessions(t *testing.T) {
+	s := compact.NewSuggestor(t.TempDir(), 100)
+
+	assert.NotEmpty(t, s.Check("session-a", 200))
+	assert.NotEmpty(t, s.Check("session-b", 200), "session B has its own state")
+	assert.Empty(t, s.Check("session-a", 200))
+}
+
+func TestSuggestor_StateFileName(t *testing.T) {
 	stateDir := t.TempDir()
-	s := compact.NewSuggestor(stateDir, 1, 1)
+	s := compact.NewSuggestor(stateDir, 1)
 
-	var buf bytes.Buffer
-	s.RecordCall("../../../etc/passwd", &buf)
+	s.Check("../../../etc/passwd", 10)
 
-	// Verify the counter file was created with a safe name inside stateDir.
 	entries, err := os.ReadDir(stateDir)
 	require.NoError(t, err)
 	require.Len(t, entries, 1)
 
 	fileName := entries[0].Name()
-	assert.NotContains(t, fileName, "..",
-		"counter file name must not contain path traversal characters")
-	assert.NotContains(t, fileName, "/",
-		"counter file name must not contain path separators")
-	assert.True(t, filepath.IsAbs(filepath.Join(stateDir, fileName)),
-		"counter file must resolve to an absolute path within stateDir")
+	assert.NotContains(t, fileName, "..")
+	assert.NotContains(t, fileName, "/")
+	assert.Regexp(t, `^cc-tools-compact-[a-f0-9]{16}\.json$`, fileName)
+}
+
+func TestSuggestor_NoStateWrittenBelowThreshold(t *testing.T) {
+	stateDir := t.TempDir()
+	s := compact.NewSuggestor(stateDir, 100)
+
+	assert.Empty(t, s.Check("session", 10))
+
+	entries, err := os.ReadDir(stateDir)
+	require.NoError(t, err)
+	assert.Empty(t, entries, "no state file until a nudge is recorded")
 }
 
 func TestSuggestor_MissingStateDir(t *testing.T) {
 	stateDir := filepath.Join(t.TempDir(), "nonexistent", "subdir")
+	s := compact.NewSuggestor(stateDir, 1)
 
-	// Verify the directory does not exist yet.
-	_, err := os.Stat(stateDir)
-	require.True(t, os.IsNotExist(err))
+	assert.Contains(t, s.Check("session-create", 10), "/compact")
 
-	s := compact.NewSuggestor(stateDir, 1, 1)
-
-	var buf bytes.Buffer
-	s.RecordCall("session-create", &buf)
-
-	assert.Contains(t, buf.String(), "/compact",
-		"should suggest even when state dir did not exist")
-
-	// Verify the directory was created.
-	info, statErr := os.Stat(stateDir)
-	require.NoError(t, statErr)
+	info, err := os.Stat(stateDir)
+	require.NoError(t, err)
 	assert.True(t, info.IsDir())
+
+	assert.Empty(t, s.Check("session-create", 10), "state persists across calls")
+}
+
+func TestSuggestor_CorruptStateTreatedAsUnsuggested(t *testing.T) {
+	stateDir := t.TempDir()
+	s := compact.NewSuggestor(stateDir, 1)
+
+	path := filepath.Join(stateDir, "cc-tools-compact-session.json")
+	require.NoError(t, os.WriteFile(path, []byte("not json"), 0o600))
+
+	assert.Contains(t, s.Check("session", 10), "/compact")
 }

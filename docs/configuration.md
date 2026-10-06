@@ -49,12 +49,23 @@ Set this to your ntfy topic name to receive push notifications on your phone or 
 
 ## Compact Context
 
-Tracks tool-call volume and suggests running `/compact` when the context window grows large.
+Reads the session's context size from its transcript and suggests running `/compact` when it grows large.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `compact.threshold` | int | `50` | Tool-call count that triggers a compact suggestion |
-| `compact.reminder_interval` | int | `25` | Tool calls between subsequent compact reminders |
+| `compact.context_tokens` | int | `150000` | Context size, in tokens, that triggers a compact suggestion. A negative value turns the suggestion off |
+
+The context size is the input, cache-read and cache-creation token count of the latest main-session assistant turn. The suggestion appears once when the context reaches the threshold. It appears again only after the context drops below the threshold, for example after `/compact`, and then grows past it again. Subagent tool calls never trigger it.
+
+```json
+{
+  "compact": {
+    "context_tokens": 120000
+  }
+}
+```
+
+The `compact.threshold` and `compact.reminder_interval` keys counted tool calls and have been removed. A config file that still contains them loads without error and ignores them.
 
 ## Notification Dispatch
 

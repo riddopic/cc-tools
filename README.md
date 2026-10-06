@@ -149,13 +149,13 @@ cc-tools config set validate.timeout 120      # Change a value
 cc-tools config reset validate.timeout        # Reset to default
 ```
 
-Configuration covers 12 groups with 33 keys total:
+Configuration covers 12 groups with 32 keys total:
 
 | Group | Keys | Controls |
 |-------|------|----------|
 | `validate.*` | 2 | Timeout and cooldown for lint/test runs |
 | `notifications.*` | 1 | ntfy.sh push notification topic |
-| `compact.*` | 2 | Context compaction suggestion thresholds |
+| `compact.*` | 1 | Context size that triggers a `/compact` suggestion |
 | `notify.*` | 6 | Quiet hours, audio, and desktop notifications |
 | `observe.*` | 2 | Tool use observation logging |
 | `learning.*` | 2 | Skill extraction from sessions |
@@ -174,7 +174,7 @@ See [Configuration Reference](docs/configuration.md) for all keys, types, defaul
 |----------|------|-------------|
 | [Getting Started](docs/getting-started.md) | Tutorial | Install, configure, and verify cc-tools from scratch |
 | [CLI Reference](docs/cli-reference.md) | Reference | Every command, flag, and environment variable |
-| [Configuration](docs/configuration.md) | Reference | All 33 configuration keys with types and defaults |
+| [Configuration](docs/configuration.md) | Reference | All 32 configuration keys with types and defaults |
 | [Hooks and Handlers](docs/hooks-and-handlers.md) | Explanation | How the hook system dispatches events to handlers |
 | [Instincts](docs/instincts.md) | Explanation | The learning system lifecycle — observation to evolution |
 | [Skills and Commands](docs/skills-and-commands.md) | Reference | All skills and slash commands with trigger contexts |

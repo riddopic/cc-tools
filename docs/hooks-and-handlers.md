@@ -98,7 +98,7 @@ These run before every tool execution. They can inject context, log events, or b
 
 | Handler | What It Does |
 |---------|--------------|
-| **SuggestCompactHandler** | Monitors tool call count and shows you a `/compact` suggestion (`systemMessage`) when a threshold is reached. Configurable via `compact.threshold` and `compact.reminder_interval`. |
+| **SuggestCompactHandler** | Reads the context size of the latest assistant turn from the session transcript and shows you a `/compact` suggestion (`systemMessage`) once it reaches `compact.context_tokens`. The suggestion re-arms after the context drops below the threshold. Subagent tool calls (`agent_id` or `agent_type` set) are skipped. |
 | **ObserveHandler** (pre phase) | Logs tool usage events to `~/.cache/cc-tools/observations/observations.jsonl` for the instinct learning system |
 | **PreCommitReminderHandler** | Before a `git commit` Bash call, tells Claude (`additionalContext`) which pre-commit command the project runs. Configurable via `pre_commit_reminder.enabled` and `pre_commit_reminder.command`. |
 

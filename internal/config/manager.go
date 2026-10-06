@@ -75,10 +75,8 @@ func (m *Manager) GetInt(_ context.Context, key string) (int, bool, error) {
 		return m.config.Validate.Timeout, true, nil
 	case keyValidateCooldown:
 		return m.config.Validate.Cooldown, true, nil
-	case keyCompactThreshold:
-		return m.config.Compact.Threshold, true, nil
-	case keyCompactReminderInterval:
-		return m.config.Compact.ReminderInterval, true, nil
+	case keyCompactContextTokens:
+		return m.config.Compact.ContextTokens, true, nil
 	case keyObserveMaxFileSizeMB:
 		return m.config.Observe.MaxFileSizeMB, true, nil
 	case keyLearningMinSessionLength:
@@ -148,10 +146,8 @@ func (m *Manager) GetValue(_ context.Context, key string) (string, bool, error) 
 		return strconv.Itoa(m.config.Validate.Cooldown), true, nil
 	case keyNotificationsNtfyTopic:
 		return m.config.Notifications.NtfyTopic, true, nil
-	case keyCompactThreshold:
-		return strconv.Itoa(m.config.Compact.Threshold), true, nil
-	case keyCompactReminderInterval:
-		return strconv.Itoa(m.config.Compact.ReminderInterval), true, nil
+	case keyCompactContextTokens:
+		return strconv.Itoa(m.config.Compact.ContextTokens), true, nil
 	case keyNotifyQuietHoursEnabled:
 		return strconv.FormatBool(m.config.Notify.QuietHours.Enabled), true, nil
 	case keyNotifyQuietHoursStart:
@@ -212,10 +208,8 @@ func (m *Manager) setField(key string, value string) error {
 		return setIntField(&m.config.Validate.Cooldown, value)
 	case keyNotificationsNtfyTopic:
 		m.config.Notifications.NtfyTopic = value
-	case keyCompactThreshold:
-		return setIntField(&m.config.Compact.Threshold, value)
-	case keyCompactReminderInterval:
-		return setIntField(&m.config.Compact.ReminderInterval, value)
+	case keyCompactContextTokens:
+		return setIntField(&m.config.Compact.ContextTokens, value)
 	case keyNotifyQuietHoursEnabled:
 		return setBoolField(&m.config.Notify.QuietHours.Enabled, value)
 	case keyNotifyQuietHoursStart:
@@ -333,10 +327,8 @@ func (m *Manager) Reset(_ context.Context, key string) error {
 		m.config.Validate.Cooldown = defaults.Validate.Cooldown
 	case keyNotificationsNtfyTopic:
 		m.config.Notifications.NtfyTopic = defaults.Notifications.NtfyTopic
-	case keyCompactThreshold:
-		m.config.Compact.Threshold = defaults.Compact.Threshold
-	case keyCompactReminderInterval:
-		m.config.Compact.ReminderInterval = defaults.Compact.ReminderInterval
+	case keyCompactContextTokens:
+		m.config.Compact.ContextTokens = defaults.Compact.ContextTokens
 	case keyNotifyQuietHoursEnabled:
 		m.config.Notify.QuietHours.Enabled = defaults.Notify.QuietHours.Enabled
 	case keyNotifyQuietHoursStart:
@@ -480,11 +472,8 @@ func (m *Manager) ensureDefaults() {
 	if m.config.Validate.Cooldown == 0 {
 		m.config.Validate.Cooldown = defaults.Validate.Cooldown
 	}
-	if m.config.Compact.Threshold == 0 {
-		m.config.Compact.Threshold = defaults.Compact.Threshold
-	}
-	if m.config.Compact.ReminderInterval == 0 {
-		m.config.Compact.ReminderInterval = defaults.Compact.ReminderInterval
+	if m.config.Compact.ContextTokens == 0 {
+		m.config.Compact.ContextTokens = defaults.Compact.ContextTokens
 	}
 	if m.config.Notify.QuietHours.Start == "" {
 		m.config.Notify.QuietHours.Start = defaults.Notify.QuietHours.Start
