@@ -7,6 +7,10 @@ import (
 )
 
 // NewDefaultRegistry creates a registry with all default handlers wired.
+//
+// Handlers whose output is only advice for a person at the keyboard are
+// wrapped with [NewAdvisoryHandler] so they stay silent in unattended
+// sessions. Blocking and validating handlers are never wrapped.
 func NewDefaultRegistry(cfg *config.Values) *Registry {
 	r := NewRegistry()
 
@@ -21,7 +25,7 @@ func NewDefaultRegistry(cfg *config.Values) *Registry {
 	)
 
 	r.Register(hookcmd.EventPreToolUse,
-		NewSuggestCompactHandler(cfg),
+		NewAdvisoryHandler(NewSuggestCompactHandler(cfg)),
 		NewObserveHandler(cfg, "pre"),
 		NewPreCommitReminderHandler(cfg),
 	)
@@ -39,11 +43,11 @@ func NewDefaultRegistry(cfg *config.Values) *Registry {
 	)
 
 	r.Register(hookcmd.EventUserPromptSubmit,
-		NewDriftHandler(cfg),
+		NewAdvisoryHandler(NewDriftHandler(cfg)),
 	)
 
 	r.Register(hookcmd.EventStop,
-		NewStopReminderHandler(cfg),
+		NewAdvisoryHandler(NewStopReminderHandler(cfg)),
 	)
 
 	r.Register(hookcmd.EventNotification,

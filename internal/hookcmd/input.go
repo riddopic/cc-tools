@@ -45,6 +45,13 @@ type HookInput struct {
 	PermissionMode string    `json:"permission_mode"`
 	HookEventName  string    `json:"hook_event_name"`
 
+	// AgentID identifies the subagent that raised the event. It is set only
+	// for events from a subagent and is empty in the main session.
+	AgentID string `json:"agent_id,omitempty"`
+	// AgentType names the subagent type (for example "Explore"). It is set
+	// only for events from a subagent and is empty in the main session.
+	AgentType string `json:"agent_type,omitempty"`
+
 	// Tool events (PreToolUse, PostToolUse, PostToolUseFailure).
 	ToolName   string          `json:"tool_name,omitempty"`
 	ToolInput  json.RawMessage `json:"tool_input,omitempty"`

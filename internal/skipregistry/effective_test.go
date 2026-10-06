@@ -138,3 +138,55 @@ func TestEffective(t *testing.T) {
 		})
 	}
 }
+
+func TestEffective_Nudges(t *testing.T) {
+	const (
+		root = "/wt/ams-core"
+		pkg  = root + "/src/services/scraper"
+		dir  = pkg + "/tests"
+	)
+
+	notSkipped := skipregistry.Decision{Skipped: false, Source: ""}
+
+	tests := []struct {
+		name       string
+		data       skipregistry.RegistryData
+		wantNudges skipregistry.Decision
+		wantLint   skipregistry.Decision
+		wantTest   skipregistry.Decision
+	}{
+		{
+			name:       "nudges on an ancestor applies without touching lint or test",
+			data:       skipregistry.RegistryData{pkg: {"nudges"}},
+			wantNudges: skipregistry.Decision{Skipped: true, Source: pkg},
+			wantLint:   notSkipped,
+			wantTest:   notSkipped,
+		},
+		{
+			name:       "all does not silence nudges",
+			data:       skipregistry.RegistryData{root: {"all"}},
+			wantNudges: notSkipped,
+			wantLint:   skipregistry.Decision{Skipped: true, Source: root},
+			wantTest:   skipregistry.Decision{Skipped: true, Source: root},
+		},
+		{
+			name:       "nudges above the root does not apply",
+			data:       skipregistry.RegistryData{"/wt": {"nudges"}},
+			wantNudges: notSkipped,
+			wantLint:   notSkipped,
+			wantTest:   notSkipped,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			registry := skipregistry.NewRegistry(&staticStorage{data: tt.data, err: nil})
+
+			skips := skipregistry.Effective(context.Background(), registry, dir, root)
+
+			assert.Equal(t, tt.wantNudges, skips.Nudges, "nudges decision")
+			assert.Equal(t, tt.wantLint, skips.Lint, "lint decision")
+			assert.Equal(t, tt.wantTest, skips.Test, "test decision")
+		})
+	}
+}

@@ -142,6 +142,16 @@ These run when Claude Code stops generating.
 |---------|--------------|
 | **StopReminderHandler** | Tracks response count per session and shows you rotating reminders (`systemMessage`) at configurable intervals. A stronger wrap-up warning fires at `stop_reminder.warn_at` responses, then every `warn_at` responses after that, and takes the place of an interval reminder on the same count. Configurable via `stop_reminder.enabled`, `stop_reminder.interval`, `stop_reminder.warn_at`. |
 
+### Unattended Mode
+
+The drift warning, the stop reminder and the `/compact` suggestion are advice for a person at the keyboard. In `/loop` coordinators, fleet runners and subagents nobody reads them, so cc-tools drops their output when the session is unattended. A session is unattended when any of these holds:
+
+1. `CC_TOOLS_UNATTENDED` or `AMS_UNATTENDED` is set to `1` or `true` in the hook's environment.
+2. The hook payload carries `agent_id` or `agent_type`, which Claude Code sets for subagent events.
+3. `cc-tools skip nudges` was run in the session's working directory or a parent directory up to the repository root.
+
+The silenced handlers still run, so their counters advance and `drift.log_evals` keeps logging. Only their output is dropped. Blocking and validating hooks are unaffected: the pre-commit reminder, observation logging, notifications, session handlers and `cc-tools validate` behave the same in unattended sessions.
+
 ### Notification Handlers
 
 These run when Claude Code sends a notification.
@@ -274,6 +284,7 @@ Edit events (`Write`, `Edit`, `MultiEdit`, `NotebookEdit`) take the `cc-tools va
 | `internal/handler/handler.go` | `Handler` interface, `Response`, and `HookOutput` types |
 | `internal/handler/registry.go` | `Registry` type with `Register` and `Dispatch` methods |
 | `internal/handler/defaults.go` | `NewDefaultRegistry()` wiring all built-in handlers |
+| `internal/handler/advisory.go` | `AdvisoryHandler` decorator that silences nudges in unattended sessions |
 | `internal/hooks/validate.go` | Parallel validation executor and orchestration |
 | `internal/hooks/discovery.go` | Lint and test command discovery logic |
 | `internal/hooks/executor.go` | Command execution with timeout support |

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -82,6 +83,11 @@ func TestAddSkip(t *testing.T) {
 			skipType:   skipregistry.SkipTypeAll,
 			wantSubstr: "Linting and testing will be skipped",
 		},
+		{
+			name:       "add nudges skip",
+			skipType:   skipregistry.SkipTypeNudges,
+			wantSubstr: "Advisory nudges will be silenced",
+		},
 	}
 
 	for _, tt := range tests {
@@ -119,6 +125,12 @@ func TestRemoveSkip(t *testing.T) {
 			addType:    skipregistry.SkipTypeTest,
 			removeType: skipregistry.SkipTypeTest,
 			wantSubstr: "Testing will no longer be skipped",
+		},
+		{
+			name:       "remove nudges skip",
+			addType:    skipregistry.SkipTypeNudges,
+			removeType: skipregistry.SkipTypeNudges,
+			wantSubstr: "Advisory nudges will no longer be silenced",
 		},
 	}
 
@@ -202,6 +214,21 @@ func TestListSkips(t *testing.T) {
 		assert.Contains(t, outputStr, "Directory")
 		assert.Contains(t, outputStr, "lint")
 	})
+
+	t.Run("nudges entry is listed", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		t.Chdir(tmpDir)
+
+		registry := skipregistry.NewRegistry(newTestMockStorage())
+		ctx := context.Background()
+
+		addOut, _ := newSkipTestTerminal(t)
+		require.NoError(t, addSkip(ctx, addOut, registry, skipregistry.SkipTypeNudges))
+
+		out, stdout := newSkipTestTerminal(t)
+		require.NoError(t, listSkips(ctx, out, registry))
+		assert.Contains(t, stdout.String(), "nudges")
+	})
 }
 
 func TestShowStatus(t *testing.T) {
@@ -241,6 +268,25 @@ func TestShowStatus(t *testing.T) {
 		assert.Contains(t, outputStr, "Linting: set on this directory")
 	})
 
+	t.Run("nudges silenced", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		t.Chdir(tmpDir)
+
+		registry := skipregistry.NewRegistry(newTestMockStorage())
+		ctx := context.Background()
+
+		addOut, _ := newSkipTestTerminal(t)
+		require.NoError(t, addSkip(ctx, addOut, registry, skipregistry.SkipTypeNudges))
+
+		out, stdout := newSkipTestTerminal(t)
+		require.NoError(t, showStatus(ctx, out, registry))
+
+		outputStr := stdout.String()
+		assert.NotContains(t, outputStr, "No skips configured")
+		assert.Contains(t, outputStr, "Nudges")
+		assert.Contains(t, outputStr, "Nudges: set on this directory")
+	})
+
 	t.Run("skip at repo root is inherited by a nested directory", func(t *testing.T) {
 		root := t.TempDir()
 		// A worktree's .git is a file pointing at the main repository, not a directory.
@@ -263,7 +309,9 @@ func TestShowStatus(t *testing.T) {
 
 		outputStr := stdout.String()
 		assert.NotContains(t, outputStr, "No skips configured")
-		assert.NotContains(t, outputStr, "Active")
+		assert.Regexp(t, `Linting\s+│ SKIPPED`, outputStr)
+		assert.Regexp(t, `Testing\s+│ SKIPPED`, outputStr)
+		assert.Regexp(t, `Nudges\s+│ Active`, outputStr, "skip all leaves nudges on")
 		assert.Contains(t, outputStr, "Linting: inherited from "+rootDir)
 		assert.Contains(t, outputStr, "Testing: inherited from "+rootDir)
 	})
@@ -295,6 +343,29 @@ func TestSkipAllCmd(t *testing.T) {
 	setupSkipEnv(t)
 	cmd := newSkipAllCmd()
 	require.NoError(t, cmd.RunE(cmd, nil))
+}
+
+func TestSkipNudgesCmd(t *testing.T) {
+	setupSkipEnv(t)
+	cmd := newSkipNudgesCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}
+
+func TestUnskipNudgesCmd(t *testing.T) {
+	setupSkipEnv(t)
+	addCmd := newSkipNudgesCmd()
+	require.NoError(t, addCmd.RunE(addCmd, nil))
+
+	cmd := newUnskipNudgesCmd()
+	require.NoError(t, cmd.RunE(cmd, nil))
+}
+
+func TestSkipCmd_RegistersNudges(t *testing.T) {
+	for _, parent := range []*cobra.Command{newSkipCmd(), newUnskipCmd()} {
+		sub, _, err := parent.Find([]string{"nudges"})
+		require.NoError(t, err, parent.Use)
+		assert.Equal(t, "nudges", sub.Name(), parent.Use)
+	}
 }
 
 func TestSkipListCmd(t *testing.T) {
