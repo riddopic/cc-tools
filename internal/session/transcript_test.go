@@ -171,3 +171,29 @@ func TestParseTranscript_HandlesLongLines(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "After the big result", summary.FirstPrompt)
 }
+
+func TestStripSystemReminders(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "plain text unchanged", in: "rename the flag", want: "rename the flag"},
+		{name: "reminder only", in: " <system-reminder>ctx</system-reminder>\n", want: ""},
+		{
+			name: "leading multiline reminder",
+			in:   "<system-reminder>a\nb</system-reminder>\nrename the flag",
+			want: "rename the flag",
+		},
+		{name: "unterminated reminder kept", in: "<system-reminder>ctx", want: "<system-reminder>ctx"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, session.StripSystemReminders(tt.in))
+		})
+	}
+}

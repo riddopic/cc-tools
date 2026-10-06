@@ -383,3 +383,133 @@ func seedDriftState(t *testing.T, stateDir string, sessionID hookcmd.SessionID, 
 	)
 	require.NoError(t, err)
 }
+
+// injectedPromptShapes are prompts the Claude Code harness submits on the
+// user's behalf. None of them reflect what the user is working on.
+func injectedPromptShapes() map[string]string {
+	return map[string]string{
+		"task notification": "<task-notification>\n<task-id>b1</task-id>\n" +
+			"<status>completed</status>\n</task-notification>",
+		"indented task notification":   "  \n<task-notification>job finished</task-notification>",
+		"system reminder only":         "<system-reminder>skills are available</system-reminder>",
+		"unterminated system reminder": "<system-reminder>context follows",
+		"reminder then notification": "<system-reminder>ctx</system-reminder>\n" +
+			"<task-notification>done</task-notification>",
+		"system notification":   "[SYSTEM NOTIFICATION - background shell 42 exited] refactor database migrations",
+		"loop wake prompt":      "/loop 5m check the deploy pipeline status",
+		"bare loop wake prompt": "/loop",
+		"autonomous loop":       "<<autonomous-loop>> continue migrating postgres schema work",
+	}
+}
+
+func TestDriftHandler_IgnoresInjectedPrompts(t *testing.T) {
+	t.Parallel()
+
+	for name, prompt := range injectedPromptShapes() {
+		t.Run(name+"/no state", func(t *testing.T) {
+			t.Parallel()
+
+			stateDir := t.TempDir()
+			sessionID := hookcmd.SessionID("injected-fresh")
+			h := handler.NewDriftHandler(driftConfig(true, 2, 0.2), handler.WithDriftStateDir(stateDir))
+
+			resp, err := h.Handle(context.Background(), &hookcmd.HookInput{SessionID: sessionID, Prompt: prompt})
+			require.NoError(t, err)
+			require.NotNil(t, resp)
+			assert.Empty(t, resp.SystemMessage())
+			assert.NoFileExists(t, filepath.Join(stateDir, "drift-"+string(sessionID)+".json"),
+				"an injected prompt must not become the intent baseline")
+		})
+
+		t.Run(name+"/existing state", func(t *testing.T) {
+			t.Parallel()
+
+			stateDir := t.TempDir()
+			sessionID := hookcmd.SessionID("injected-seeded")
+			seedDriftState(t, stateDir, sessionID, &driftTestState{
+				Intent:   "refactor the authentication module",
+				Keywords: []string{"refactor", "authentication", "module"},
+				Edits:    5,
+			})
+			statePath := filepath.Join(stateDir, "drift-"+string(sessionID)+".json")
+			before, err := os.ReadFile(statePath)
+			require.NoError(t, err)
+
+			h := handler.NewDriftHandler(driftConfig(true, 2, 0.2), handler.WithDriftStateDir(stateDir))
+			resp, err := h.Handle(context.Background(), &hookcmd.HookInput{SessionID: sessionID, Prompt: prompt})
+			require.NoError(t, err)
+			require.NotNil(t, resp)
+			assert.Empty(t, resp.SystemMessage(), "an injected prompt must never warn")
+
+			after, err := os.ReadFile(statePath)
+			require.NoError(t, err)
+			assert.Equal(t, string(before), string(after), "an injected prompt must not count as an edit")
+		})
+	}
+}
+
+func TestDriftHandler_RealPromptAfterInjectedSetsBaseline(t *testing.T) {
+	t.Parallel()
+
+	stateDir := t.TempDir()
+	sessionID := hookcmd.SessionID("injected-then-real")
+	h := handler.NewDriftHandler(driftConfig(true, 2, 0.2), handler.WithDriftStateDir(stateDir))
+
+	for _, prompt := range []string{
+		"<task-notification>build finished</task-notification>",
+		"refactor the authentication module",
+	} {
+		resp, err := h.Handle(context.Background(), &hookcmd.HookInput{SessionID: sessionID, Prompt: prompt})
+		require.NoError(t, err)
+		assert.Empty(t, resp.SystemMessage())
+	}
+
+	state := loadDriftState(t, stateDir, sessionID)
+	assert.Equal(t, "refactor the authentication module", state.Intent)
+	assert.Equal(t, 0, state.Edits)
+}
+
+func TestDriftHandler_InjectedStoredIntentIsRebaselined(t *testing.T) {
+	t.Parallel()
+
+	stateDir := t.TempDir()
+	sessionID := hookcmd.SessionID("poisoned-intent")
+	seedDriftState(t, stateDir, sessionID, &driftTestState{
+		Intent:   "<task-notification>",
+		Keywords: []string{"task", "notification", "status"},
+		Edits:    10,
+	})
+
+	h := handler.NewDriftHandler(driftConfig(true, 2, 0.2), handler.WithDriftStateDir(stateDir))
+	resp, err := h.Handle(context.Background(), &hookcmd.HookInput{
+		SessionID: sessionID,
+		Prompt:    "refactor the authentication module",
+	})
+	require.NoError(t, err)
+	assert.Empty(t, resp.SystemMessage(), "a poisoned baseline must not produce a drift warning")
+
+	state := loadDriftState(t, stateDir, sessionID)
+	assert.Equal(t, "refactor the authentication module", state.Intent)
+	assert.Equal(t, 0, state.Edits)
+	assert.NotContains(t, state.Keywords, "notification")
+}
+
+func TestDriftHandler_LeadingReminderWithRealTextIsReal(t *testing.T) {
+	t.Parallel()
+
+	stateDir := t.TempDir()
+	sessionID := hookcmd.SessionID("reminder-plus-text")
+	h := handler.NewDriftHandler(driftConfig(true, 2, 0.2), handler.WithDriftStateDir(stateDir))
+
+	resp, err := h.Handle(context.Background(), &hookcmd.HookInput{
+		SessionID: sessionID,
+		Prompt:    "<system-reminder>skills listing</system-reminder>\nrefactor the authentication module",
+	})
+	require.NoError(t, err)
+	assert.Empty(t, resp.SystemMessage())
+
+	state := loadDriftState(t, stateDir, sessionID)
+	assert.Equal(t, "refactor the authentication module", state.Intent,
+		"the reminder block must not leak into the stored intent")
+	assert.NotContains(t, state.Keywords, "skills")
+}

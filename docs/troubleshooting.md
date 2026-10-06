@@ -107,7 +107,7 @@ This guide covers common issues you may encounter when using cc-tools, with symp
 
 **Problem:** Drift detection warns about topic divergence when you intentionally switched topics.
 
-**Cause:** The drift handler tracks keywords from your first prompt. Changing topics triggers warnings unless you use recognized pivot phrases.
+**Cause:** The drift handler tracks keywords from your first prompt. Changing topics triggers warnings unless you use recognized pivot phrases. System-injected prompts (task notifications, `/loop` wake-ups) are ignored, and a session whose stored intent came from one re-baselines on your next prompt.
 
 **Solution:**
 

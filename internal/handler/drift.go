@@ -13,6 +13,7 @@ import (
 	"github.com/riddopic/cc-tools/internal/config"
 	"github.com/riddopic/cc-tools/internal/hookcmd"
 	"github.com/riddopic/cc-tools/internal/observe"
+	"github.com/riddopic/cc-tools/internal/session"
 )
 
 // Compile-time interface check.
@@ -90,10 +91,13 @@ func (h *DriftHandler) Handle(_ context.Context, input *hookcmd.HookInput) (*Res
 		return &Response{ExitCode: 0}, nil
 	}
 
-	prompt := strings.TrimSpace(input.Prompt)
-	if prompt == "" {
+	// The harness also submits text on the user's behalf (task notifications,
+	// loop wake-ups). Such a prompt says nothing about the session's intent, so
+	// it must neither set the baseline nor count as an edit.
+	if isInjectedPrompt(input.Prompt) {
 		return &Response{ExitCode: 0}, nil
 	}
+	prompt := session.StripSystemReminders(input.Prompt)
 
 	stateDir := h.stateDir
 	if stateDir == "" {
@@ -105,6 +109,11 @@ func (h *DriftHandler) Handle(_ context.Context, input *hookcmd.HookInput) (*Res
 	}
 
 	state := h.loadState(stateDir, input.SessionID)
+	if isInjectedPrompt(state.Intent) {
+		// A baseline recorded from injected text flags every real prompt as
+		// drift; start over from this one instead.
+		state = &driftState{Intent: "", Keywords: nil, Edits: 0}
+	}
 
 	// Detect explicit intent changes.
 	if isPivotPhrase(prompt) {
@@ -129,6 +138,36 @@ func (h *DriftHandler) Handle(_ context.Context, input *hookcmd.HookInput) (*Res
 	}
 
 	return h.evaluate(input.SessionID, prompt, state), nil
+}
+
+// injectedPromptPrefixes mark prompt text the Claude Code harness submits
+// rather than the user.
+func injectedPromptPrefixes() []string {
+	return []string{
+		"<task-notification>", "<system-reminder>", "[SYSTEM NOTIFICATION", "<<autonomous-loop",
+	}
+}
+
+// isInjectedPrompt reports whether a prompt is wholly or mainly system-injected.
+// Complete <system-reminder> blocks are ignored, so a prompt whose remaining
+// text is the user's own still counts as real.
+func isInjectedPrompt(prompt string) bool {
+	text := session.StripSystemReminders(prompt)
+	if text == "" {
+		return true
+	}
+
+	if strings.Fields(text)[0] == "/loop" {
+		return true
+	}
+
+	for _, prefix := range injectedPromptPrefixes() {
+		if strings.HasPrefix(text, prefix) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // evaluate scores the prompt against the stored intent, records the evaluation
