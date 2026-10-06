@@ -156,12 +156,35 @@ func TestParseInput(t *testing.T) {
 }
 
 func TestParseInput_SubagentFields(t *testing.T) {
-	got, err := hookcmd.ParseInput(strings.NewReader(
-		`{"hook_event_name":"Stop","agent_id":"a-123","agent_type":"Explore"}`,
-	))
-	require.NoError(t, err)
-	assert.Equal(t, "a-123", got.AgentID)
-	assert.Equal(t, "Explore", got.AgentType)
+	tests := []struct {
+		name          string
+		input         string
+		wantAgentID   string
+		wantAgentType string
+	}{
+		{
+			name: "subagent event carries agent fields",
+			input: `{"hook_event_name":"PreToolUse","session_id":"s",` +
+				`"agent_id":"agent-42","agent_type":"Explore"}`,
+			wantAgentID:   "agent-42",
+			wantAgentType: "Explore",
+		},
+		{
+			name:          "main session event leaves agent fields empty",
+			input:         `{"hook_event_name":"PreToolUse","session_id":"s"}`,
+			wantAgentID:   "",
+			wantAgentType: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := hookcmd.ParseInput(strings.NewReader(tt.input))
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantAgentID, got.AgentID)
+			assert.Equal(t, tt.wantAgentType, got.AgentType)
+		})
+	}
 }
 
 func TestGetToolInputString(t *testing.T) {

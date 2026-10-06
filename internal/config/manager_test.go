@@ -92,8 +92,7 @@ func newTestValues(timeout, cooldown int) *config.Values {
 			NtfyTopic: "",
 		},
 		Compact: config.CompactValues{
-			Threshold:        config.ExportDefaultCompactThreshold(),
-			ReminderInterval: config.ExportDefaultCompactReminderInterval(),
+			ContextTokens: config.ExportDefaultCompactContextTokens(),
 		},
 		Notify: config.NotifyValues{
 			QuietHours: config.QuietHoursValues{
@@ -886,18 +885,26 @@ func TestManager_LoadsHookConfig(t *testing.T) {
 		{
 			name:     "defaults when empty",
 			json:     `{}`,
-			wantComp: 50,
+			wantComp: 150000,
 			wantQH:   true,
 			wantQHS:  "21:00",
 			wantQHE:  "07:30",
 		},
 		{
 			name:     "custom values",
-			json:     `{"compact":{"threshold":100,"reminder_interval":50},"notify":{"quiet_hours":{"enabled":false,"start":"22:00","end":"08:00"}}}`,
-			wantComp: 100,
+			json:     `{"compact":{"context_tokens":100000},"notify":{"quiet_hours":{"enabled":false,"start":"22:00","end":"08:00"}}}`,
+			wantComp: 100000,
 			wantQH:   false,
 			wantQHS:  "22:00",
 			wantQHE:  "08:00",
+		},
+		{
+			name:     "legacy compact keys are ignored",
+			json:     `{"compact":{"threshold":100,"reminder_interval":50}}`,
+			wantComp: 150000,
+			wantQH:   true,
+			wantQHS:  "21:00",
+			wantQHE:  "07:30",
 		},
 	}
 	for _, tt := range tests {
@@ -909,7 +916,7 @@ func TestManager_LoadsHookConfig(t *testing.T) {
 			m := config.NewManagerWithPath(cfgPath)
 			cfg, err := m.GetConfig(context.Background())
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantComp, cfg.Compact.Threshold)
+			assert.Equal(t, tt.wantComp, cfg.Compact.ContextTokens)
 			assert.Equal(t, tt.wantQH, cfg.Notify.QuietHours.Enabled)
 			assert.Equal(t, tt.wantQHS, cfg.Notify.QuietHours.Start)
 			assert.Equal(t, tt.wantQHE, cfg.Notify.QuietHours.End)
@@ -1035,28 +1042,21 @@ func TestGetInt_AllKeys(t *testing.T) {
 		wantFound bool
 	}{
 		{
-			name:      "get compact threshold default",
+			name:      "get compact context tokens default",
 			config:    newTestValues(0, 0),
-			key:       config.ExportKeyCompactThreshold(),
-			wantValue: config.ExportDefaultCompactThreshold(),
+			key:       config.ExportKeyCompactContextTokens(),
+			wantValue: config.ExportDefaultCompactContextTokens(),
 			wantFound: true,
 		},
 		{
-			name: "get compact threshold custom",
+			name: "get compact context tokens custom",
 			config: func() *config.Values {
 				v := newTestValues(0, 0)
-				v.Compact.Threshold = 100
+				v.Compact.ContextTokens = 100
 				return v
 			}(),
-			key:       config.ExportKeyCompactThreshold(),
+			key:       config.ExportKeyCompactContextTokens(),
 			wantValue: 100,
-			wantFound: true,
-		},
-		{
-			name:      "get compact reminder interval default",
-			config:    newTestValues(0, 0),
-			key:       config.ExportKeyCompactReminderInterval(),
-			wantValue: config.ExportDefaultCompactReminderInterval(),
 			wantFound: true,
 		},
 		{
@@ -1314,23 +1314,13 @@ func TestSetStringAndIntFields(t *testing.T) {
 			},
 		},
 		{
-			name:    "set compact threshold",
-			key:     config.ExportKeyCompactThreshold(),
+			name:    "set compact context tokens",
+			key:     config.ExportKeyCompactContextTokens(),
 			value:   "75",
 			wantErr: false,
 			check: func(t *testing.T, cfg *config.Values) {
 				t.Helper()
-				assert.Equal(t, 75, cfg.Compact.Threshold)
-			},
-		},
-		{
-			name:    "set compact reminder interval",
-			key:     config.ExportKeyCompactReminderInterval(),
-			value:   "10",
-			wantErr: false,
-			check: func(t *testing.T, cfg *config.Values) {
-				t.Helper()
-				assert.Equal(t, 10, cfg.Compact.ReminderInterval)
+				assert.Equal(t, 75, cfg.Compact.ContextTokens)
 			},
 		},
 		{
@@ -1354,8 +1344,8 @@ func TestSetStringAndIntFields(t *testing.T) {
 			},
 		},
 		{
-			name:    "set compact threshold invalid int",
-			key:     config.ExportKeyCompactThreshold(),
+			name:    "set compact context tokens invalid int",
+			key:     config.ExportKeyCompactContextTokens(),
 			value:   "abc",
 			wantErr: true,
 			check:   nil,
@@ -1437,23 +1427,13 @@ func TestReset_AllKeyTypes(t *testing.T) {
 			},
 		},
 		{
-			name:     "reset int key compact threshold",
-			setupKey: config.ExportKeyCompactThreshold(),
+			name:     "reset int key compact context tokens",
+			setupKey: config.ExportKeyCompactContextTokens(),
 			setupVal: "999",
-			resetKey: config.ExportKeyCompactThreshold(),
+			resetKey: config.ExportKeyCompactContextTokens(),
 			check: func(t *testing.T, cfg *config.Values) {
 				t.Helper()
-				assert.Equal(t, config.ExportDefaultCompactThreshold(), cfg.Compact.Threshold)
-			},
-		},
-		{
-			name:     "reset compact reminder interval",
-			setupKey: config.ExportKeyCompactReminderInterval(),
-			setupVal: "999",
-			resetKey: config.ExportKeyCompactReminderInterval(),
-			check: func(t *testing.T, cfg *config.Values) {
-				t.Helper()
-				assert.Equal(t, config.ExportDefaultCompactReminderInterval(), cfg.Compact.ReminderInterval)
+				assert.Equal(t, config.ExportDefaultCompactContextTokens(), cfg.Compact.ContextTokens)
 			},
 		},
 		{
@@ -1723,41 +1703,37 @@ func TestConvertCompactFromMap(t *testing.T) {
 			name: "full compact settings",
 			input: map[string]any{
 				"compact": map[string]any{
-					"threshold":         80.0,
+					"context_tokens": 80000.0,
+				},
+			},
+			check: func(t *testing.T, cfg *config.Values) {
+				t.Helper()
+				assert.Equal(t, 80000, cfg.Compact.ContextTokens)
+			},
+		},
+		{
+			name: "legacy compact keys are ignored",
+			input: map[string]any{
+				"compact": map[string]any{
+					"threshold":         100.0,
 					"reminder_interval": 40.0,
 				},
 			},
 			check: func(t *testing.T, cfg *config.Values) {
 				t.Helper()
-				assert.Equal(t, 80, cfg.Compact.Threshold)
-				assert.Equal(t, 40, cfg.Compact.ReminderInterval)
-			},
-		},
-		{
-			name: "partial compact with threshold only",
-			input: map[string]any{
-				"compact": map[string]any{
-					"threshold": 100.0,
-				},
-			},
-			check: func(t *testing.T, cfg *config.Values) {
-				t.Helper()
-				assert.Equal(t, 100, cfg.Compact.Threshold)
-				assert.Equal(t, config.ExportDefaultCompactReminderInterval(), cfg.Compact.ReminderInterval)
+				assert.Equal(t, config.ExportDefaultCompactContextTokens(), cfg.Compact.ContextTokens)
 			},
 		},
 		{
 			name: "compact wrong types",
 			input: map[string]any{
 				"compact": map[string]any{
-					"threshold":         "not-a-number",
-					"reminder_interval": true,
+					"context_tokens": "not-a-number",
 				},
 			},
 			check: func(t *testing.T, cfg *config.Values) {
 				t.Helper()
-				assert.Equal(t, config.ExportDefaultCompactThreshold(), cfg.Compact.Threshold)
-				assert.Equal(t, config.ExportDefaultCompactReminderInterval(), cfg.Compact.ReminderInterval)
+				assert.Equal(t, config.ExportDefaultCompactContextTokens(), cfg.Compact.ContextTokens)
 			},
 		},
 		{
@@ -1767,8 +1743,7 @@ func TestConvertCompactFromMap(t *testing.T) {
 			},
 			check: func(t *testing.T, cfg *config.Values) {
 				t.Helper()
-				assert.Equal(t, config.ExportDefaultCompactThreshold(), cfg.Compact.Threshold)
-				assert.Equal(t, config.ExportDefaultCompactReminderInterval(), cfg.Compact.ReminderInterval)
+				assert.Equal(t, config.ExportDefaultCompactContextTokens(), cfg.Compact.ContextTokens)
 			},
 		},
 	}
@@ -2044,17 +2019,10 @@ func TestGetValue_AllKeys(t *testing.T) {
 			wantFound: true,
 		},
 		{
-			name:      "get compact threshold as string",
+			name:      "get compact context tokens as string",
 			config:    newTestValues(0, 0),
-			key:       config.ExportKeyCompactThreshold(),
-			wantValue: "50",
-			wantFound: true,
-		},
-		{
-			name:      "get compact reminder interval as string",
-			config:    newTestValues(0, 0),
-			key:       config.ExportKeyCompactReminderInterval(),
-			wantValue: "25",
+			key:       config.ExportKeyCompactContextTokens(),
+			wantValue: "150000",
 			wantFound: true,
 		},
 		{
@@ -2182,8 +2150,7 @@ func TestGetDefaultValue_AllKeys(t *testing.T) {
 		want string
 	}{
 		{config.ExportKeyNotificationsNtfyTopic(), ""},
-		{config.ExportKeyCompactThreshold(), "50"},
-		{config.ExportKeyCompactReminderInterval(), "25"},
+		{config.ExportKeyCompactContextTokens(), "150000"},
 		{config.ExportKeyNotifyQuietHoursEnabled(), "true"},
 		{config.ExportKeyNotifyQuietHoursStart(), "21:00"},
 		{config.ExportKeyNotifyQuietHoursEnd(), "07:30"},
@@ -2339,8 +2306,7 @@ func TestConvertFromMap_AllSections(t *testing.T) {
 				"ntfy_topic": "all-sections-topic",
 			},
 			"compact": map[string]any{
-				"threshold":         75.0,
-				"reminder_interval": 30.0,
+				"context_tokens": 75000.0,
 			},
 			"notify": map[string]any{
 				"quiet_hours": map[string]any{
@@ -2377,8 +2343,7 @@ func TestConvertFromMap_AllSections(t *testing.T) {
 		assert.Equal(t, 300, cfg.Validate.Timeout)
 		assert.Equal(t, 20, cfg.Validate.Cooldown)
 		assert.Equal(t, "all-sections-topic", cfg.Notifications.NtfyTopic)
-		assert.Equal(t, 75, cfg.Compact.Threshold)
-		assert.Equal(t, 30, cfg.Compact.ReminderInterval)
+		assert.Equal(t, 75000, cfg.Compact.ContextTokens)
 		assert.False(t, cfg.Notify.QuietHours.Enabled)
 		assert.Equal(t, "20:00", cfg.Notify.QuietHours.Start)
 		assert.Equal(t, "09:00", cfg.Notify.QuietHours.End)

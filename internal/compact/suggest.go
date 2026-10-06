@@ -1,89 +1,88 @@
-// Package compact provides tool call counting and /compact suggestion
-// for Claude Code sessions.
+// Package compact suggests /compact to the user when a Claude Code session's
+// context grows large, and logs compaction events.
 package compact
 
 import (
+	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 
 	"github.com/riddopic/cc-tools/internal/hookcmd"
 )
 
-// Suggestor tracks tool call counts per session and suggests running /compact
-// when a threshold is reached.
+// tokensPerK converts a token count to thousands for display.
+const tokensPerK = 1000
+
+// Suggestor nudges the user to run /compact once per session when the context
+// size reaches a token threshold. The nudge re-arms when the context drops
+// back below the threshold, which happens after a compaction.
 type Suggestor struct {
-	stateDir         string
-	threshold        int
-	reminderInterval int
+	stateDir  string
+	threshold int
 }
 
-// NewSuggestor creates a new Suggestor that stores per-session counters in
-// stateDir and triggers suggestions at the given threshold and reminder interval.
-func NewSuggestor(stateDir string, threshold, reminderInterval int) *Suggestor {
+// suggestState is the per-session state persisted between hook calls.
+type suggestState struct {
+	Suggested bool `json:"suggested"`
+}
+
+// NewSuggestor creates a Suggestor that stores per-session state in stateDir
+// and nudges once the context reaches threshold tokens.
+func NewSuggestor(stateDir string, threshold int) *Suggestor {
 	return &Suggestor{
-		stateDir:         stateDir,
-		threshold:        threshold,
-		reminderInterval: reminderInterval,
+		stateDir:  stateDir,
+		threshold: threshold,
 	}
 }
 
-// RecordCall increments the tool call counter for the given session and writes
-// a /compact suggestion to errOut when the threshold or reminder interval is hit.
-func (s *Suggestor) RecordCall(id hookcmd.SessionID, errOut io.Writer) {
-	count := s.readCount(id)
-	count++
-	s.writeCount(id, count)
+// Check compares the session's current context size with the threshold and
+// returns a /compact suggestion, or an empty string when none is due.
+func (s *Suggestor) Check(id hookcmd.SessionID, tokens int) string {
+	suggested := s.readState(id).Suggested
 
-	if s.shouldSuggest(count) {
-		fmt.Fprintf(errOut,
-			"[cc-tools] You have made %d tool calls in this session. "+
-				"Consider running /compact to reduce context usage.\n",
-			count,
+	switch {
+	case tokens >= s.threshold && !suggested:
+		s.writeState(id, suggestState{Suggested: true})
+
+		return fmt.Sprintf(
+			"[cc-tools] Context is ~%dk tokens. Consider running /compact to reduce context usage.",
+			tokens/tokensPerK,
 		)
-	}
-}
-
-func (s *Suggestor) shouldSuggest(count int) bool {
-	if count == s.threshold {
-		return true
+	case tokens < s.threshold && suggested:
+		s.writeState(id, suggestState{Suggested: false})
 	}
 
-	if count > s.threshold && s.reminderInterval > 0 {
-		return (count-s.threshold)%s.reminderInterval == 0
-	}
-
-	return false
+	return ""
 }
 
-func (s *Suggestor) counterPath(id hookcmd.SessionID) string {
-	return filepath.Join(s.stateDir, "cc-tools-compact-"+id.FileKey()+".count")
+// statePath keeps the cc-tools-compact- prefix so stale state files can be
+// pruned by prefix.
+func (s *Suggestor) statePath(id hookcmd.SessionID) string {
+	return filepath.Join(s.stateDir, "cc-tools-compact-"+id.FileKey()+".json")
 }
 
-func (s *Suggestor) readCount(id hookcmd.SessionID) int {
-	data, err := os.ReadFile(s.counterPath(id)) // #nosec G304 -- path built from stateDir
+func (s *Suggestor) readState(id hookcmd.SessionID) suggestState {
+	var state suggestState
+
+	data, err := os.ReadFile(s.statePath(id)) // #nosec G304 -- path built from stateDir
 	if err != nil {
-		return 0
+		return state
 	}
 
-	count, err := strconv.Atoi(strings.TrimSpace(string(data)))
-	if err != nil {
-		return 0
+	if jsonErr := json.Unmarshal(data, &state); jsonErr != nil {
+		return suggestState{Suggested: false}
 	}
 
-	return count
+	return state
 }
 
-func (s *Suggestor) writeCount(id hookcmd.SessionID, count int) {
-	// Ensure the state directory exists.
+func (s *Suggestor) writeState(id hookcmd.SessionID, state suggestState) {
+	data, err := json.Marshal(state)
+	if err != nil {
+		return
+	}
+
 	_ = os.MkdirAll(s.stateDir, 0o750)
-
-	_ = os.WriteFile(
-		s.counterPath(id),
-		[]byte(strconv.Itoa(count)),
-		0o600,
-	)
+	_ = os.WriteFile(s.statePath(id), data, 0o600)
 }

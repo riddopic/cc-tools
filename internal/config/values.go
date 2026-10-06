@@ -31,8 +31,9 @@ type ValidateValues struct {
 
 // CompactValues represents compact context reminder settings.
 type CompactValues struct {
-	Threshold        int `json:"threshold"`
-	ReminderInterval int `json:"reminder_interval"`
+	// ContextTokens is the context size, in tokens, at which /compact is
+	// suggested.
+	ContextTokens int `json:"context_tokens"`
 }
 
 // NotifyValues represents notification dispatch settings.
@@ -149,11 +150,10 @@ func convertCompactFromMap(c *CompactValues, mapConfig map[string]any) {
 	if !sectionOk {
 		return
 	}
-	if threshold, thresholdOk := section["threshold"].(float64); thresholdOk {
-		c.Threshold = int(threshold)
-	}
-	if interval, intervalOk := section["reminder_interval"].(float64); intervalOk {
-		c.ReminderInterval = int(interval)
+	// The legacy "threshold" and "reminder_interval" keys counted tool calls
+	// and are deliberately ignored.
+	if tokens, tokensOk := section["context_tokens"].(float64); tokensOk {
+		c.ContextTokens = int(tokens)
 	}
 }
 

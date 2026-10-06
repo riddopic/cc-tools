@@ -11,11 +11,8 @@ func ExportKeyValidateCooldown() string { return keyValidateCooldown }
 // ExportKeyNotificationsNtfyTopic returns the unexported keyNotificationsNtfyTopic constant.
 func ExportKeyNotificationsNtfyTopic() string { return keyNotificationsNtfyTopic }
 
-// ExportKeyCompactThreshold returns the unexported keyCompactThreshold constant.
-func ExportKeyCompactThreshold() string { return keyCompactThreshold }
-
-// ExportKeyCompactReminderInterval returns the unexported keyCompactReminderInterval constant.
-func ExportKeyCompactReminderInterval() string { return keyCompactReminderInterval }
+// ExportKeyCompactContextTokens returns the unexported keyCompactContextTokens constant.
+func ExportKeyCompactContextTokens() string { return keyCompactContextTokens }
 
 // ExportKeyNotifyQuietHoursEnabled returns the unexported key constant.
 func ExportKeyNotifyQuietHoursEnabled() string { return keyNotifyQuietHoursEnabled }
@@ -59,11 +56,8 @@ func ExportDefaultValidateTimeout() int { return defaultValidateTimeout }
 // ExportDefaultValidateCooldown returns the unexported defaultValidateCooldown constant.
 func ExportDefaultValidateCooldown() int { return defaultValidateCooldown }
 
-// ExportDefaultCompactThreshold returns the unexported defaultCompactThreshold constant.
-func ExportDefaultCompactThreshold() int { return defaultCompactThreshold }
-
-// ExportDefaultCompactReminderInterval returns the unexported default constant.
-func ExportDefaultCompactReminderInterval() int { return defaultCompactReminderInterval }
+// ExportDefaultCompactContextTokens returns the unexported defaultCompactContextTokens constant.
+func ExportDefaultCompactContextTokens() int { return defaultCompactContextTokens }
 
 // ExportDefaultNotifyQuietHoursEnabled returns the unexported default constant.
 func ExportDefaultNotifyQuietHoursEnabled() bool { return defaultNotifyQuietHoursEnabled }

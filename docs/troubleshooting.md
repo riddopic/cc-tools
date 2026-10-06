@@ -285,23 +285,27 @@ This guide covers common issues you may encounter when using cc-tools, with symp
 
 ## Compact suggestions too frequent
 
-**Problem:** cc-tools suggests compacting context too often.
+**Problem:** cc-tools suggests compacting context too early, or you never want the suggestion.
 
-**Cause:** The compact threshold or reminder interval is set too low for your workflow.
+**Cause:** The suggestion appears once per session when the context reaches `compact.context_tokens` (default 150,000 tokens). That threshold may be too low for your model's context window.
 
 **Solution:**
 
-1. Increase the threshold before compact suggestions trigger:
+1. Raise the token threshold:
 
    ```bash
-   cc-tools config set compact.threshold 100
+   cc-tools config set compact.context_tokens 180000
    ```
 
-2. Increase the interval between reminders:
+2. Turn the suggestion off:
 
    ```bash
-   cc-tools config set compact.reminder_interval 50
+   cc-tools config set -- compact.context_tokens -1
    ```
+
+   A value of `0` is replaced by the default when the config loads, so use a negative value. The `--` stops `-1` from being read as a flag.
+
+If no suggestion ever appears, check that the hook payload includes `transcript_path` and that the transcript file is readable. Without it, cc-tools cannot read the context size and stays silent.
 
 ## MCP server issues
 

@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 - `cc-tools skip nudges` and `cc-tools unskip nudges`, with nudges shown in `skip list` and `skip status`. `skip all` still covers lint and test only
 - `agent_id` and `agent_type` fields on the parsed hook input
 
+### Changed
+
+- The `/compact` suggestion is now based on context size instead of tool-call count. cc-tools reads the token usage of the latest main-session assistant turn from the transcript and suggests `/compact` once when it reaches `compact.context_tokens` (default 150,000). The suggestion re-arms after the context drops below the threshold, such as after a compaction. Tool calls made by subagents no longer count against the parent session. Previously a long session was nudged every 25 tool calls regardless of how full its context was
+- The `compact.threshold` and `compact.reminder_interval` keys have been removed in favor of `compact.context_tokens`. Existing config files that still contain them load without error; the old values are ignored
+
 ### Fixed
 
 - The stop-reminder wrap-up warning fired on every response once the session reached `stop_reminder.warn_at`. It now fires at `warn_at`, then every `warn_at` responses (50, 100, 150, … by default), states the actual response count, and no longer hides the rotating interval reminders between warnings
