@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-10-06
+
 ### Added
 
 - Stale per-session state files are now pruned. The drift, stop-reminder and compact handlers write one file per session under `~/.cache/cc-tools` and never removed them. At most once a day, session start now deletes those files when they are older than `state.max_age_days` (new key, default 7). The current session's files, symlinks and any other files are left alone
@@ -23,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 - The stop-reminder wrap-up warning fired on every response once the session reached `stop_reminder.warn_at`. It now fires at `warn_at`, then every `warn_at` responses (50, 100, 150, … by default), states the actual response count, and no longer hides the rotating interval reminders between warnings
 - Drift detection ignores prompts that Claude Code submits on your behalf: `<task-notification>`, `<system-reminder>`-only and `[SYSTEM NOTIFICATION` text, `/loop` wake-ups, and `<<autonomous-loop` prompts. Before this, one of them could become the session's intent baseline, after which every real prompt warned of drift. Sessions whose stored intent is injected text now re-baseline on the next real prompt
+
+### Other
+
+- The package manager handler tests no longer fail when `PREFERRED_PACKAGE_MANAGER` is exported in the shell that runs them
 
 ## [0.1.11] - 2026-09-29
 
@@ -323,7 +329,8 @@ Initial release of cc-tools, a CLI companion for Claude Code.
 - Mockery v3.5 mock generation for all interfaces
 - Architecture design docs and implementation plans
 
-[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.11...HEAD
+[Unreleased]: https://github.com/riddopic/cc-tools/compare/v0.1.12...HEAD
+[0.1.12]: https://github.com/riddopic/cc-tools/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/riddopic/cc-tools/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/riddopic/cc-tools/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/riddopic/cc-tools/compare/v0.1.8...v0.1.9
