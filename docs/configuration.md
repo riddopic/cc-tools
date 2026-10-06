@@ -135,7 +135,9 @@ Emits periodic reminders during long sessions to encourage natural stopping poin
 |-----|------|---------|-------------|
 | `stop_reminder.enabled` | bool | `true` | Enable periodic session reminders |
 | `stop_reminder.interval` | int | `20` | Responses between reminders |
-| `stop_reminder.warn_at` | int | `50` | Response count that triggers a strong wrap-up warning |
+| `stop_reminder.warn_at` | int | `50` | Response count for the first wrap-up warning, and the number of responses between later ones |
+
+The wrap-up warning fires at `warn_at` responses, then every `warn_at` responses after that (50, 100, 150, … with the default). It states the actual response count. When a warning and an interval reminder fall on the same count, you see only the warning. Interval reminders keep firing every `interval` responses before and after `warn_at`. Set `warn_at` to `0` to turn the warning off.
 
 ## Instinct Management
 

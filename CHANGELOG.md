@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Fixed
+
+- The stop-reminder wrap-up warning fired on every response once the session reached `stop_reminder.warn_at`. It now fires at `warn_at`, then every `warn_at` responses (50, 100, 150, … by default), states the actual response count, and no longer hides the rotating interval reminders between warnings
+
 ## [0.1.11] - 2026-09-29
 
 ### Changed

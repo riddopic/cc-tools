@@ -139,7 +139,7 @@ These run when Claude Code stops generating.
 
 | Handler | What It Does |
 |---------|--------------|
-| **StopReminderHandler** | Tracks response count per session and shows you rotating reminders (`systemMessage`) at configurable intervals. Configurable via `stop_reminder.enabled`, `stop_reminder.interval`, `stop_reminder.warn_at`. |
+| **StopReminderHandler** | Tracks response count per session and shows you rotating reminders (`systemMessage`) at configurable intervals. A stronger wrap-up warning fires at `stop_reminder.warn_at` responses, then every `warn_at` responses after that, and takes the place of an interval reminder on the same count. Configurable via `stop_reminder.enabled`, `stop_reminder.interval`, `stop_reminder.warn_at`. |
 
 ### Notification Handlers
 
