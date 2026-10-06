@@ -35,17 +35,26 @@ func WithEnvFilePath(path string) PkgManagerOption {
 	}
 }
 
+// WithPkgManagerGetenv overrides how PREFERRED_PACKAGE_MANAGER is read during
+// detection, which otherwise uses [os.Getenv].
+func WithPkgManagerGetenv(getenv func(string) string) PkgManagerOption {
+	return func(h *PkgManagerHandler) {
+		h.getenv = getenv
+	}
+}
+
 // PkgManagerHandler detects the package manager and exports it to the
 // session's Bash environment.
 type PkgManagerHandler struct {
 	cfg        *config.Values
 	envFile    string
 	envFileSet bool
+	getenv     func(string) string
 }
 
 // NewPkgManagerHandler creates a new PkgManagerHandler.
 func NewPkgManagerHandler(cfg *config.Values, opts ...PkgManagerOption) *PkgManagerHandler {
-	h := &PkgManagerHandler{cfg: cfg, envFile: "", envFileSet: false}
+	h := &PkgManagerHandler{cfg: cfg, envFile: "", envFileSet: false, getenv: os.Getenv}
 	for _, opt := range opts {
 		opt(h)
 	}
@@ -70,11 +79,10 @@ func (h *PkgManagerHandler) Handle(_ context.Context, input *hookcmd.HookInput) 
 		return &Response{ExitCode: 0}, nil
 	}
 
-	var preferred string
-	if h.cfg != nil {
-		preferred = h.cfg.PackageManager.Preferred
+	manager := pkgmanager.DetectWithEnv(input.Cwd, h.getenv)
+	if h.cfg != nil && h.cfg.PackageManager.Preferred != "" {
+		manager = h.cfg.PackageManager.Preferred
 	}
-	manager := pkgmanager.DetectWithPreferred(input.Cwd, preferred)
 
 	if err := pkgmanager.WriteToEnvFile(envFile, manager); err != nil {
 		return nil, fmt.Errorf("write env file: %w", err)
