@@ -48,7 +48,8 @@ func NewStopReminderHandler(cfg *config.Values, opts ...StopReminderOption) *Sto
 func (h *StopReminderHandler) Name() string { return "stop-reminder" }
 
 // Handle processes a Stop event, incrementing the response counter and emitting
-// a reminder when the configured interval or warning threshold is reached.
+// a reminder at each configured interval, or a wrap-up warning at warn_at and
+// every warn_at responses after that.
 func (h *StopReminderHandler) Handle(_ context.Context, input *hookcmd.HookInput) (*Response, error) {
 	if h.cfg == nil || !h.cfg.StopReminder.Enabled {
 		return &Response{ExitCode: 0}, nil
@@ -80,10 +81,12 @@ func (h *StopReminderHandler) reminderMessage(count int) string {
 	interval := h.cfg.StopReminder.Interval
 	warnAt := h.cfg.StopReminder.WarnAt
 
-	if warnAt > 0 && count >= warnAt {
+	// warn_at doubles as the repeat period so the warning fires at warn_at,
+	// then every warn_at responses, instead of on every response past it.
+	if warnAt > 0 && count >= warnAt && count%warnAt == 0 {
 		return fmt.Sprintf(
-			"[cc-tools] Session has %d+ responses — strongly consider wrapping up and committing progress.",
-			warnAt,
+			"[cc-tools] Session has %d responses — strongly consider wrapping up and committing progress.",
+			count,
 		)
 	}
 

@@ -276,7 +276,7 @@ cc-tools config reset
 | `drift.threshold` | `0.2` | Drift detection threshold |
 | `stop_reminder.enabled` | `true` | Enable stop reminders |
 | `stop_reminder.interval` | `20` | Responses between reminders |
-| `stop_reminder.warn_at` | `50` | Response count to trigger warning |
+| `stop_reminder.warn_at` | `50` | Response count for the first warning, then every `warn_at` responses |
 | `instinct.personal_path` | `~/.config/cc-tools/instincts/personal` | Personal instincts directory |
 | `instinct.inherited_path` | `~/.config/cc-tools/instincts/inherited` | Inherited instincts directory |
 | `instinct.min_confidence` | `0.3` | Minimum confidence for instincts |
