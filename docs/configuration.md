@@ -121,7 +121,7 @@ Monitors session prompts for topic drift and warns when you stray from the origi
 | `drift.threshold` | float | `0.2` | Keyword overlap ratio below which drift is flagged |
 | `drift.log_evals` | bool | `false` | Append every scored prompt to `drift-evals.jsonl` |
 
-The detector extracts keywords from your first prompt and compares subsequent prompts against them. A lower threshold makes detection more sensitive. Pivot phrases like "now let's" or "switch to" reset the baseline automatically.
+The detector extracts keywords from your first prompt and compares subsequent prompts against them. A lower threshold makes detection more sensitive. Pivot phrases like "now let's" or "switch to" reset the baseline automatically. Prompts that Claude Code submits on your behalf, such as `<task-notification>` messages and `/loop` wake-ups, are ignored: they never set the baseline or count toward `drift.min_edits`.
 
 Keywords come from a bounded window over the whole opening prompt, not just its first sentence, and repeated words count once. An opening prompt that yields fewer than three keywords carries too little signal to judge against, so the detector stays silent for that session.
 

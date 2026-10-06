@@ -176,6 +176,13 @@ func noisePrefixes() []string {
 	}
 }
 
+// StripSystemReminders removes the <system-reminder> blocks Claude Code adds to
+// user-role text and trims the surrounding whitespace, leaving what the user
+// actually typed.
+func StripSystemReminders(text string) string {
+	return strings.TrimSpace(systemReminder.ReplaceAllString(text, ""))
+}
+
 // promptText returns what the user typed in a user-role line, or "" when the
 // line is a tool result or text Claude Code generated.
 func promptText(raw json.RawMessage) string {
@@ -186,7 +193,7 @@ func promptText(raw json.RawMessage) string {
 		}
 	}
 
-	text := strings.TrimSpace(systemReminder.ReplaceAllString(strings.Join(parts, "\n"), ""))
+	text := StripSystemReminders(strings.Join(parts, "\n"))
 	if m := commandArgs.FindStringSubmatch(text); m != nil {
 		return strings.TrimSpace(m[1])
 	}
