@@ -139,6 +139,22 @@ Emits periodic reminders during long sessions to encourage natural stopping poin
 
 The wrap-up warning fires at `warn_at` responses, then every `warn_at` responses after that (50, 100, 150, … with the default). It states the actual response count. When a warning and an interval reminder fall on the same count, you see only the warning. Interval reminders keep firing every `interval` responses before and after `warn_at`. Set `warn_at` to `0` to turn the warning off.
 
+## State Retention
+
+Controls how long per-session state files under `~/.cache/cc-tools` are kept. The drift, stop-reminder, and compact handlers each write one small file per session and never delete it. On session start, at most once every 24 hours, cc-tools removes those files when they are older than `state.max_age_days`. The current session's files are always kept.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `state.max_age_days` | int | `7` | Days to keep per-session state files before they are pruned |
+
+The prune touches only these files, and only regular files (never symlinks or directories):
+
+- `~/.cache/cc-tools/drift/drift-*`
+- `~/.cache/cc-tools/stop/stop-*`
+- `~/.cache/cc-tools/compact/cc-tools-compact-*`
+
+The time of the last prune is recorded in the mtime of `~/.cache/cc-tools/.last-prune`. Delete that file to force a prune on the next session start.
+
 ## Instinct Management
 
 Controls the instinct learning system that captures, evolves, and applies behavioral patterns from your sessions.
@@ -164,6 +180,8 @@ cc-tools reads from and writes to several well-known locations on disk.
 | `~/.config/cc-tools/config.json` | Configuration file |
 | `~/.cache/cc-tools/debug/` | Debug logs |
 | `~/.cache/cc-tools/observations/observations.jsonl` | Tool-use observation log |
+| `~/.cache/cc-tools/{drift,stop,compact}/` | Per-session state, pruned after `state.max_age_days` |
+| `~/.cache/cc-tools/.last-prune` | Marker recording when state was last pruned |
 | `~/.config/cc-tools/instincts/personal/` | Personal instincts |
 | `~/.config/cc-tools/instincts/inherited/` | Imported instincts |
 | `~/.claude/sessions/` | Session data |
@@ -190,6 +208,9 @@ cc-tools config set notifications.ntfy_topic my-cc-tools
 
 # Disable drift detection
 cc-tools config set drift.enabled false
+
+# Keep per-session state files for 30 days
+cc-tools config set state.max_age_days 30
 
 # View all settings
 cc-tools config list

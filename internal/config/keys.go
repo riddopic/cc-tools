@@ -38,6 +38,8 @@ const (
 	keyStopReminderInterval = "stop_reminder.interval"
 	keyStopReminderWarnAt   = "stop_reminder.warn_at"
 
+	keyStateMaxAgeDays = "state.max_age_days"
+
 	keyInstinctPersonalPath     = "instinct.personal_path"
 	keyInstinctInheritedPath    = "instinct.inherited_path"
 	keyInstinctMinConfidence    = "instinct.min_confidence"
@@ -82,6 +84,8 @@ const (
 	defaultStopReminderEnabled  = true
 	defaultStopReminderInterval = 20
 	defaultStopReminderWarnAt   = 50
+
+	defaultStateMaxAgeDays = 7
 
 	defaultInstinctPersonalPath     = "~/.config/cc-tools/instincts/personal"
 	defaultInstinctInheritedPath    = "~/.config/cc-tools/instincts/inherited"
@@ -145,6 +149,9 @@ func GetDefaultConfig() *Values {
 			Enabled:  defaultStopReminderEnabled,
 			Interval: defaultStopReminderInterval,
 			WarnAt:   defaultStopReminderWarnAt,
+		},
+		State: StateValues{
+			MaxAgeDays: defaultStateMaxAgeDays,
 		},
 		Instinct: InstinctValues{
 			PersonalPath:     defaultInstinctPersonalPath,
@@ -234,6 +241,7 @@ func allKeys() []string {
 		keyStopReminderEnabled,
 		keyStopReminderInterval,
 		keyStopReminderWarnAt,
+		keyStateMaxAgeDays,
 		keyInstinctPersonalPath,
 		keyInstinctInheritedPath,
 		keyInstinctMinConfidence,

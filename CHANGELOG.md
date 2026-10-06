@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+
+- Stale per-session state files are now pruned. The drift, stop-reminder and compact handlers write one file per session under `~/.cache/cc-tools` and never removed them. At most once a day, session start now deletes those files when they are older than `state.max_age_days` (new key, default 7). The current session's files, symlinks and any other files are left alone
+
 ### Fixed
 
 - The stop-reminder wrap-up warning fired on every response once the session reached `stop_reminder.warn_at`. It now fires at `warn_at`, then every `warn_at` responses (50, 100, 150, … by default), states the actual response count, and no longer hides the rotating interval reminders between warnings

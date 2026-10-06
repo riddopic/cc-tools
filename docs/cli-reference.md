@@ -277,6 +277,7 @@ cc-tools config reset
 | `stop_reminder.enabled` | `true` | Enable stop reminders |
 | `stop_reminder.interval` | `20` | Responses between reminders |
 | `stop_reminder.warn_at` | `50` | Response count for the first warning, then every `warn_at` responses |
+| `state.max_age_days` | `7` | Days to keep per-session state files before pruning |
 | `instinct.personal_path` | `~/.config/cc-tools/instincts/personal` | Personal instincts directory |
 | `instinct.inherited_path` | `~/.config/cc-tools/instincts/inherited` | Inherited instincts directory |
 | `instinct.min_confidence` | `0.3` | Minimum confidence for instincts |
